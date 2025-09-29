@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './database/database.module';
-import { JwtModule } from '@nestjs/jwt';
 import { ProfileModule } from './modules/profile/profile.module';
 @Module({
   imports: [
