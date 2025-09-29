@@ -7,6 +7,7 @@ import { Contest } from '../contest/entities/contest.entity';
 import { ContestExaminer } from '../contest/entities/contest-examiner.entity';
 import { ProfileController } from './profile.controller';
 import { ProfileService } from './profile.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ProfileService } from './profile.service';
       Contest,
       ContestExaminer,
     ]),
+    AuthModule
   ],
   controllers: [ProfileController],
   providers: [ProfileService],
