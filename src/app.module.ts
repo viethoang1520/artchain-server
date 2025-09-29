@@ -10,19 +10,6 @@ import { ProfileModule } from './modules/profile/profile.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        return {
-          global: true,
-          secret: configService.get<string>('JWT_SECRET'),
-          signOptions: {
-            expiresIn: configService.get<string | number>('JWT_EXPIRATION'),
-          },
-        };
-      },
-    }),
     DatabaseModule,
     UsersModule,
     AuthModule,
