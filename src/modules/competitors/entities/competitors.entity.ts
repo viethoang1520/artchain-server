@@ -25,6 +25,6 @@ export class Competitor {
   guardianId: number;
 
   @OneToOne(() => User, (user) => user.competitor)
-  @JoinColumn({ name: 'competitor_id', referencedColumnName: 'accountId' })
-  account: User;
+  @JoinColumn({ name: 'competitorId', referencedColumnName: 'userId' })
+  user: User;
 }

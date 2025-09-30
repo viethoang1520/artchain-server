@@ -1,6 +1,7 @@
 import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { Contest } from './contest.entity';
-import { Examiner } from '../../examiner/entities/examiner.entity';
+import { Contest } from './contests.entity';
+import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
+
 
 @Entity('contestexaminer')
 export class ContestExaminer {

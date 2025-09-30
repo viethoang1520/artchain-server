@@ -2,11 +2,12 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '../users/entities/user.entity';
-import { Competitor } from '../competitor/entities/competitor.entity';
-import { Examiner } from '../examiner/entities/examiner.entity';
-import { Contest } from '../contest/entities/contest.entity';
-import { ContestExaminer } from '../contest/entities/contest-examiner.entity';
+
 import { ProfileResponseDto, ContestDto } from '../users/dto/profile.dto';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { Examiner } from '../examiners/entities/examiners.entity';
+import { Contest } from '../contests/entities/contests.entity';
+import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 
 @Injectable()
 export class ProfileService {
@@ -25,11 +26,11 @@ export class ProfileService {
 
     @InjectRepository(ContestExaminer)
     private contestExaminersRepository: Repository<ContestExaminer>,
-  ) {}
+  ) { }
 
   async getProfile(userId: number): Promise<ProfileResponseDto> {
     const user = await this.usersRepository.findOne({
-      where: { accountId: userId },
+      where: { userId },
     });
 
     if (!user) {
@@ -44,7 +45,7 @@ export class ProfileService {
     };
     if (user.role === UserRole.EXAMINER) {
       const examiner = await this.examinersRepository.findOne({
-        where: { account: { accountId: userId } },
+        where: { user: { userId } },
       });
 
       if (examiner) {

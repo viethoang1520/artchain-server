@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
-import { Competitor } from '../competitor/entities/competitor.entity';
-import { Examiner } from '../examiner/entities/examiner.entity';
-import { Contest } from '../contest/entities/contest.entity';
-import { ContestExaminer } from '../contest/entities/contest-examiner.entity';
-import { ProfileController } from './profile.controller';
-import { ProfileService } from './profile.service';
+
 import { AuthModule } from '../auth/auth.module';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { Examiner } from '../examiners/entities/examiners.entity';
+import { Contest } from '../contests/entities/contests.entity';
+import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { ProfileController } from './profiles.controller';
+import { ProfileService } from './profiles.service';
 
 @Module({
   imports: [
@@ -24,4 +25,4 @@ import { AuthModule } from '../auth/auth.module';
   providers: [ProfileService],
   exports: [ProfileService],
 })
-export class ProfileModule {}
+export class ProfileModule { }

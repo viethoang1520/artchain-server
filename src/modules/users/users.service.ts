@@ -20,13 +20,17 @@ export class UsersService {
     return `This action returns all users`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  me(req: any) {
+    console.log(req.user);
+    const userId = req.user.userId;
+    return this.usersRepository.findOne({
+      where: { userId },
+    });
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
     const user = await this.usersRepository.findOne({
-      where: { accountId: id },
+      where: { userId: id },
     });
 
     if (!user) {
@@ -51,7 +55,7 @@ export class UsersService {
       success: true,
       message: 'User updated successfully',
       data: {
-        accountId: user.accountId,
+        accountId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,

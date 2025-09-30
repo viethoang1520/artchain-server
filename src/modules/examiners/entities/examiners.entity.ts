@@ -19,6 +19,6 @@ export class Examiner {
   assignedScheduleId: number;
 
   @OneToOne(() => User, (user) => user.examiner)
-  @JoinColumn({ name: 'account_id' })
-  account: User;
+  @JoinColumn({ name: 'userId' })
+  user: User;
 }

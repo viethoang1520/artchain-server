@@ -1,6 +1,7 @@
+import { Competitor } from 'src/modules/competitors/entities/competitors.entity';
+import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne } from 'typeorm';
-import { Competitor } from '../../competitor/entities/competitor.entity';
-import { Examiner } from '../../examiner/entities/examiner.entity';
+
 
 export enum UserRole {
   COMPETITOR = 'COMPETITOR',
@@ -13,27 +14,27 @@ export enum UserStatus {
   INACTIVE = 0,
 }
 
-@Entity('account')
+@Entity('users')
 export class User {
-  @PrimaryGeneratedColumn({ name: 'account_id' })
-  accountId: number;
+  @PrimaryGeneratedColumn({ name: 'user_id' })
+  userId: number;
 
-  @Column({ name: 'username', unique: true })
+  @Column({ name: 'username', unique: true, nullable: false })
   username: string;
 
-  @Column({ name: 'password' })
+  @Column({ name: 'password', nullable: false })
   password: string;
 
-  @Column({ name: 'full_name' })
+  @Column({ name: 'full_name', nullable: false })
   fullName: string;
 
-  @Column({ name: 'email', unique: true })
+  @Column({ name: 'email', unique: true, nullable: false })
   email: string;
 
   @Column({ name: 'phone', nullable: true })
   phone: string;
 
-  @Column({ name: 'role', type: 'enum', enum: UserRole })
+  @Column({ name: 'role', type: 'enum', enum: UserRole, default: UserRole.COMPETITOR })
   role: UserRole;
 
   @Column({ name: 'status', type: 'int', default: UserStatus.ACTIVE })
@@ -49,11 +50,11 @@ export class User {
   @Column({ name: 'position_level', nullable: true })
   positionLevel: string;
 
-  @OneToOne(() => Competitor, (competitor) => competitor.account, {
+  @OneToOne(() => Competitor, (competitor) => competitor.user, {
     nullable: true,
   })
   competitor: Competitor;
 
-  @OneToOne(() => Examiner, (examiner) => examiner.account, { nullable: true })
+  @OneToOne(() => Examiner, (examiner) => examiner.user, { nullable: true })
   examiner: Examiner;
 }
