@@ -9,7 +9,7 @@ export class ProfileController {
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  async getProfile(@Param('id') id: number): Promise<ProfileResponseDto> {
+  async getProfile(@Param('id') id: string): Promise<ProfileResponseDto> {
     return await this.profileService.getProfile(id);
   }
 }

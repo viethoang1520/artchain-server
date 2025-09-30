@@ -4,13 +4,14 @@ import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
+import { UUID } from 'crypto';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) {}
+  ) { }
 
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
@@ -21,14 +22,51 @@ export class UsersService {
   }
 
   me(req: any) {
-    console.log(req.user);
-    const userId = req.user.userId;
-    return this.usersRepository.findOne({
-      where: { userId },
-    });
+    return req.user
+    // const user = await this.usersRepository.findOne({
+    //   where: { userId },
+    // });
+
+    // if (!user) {
+    //   throw new NotFoundException('User not found');
+    // }
+
+    // const profileResponse: ProfileResponseDto = {
+    //   fullName: user.fullName,
+    //   email: user.email,
+    //   phone: user.phone,
+    //   role: user.role,
+    // };
+    // if (user.role === UserRole.EXAMINER) {
+    //   const examiner = await this.examinersRepository.findOne({
+    //     where: { user: { userId } },
+    //   });
+
+    //   if (examiner) {
+    //     const contestExaminers = await this.contestExaminersRepository.find({
+    //       where: { examinerId: examiner.examinerId },
+    //       relations: ['contest'],
+    //     });
+    //     const contestDtos = contestExaminers.map((ce) => {
+    //       const contestDto: ContestDto = {
+    //         contestId: ce.contest.contestId,
+    //         title: ce.contest.title,
+    //         description: ce.contest.description,
+    //         startDate: ce.contest.startDate,
+    //         endDate: ce.contest.endDate,
+    //         status: ce.contest.status,
+    //       };
+    //       return contestDto;
+    //     });
+    //     profileResponse.assignedContests = contestDtos;
+    //   }
+    // }
+
+    // return profileResponse;
+
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto) {
     const user = await this.usersRepository.findOne({
       where: { userId: id },
     });

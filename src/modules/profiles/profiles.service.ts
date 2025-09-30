@@ -28,7 +28,7 @@ export class ProfileService {
     private contestExaminersRepository: Repository<ContestExaminer>,
   ) { }
 
-  async getProfile(userId: number): Promise<ProfileResponseDto> {
+  async getProfile(userId: string): Promise<ProfileResponseDto> {
     const user = await this.usersRepository.findOne({
       where: { userId },
     });

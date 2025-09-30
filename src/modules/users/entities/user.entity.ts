@@ -1,3 +1,4 @@
+import { UUID } from 'crypto';
 import { Competitor } from 'src/modules/competitors/entities/competitors.entity';
 import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne } from 'typeorm';
@@ -16,8 +17,8 @@ export enum UserStatus {
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn({ name: 'user_id' })
-  userId: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'user_id' })
+  userId: string;
 
   @Column({ name: 'username', unique: true, nullable: false })
   username: string;
