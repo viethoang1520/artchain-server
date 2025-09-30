@@ -7,9 +7,9 @@ import { ProfileService } from './profiles.service';
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
-  @UseGuards(AuthGuard)
-  @Get(':id')
-  async getProfile(@Param('id') id: string): Promise<ProfileResponseDto> {
-    return await this.profileService.getProfile(id);
-  }
+  // @UseGuards(AuthGuard)
+  // @Get(':id')
+  // async getProfile(@Param('id') id: string): Promise<ProfileResponseDto> {
+  //   return await this.profileService.getProfile(id);
+  // }
 }

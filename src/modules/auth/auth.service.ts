@@ -2,16 +2,19 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { LoginDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
 import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Competitor } from '../competitors/entities/competitors.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(Competitor)
+    private competitorRepo: Repository<Competitor>,
     private jwtService: JwtService
   ) { }
 
@@ -35,26 +38,33 @@ export class AuthService {
       access_token: token,
     };
   }
-  
+
   async register(registerDto: RegisterDTO) {
-    const { username, email, password, fullName } = registerDto;
+    const { username, email, password, fullName, role, birthday, schoolName, ward, grade } = registerDto;
 
     const existingUser = await this.userRepo.findOne({ where: [{ email }, { username }] });
     if (existingUser) {
       throw new BadRequestException('User already exists');
     }
-
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = this.userRepo.create({
-      username,
-      password: hashedPassword,
-      fullName,
-      email,
-    });
-
+    const newUser = new User();
+    newUser.username = username;
+    newUser.password = hashedPassword;
+    newUser.fullName = fullName;
+    newUser.email = email;
+    newUser.role = role as UserRole;
     await this.userRepo.save(newUser);
 
+    if (role === UserRole.COMPETITOR) {
+      const competitor = new Competitor();
+      competitor.competitorId = newUser.userId;
+      competitor.birthday = birthday;
+      competitor.schoolName = schoolName;
+      competitor.ward = ward;
+      competitor.grade = grade;
+      
+      await this.competitorRepo.save(competitor);
+    }
     const { password: _, ...result } = newUser;
     return result;
   }

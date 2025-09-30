@@ -4,10 +4,7 @@ import { User } from '../../users/entities/user.entity';
 @Entity('competitors')
 export class Competitor {
   @PrimaryColumn({ name: 'competitor_id' })
-  competitorId: number;
-
-  @Column({ name: 'full_name' })
-  fullName: string;
+  competitorId: string;
 
   @Column({ name: 'birthday', nullable: true })
   birthday: Date;
@@ -24,7 +21,4 @@ export class Competitor {
   @Column({ name: 'guardian_id', nullable: true })
   guardianId: number;
 
-  @OneToOne(() => User, (user) => user.competitor)
-  @JoinColumn({ name: 'competitorId', referencedColumnName: 'userId' })
-  user: User;
 }

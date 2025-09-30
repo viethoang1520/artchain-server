@@ -4,10 +4,12 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { Examiner } from '../examiners/entities/examiners.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Competitor, Examiner]),
     AuthModule,
   ],
   controllers: [UsersController],

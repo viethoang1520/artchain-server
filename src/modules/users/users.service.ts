@@ -5,12 +5,19 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user.entity';
+import { CompetitorProfileDto, GuardianProfileDto } from './dto/profile.dto';
+import { Examiner } from '../examiners/entities/examiners.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(Competitor)
+    private competitorsRepository: Repository<Competitor>,
+    @InjectRepository(Examiner)
+    private examinersRepository: Repository<Examiner>,
   ) { }
 
   create(createUserDto: CreateUserDto) {
@@ -35,53 +42,41 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
-    // const profileResponse: ProfileResponseDto = {
-    //   fullName: user.fullName,
-    //   email: user.email,
-    //   phone: user.phone,
-    //   role: user.role,
-    // };
     userRole = user.role;
     if (userRole === UserRole.COMPETITOR) {
-
+      const competitor = await this.competitorsRepository.findOne({
+        where: { competitorId: user.userId },
+      });
+      const competitorProfile: CompetitorProfileDto = {
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        birthday: competitor?.birthday,
+        schoolName: competitor?.schoolName,
+        ward: competitor?.ward,
+        grade: competitor?.grade,
+      };
+      return competitorProfile;
     } else if (userRole === UserRole.EXAMINER) {
-
+      const examiner = await this.examinersRepository.findOne({
+        where: { examinerId: user.userId },
+      });
+      const examinerProfile = {
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        specialization: examiner?.specialization,
+      };
+      return examinerProfile;
+    } else if (userRole === UserRole.GUARDIAN) {
+      const guardianProfile: GuardianProfileDto = {
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+      };
+      return guardianProfile;
     }
-
-    // const profileResponse: ProfileResponseDto = {
-    //   fullName: user.fullName,
-    //   email: user.email,
-    //   phone: user.phone,
-    //   role: user.role,
-    // };
-    // if (user.role === UserRole.EXAMINER) {
-    //   const examiner = await this.examinersRepository.findOne({
-    //     where: { user: { userId } },
-    //   });
-
-    //   if (examiner) {
-    //     const contestExaminers = await this.contestExaminersRepository.find({
-    //       where: { examinerId: examiner.examinerId },
-    //       relations: ['contest'],
-    //     });
-    //     const contestDtos = contestExaminers.map((ce) => {
-    //       const contestDto: ContestDto = {
-    //         contestId: ce.contest.contestId,
-    //         title: ce.contest.title,
-    //         description: ce.contest.description,
-    //         startDate: ce.contest.startDate,
-    //         endDate: ce.contest.endDate,
-    //         status: ce.contest.status,
-    //       };
-    //       return contestDto;
-    //     });
-    //     profileResponse.assignedContests = contestDtos;
-    //   }
-    // }
-
-    // return profileResponse;
-
+    return null;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {

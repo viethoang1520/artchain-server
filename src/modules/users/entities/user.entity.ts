@@ -8,6 +8,7 @@ export enum UserRole {
   COMPETITOR = 'COMPETITOR',
   EXAMINER = 'EXAMINER',
   ADMIN = 'USER',
+  GUARDIAN = 'GUARDIAN',
 }
 
 export enum UserStatus {
@@ -35,7 +36,7 @@ export class User {
   @Column({ name: 'phone', nullable: true })
   phone: string;
 
-  @Column({ name: 'role', type: 'enum', enum: UserRole, default: UserRole.COMPETITOR })
+  @Column({ name: 'role', type: 'enum', enum: UserRole })
   role: UserRole;
 
   @Column({ name: 'status', type: 'int', default: UserStatus.ACTIVE })
@@ -51,11 +52,4 @@ export class User {
   @Column({ name: 'position_level', nullable: true })
   positionLevel: string;
 
-  @OneToOne(() => Competitor, (competitor) => competitor.user, {
-    nullable: true,
-  })
-  competitor: Competitor;
-
-  @OneToOne(() => Examiner, (examiner) => examiner.user, { nullable: true })
-  examiner: Examiner;
 }

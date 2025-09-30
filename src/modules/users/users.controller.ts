@@ -26,7 +26,7 @@ export class UsersController {
 
   @UseGuards(AuthGuard)
   @Get('me')
-  me(@Req() req: any) {
+  me(@Req() req: any): any {
     return this.usersService.me(req);
   }
 

@@ -13,6 +13,8 @@ export class ProfileResponseDto {
 
 export class CompetitorProfileDto {
   fullName: string;
+  email: string;
+  phone: string;
   birthday?: Date;
   schoolName?: string;
   ward?: string;
@@ -20,9 +22,19 @@ export class CompetitorProfileDto {
 }
 
 export class ExaminerProfileDto {
+  fullName: string;
+  email: string;
+  phone: string;
   specialization?: string;
 }
 
+
+export class GuardianProfileDto {
+  fullName: string;
+  email: string;
+  phone: string;
+}
+//-----------------------------------
 export class AchievementDto {
   contestTitle: string;
   ranking?: number;

@@ -28,46 +28,4 @@ export class ProfileService {
     private contestExaminersRepository: Repository<ContestExaminer>,
   ) { }
 
-  async getProfile(userId: string): Promise<ProfileResponseDto> {
-    const user = await this.usersRepository.findOne({
-      where: { userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const profileResponse: ProfileResponseDto = {
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-    };
-    if (user.role === UserRole.EXAMINER) {
-      const examiner = await this.examinersRepository.findOne({
-        where: { user: { userId } },
-      });
-
-      if (examiner) {
-        const contestExaminers = await this.contestExaminersRepository.find({
-          where: { examinerId: examiner.examinerId },
-          relations: ['contest'],
-        });
-        const contestDtos = contestExaminers.map((ce) => {
-          const contestDto: ContestDto = {
-            contestId: ce.contest.contestId,
-            title: ce.contest.title,
-            description: ce.contest.description,
-            startDate: ce.contest.startDate,
-            endDate: ce.contest.endDate,
-            status: ce.contest.status,
-          };
-          return contestDto;
-        });
-        profileResponse.assignedContests = contestDtos;
-      }
-    }
-
-    return profileResponse;
-  }
 }
