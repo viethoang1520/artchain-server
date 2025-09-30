@@ -7,10 +7,10 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('examiner')
+@Entity('examiners')
 export class Examiner {
   @PrimaryGeneratedColumn({ name: 'examiner_id' })
-  examinerId: number;
+  examinerId: string;
 
   @Column({ name: 'specialization', nullable: true })
   specialization: string;
@@ -18,7 +18,5 @@ export class Examiner {
   @Column({ name: 'assigned_schedule_id', nullable: true })
   assignedScheduleId: number;
 
-  @OneToOne(() => User, (user) => user.examiner)
-  @JoinColumn({ name: 'account_id' })
-  account: User;
+
 }

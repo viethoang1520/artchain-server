@@ -6,10 +6,11 @@ import { User } from '../users/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { ConfigModule } from '@nestjs/config/dist/config.module';
+import { Competitor } from '../competitors/entities/competitors.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Competitor]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

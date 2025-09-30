@@ -5,7 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './database/database.module';
-import { ProfileModule } from './modules/profile/profile.module';
+import { ProfileModule } from './modules/profiles/profiles.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
