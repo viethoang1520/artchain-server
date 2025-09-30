@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
-import { UUID } from 'crypto';
+import { UserRole } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -21,15 +21,33 @@ export class UsersService {
     return `This action returns all users`;
   }
 
-  me(req: any) {
-    return req.user
-    // const user = await this.usersRepository.findOne({
-    //   where: { userId },
-    // });
+  async me(req: any) {
+    const userId = req.user.sub;
+    let userRole;
+    if (!userId) {
+      throw new NotFoundException('User ID not found in request');
+    }
 
-    // if (!user) {
-    //   throw new NotFoundException('User not found');
-    // }
+    const user = await this.usersRepository.findOne({
+      where: { userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // const profileResponse: ProfileResponseDto = {
+    //   fullName: user.fullName,
+    //   email: user.email,
+    //   phone: user.phone,
+    //   role: user.role,
+    // };
+    userRole = user.role;
+    if (userRole === UserRole.COMPETITOR) {
+
+    } else if (userRole === UserRole.EXAMINER) {
+
+    }
 
     // const profileResponse: ProfileResponseDto = {
     //   fullName: user.fullName,

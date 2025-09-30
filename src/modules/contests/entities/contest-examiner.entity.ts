@@ -3,7 +3,7 @@ import { Contest } from './contests.entity';
 import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
 
 
-@Entity('contestexaminer')
+@Entity('contest_examiners')
 export class ContestExaminer {
   @PrimaryColumn({ name: 'contest_id' })
   contestId: number;
