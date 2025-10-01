@@ -10,6 +10,7 @@ async function bootstrap() {
     .setDescription('The Artchain API')
     .setVersion('1.0')
     .addTag('artchain')
+    .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
