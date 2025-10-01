@@ -1,5 +1,13 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
+export enum ContestStatus {
+  UPCOMING = 'UPCOMING',
+  DRAFT = 'DRAFT',
+  ENDED = 'ENDED',
+  COMPLETED = 'COMPLETED',
+  ACTIVE = 'ACTIVE',
+}
+
 @Entity('contests')
 export class Contest {
   @PrimaryGeneratedColumn({ name: 'contest_id' })
@@ -21,8 +29,8 @@ export class Contest {
   endDate: Date;
 
   @Column({ name: 'status' })
-  status: string;
+  status: ContestStatus;
 
   @Column({ name: 'created_by' })
-  createdBy: number;
+  createdBy: string;
 }
