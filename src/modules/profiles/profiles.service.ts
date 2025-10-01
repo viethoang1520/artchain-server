@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '../users/entities/user.entity';
 
-import { ProfileResponseDto, ContestDto } from '../users/dto/profile.dto';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Contest } from '../contests/entities/contests.entity';
