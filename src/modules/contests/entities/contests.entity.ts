@@ -19,6 +19,9 @@ export class Contest {
   @Column({ name: 'description', nullable: true })
   description: string;
 
+  @Column({name: 'banner_url', nullable: true})
+  bannerUrl: string;
+
   @Column({ name: 'num_of_award', nullable: true })
   numOfAward: number;
 
