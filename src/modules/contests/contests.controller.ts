@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ContestsService } from './contests.service';
 
 import { GetContestDto } from './dto/get-contest.dto';
@@ -14,5 +14,4 @@ export class ContestsController {
   findByParams(@Query() param: GetContestDto) {
     return this.contestsService.findByQuery(param);
   }
-    
 }
