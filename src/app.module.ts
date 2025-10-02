@@ -6,7 +6,6 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { ProfileModule } from './modules/profiles/profiles.module';
-import { ContestsModule } from './modules/contests/contests.module';
 
 @Module({
   imports: [
@@ -15,7 +14,6 @@ import { ContestsModule } from './modules/contests/contests.module';
     UsersModule,
     AuthModule,
     ProfileModule,
-    ContestsModule
   ],
   controllers: [AppController],
   providers: [AppService],
