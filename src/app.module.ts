@@ -5,28 +5,21 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './database/database.module';
-import { JwtModule } from '@nestjs/jwt';
+import { ProfileModule } from './modules/profiles/profiles.module';
+import { ContestsModule } from './modules/contests/contests.module';
+import { PaintingsModule } from './modules/paintings/paintings.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        return {
-          global: true,
-          secret: configService.get<string>('JWT_SECRET'),
-          signOptions: {
-            expiresIn: configService.get<string | number>('JWT_EXPIRATION'),
-          },
-        }
-      }
-    }),
     DatabaseModule,
     UsersModule,
     AuthModule,
+    ProfileModule,
+    ContestsModule,
+    PaintingsModule,
   ],
-  controllers:  [AppController],
+  controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
