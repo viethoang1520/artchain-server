@@ -8,11 +8,19 @@ export class AuthController {
   constructor(private readonly authService: AuthService) { }
   @Post('login')
   async login(@Body() loginDto: LoginDTO): Promise<{ access_token: string }> {
-    return this.authService.login(loginDto);
+    try {
+      return await this.authService.login(loginDto);
+    } catch (error) {
+      throw new Error(error.message || 'Login failed');
+    }
   }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDTO): Promise<any> {
-    return this.authService.register(registerDto);
+    try {
+      return await this.authService.register(registerDto);
+    } catch (error) {
+      throw new Error(error.message || 'Registration failed');
+    }
   }
 }
