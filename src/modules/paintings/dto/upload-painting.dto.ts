@@ -1,5 +1,5 @@
-import { ApiProperty, ApiResponse } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { IsNotEmpty, IsString, IsUUID } from "class-validator";
 
 
 export class UploadPaintingDto {

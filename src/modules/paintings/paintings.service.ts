@@ -2,9 +2,7 @@ import { Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import { Painting } from './entities/paintings.entity';
-import { UploadPaintingDto } from './dto/upload-painting.dto';
 
 @Injectable()
 export class PaintingsService {
