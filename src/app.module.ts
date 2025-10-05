@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 import { ProfileModule } from './modules/profiles/profiles.module';
 import { ContestsModule } from './modules/contests/contests.module';
+import { PaintingsModule } from './modules/paintings/paintings.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ContestsModule } from './modules/contests/contests.module';
     AuthModule,
     ProfileModule,
     ContestsModule,
+    PaintingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
