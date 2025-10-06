@@ -55,7 +55,7 @@ export class PaintingsController {
     },
   })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('data') data: UploadPaintingDto) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() data: UploadPaintingDto) {
     try {
       return this.paintingsService.uploadFile(file, data);
     } catch (error) {

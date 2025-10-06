@@ -12,6 +12,7 @@ export class ProfileResponseDto {
 }
 
 export class CompetitorProfileDto {
+  userId: string;
   fullName: string;
   email: string;
   phone: string;
@@ -22,6 +23,7 @@ export class CompetitorProfileDto {
 }
 
 export class ExaminerProfileDto {
+  userId: string;
   fullName: string;
   email: string;
   phone: string;

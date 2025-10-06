@@ -14,7 +14,6 @@ export class PaintingsService {
   ) { }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
-    const { competitorId, title, description, roundId } = data;
     if (!file) throw new NotFoundException('No file uploaded!');
 
     const bucket = this.firebaseService.getStorage().bucket();
@@ -27,7 +26,6 @@ export class PaintingsService {
 
     const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' });
 
-    // Update competitor's painting record
     const newPainting = await this.createPainting(data, url);
     
     return newPainting;

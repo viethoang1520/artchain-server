@@ -48,6 +48,7 @@ export class UsersService {
         where: { competitorId: user.userId },
       });
       const competitorProfile: CompetitorProfileDto = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
@@ -62,6 +63,7 @@ export class UsersService {
         where: { examinerId: user.userId },
       });
       const examinerProfile = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
