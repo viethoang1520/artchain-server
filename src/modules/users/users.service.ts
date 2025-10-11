@@ -8,6 +8,8 @@ import { UserRole } from './entities/user.entity';
 import { CompetitorProfileDto, GuardianProfileDto } from './dto/profile.dto';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
+import { Contest } from '../contests/entities/contests.entity';
 
 @Injectable()
 export class UsersService {
@@ -18,18 +20,36 @@ export class UsersService {
     private competitorsRepository: Repository<Competitor>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
+    @InjectRepository(Painting)
+    private paintingsRepository: Repository<Painting>,
+    @InjectRepository(Contest)
+    private contestsRepository: Repository<Contest>,
   ) { }
-
+  
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
   }
-
+  
   findAll() {
     return `This action returns all users`;
   }
+  
+  async submissions(userId: string) {
+    const mySubmissions = await this.paintingsRepository.findOne({
+      where: { competitorId: userId },
+    });
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: mySubmissions?.contestId },
+    });
 
-  async me(req: any) {
-    const userId = req.user.sub;
+    (mySubmissions as any).contest = contest || 'Unknown Contest';
+    if (!mySubmissions) {
+      return [];
+    }
+    return mySubmissions;
+  }
+
+  async me(userId: string) {
     let userRole;
     if (!userId) {
       throw new NotFoundException('User ID not found in request');
@@ -48,6 +68,7 @@ export class UsersService {
         where: { competitorId: user.userId },
       });
       const competitorProfile: CompetitorProfileDto = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
@@ -55,6 +76,7 @@ export class UsersService {
         schoolName: competitor?.schoolName,
         ward: competitor?.ward,
         grade: competitor?.grade,
+        role: user.role,
       };
       return competitorProfile;
     } else if (userRole === UserRole.EXAMINER) {
@@ -62,10 +84,12 @@ export class UsersService {
         where: { examinerId: user.userId },
       });
       const examinerProfile = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
         specialization: examiner?.specialization,
+        role: user.role,
       };
       return examinerProfile;
     } else if (userRole === UserRole.GUARDIAN) {
@@ -73,6 +97,7 @@ export class UsersService {
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
       };
       return guardianProfile;
     }

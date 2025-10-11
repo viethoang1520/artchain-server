@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, NotFoundException, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { PaintingsService } from './paintings.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -55,7 +55,7 @@ export class PaintingsController {
     },
   })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('data') data: UploadPaintingDto) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() data: UploadPaintingDto) {
     try {
       return this.paintingsService.uploadFile(file, data);
     } catch (error) {

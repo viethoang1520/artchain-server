@@ -4,10 +4,11 @@ import { ContestsService } from './contests.service';
 import { ContestsController } from './contests.controller';
 import { Contest } from './entities/contests.entity';
 import { AuthModule } from '../auth/auth.module';
+import { Round } from './entities/round.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Contest]),
+    TypeOrmModule.forFeature([Contest, Round]),
     AuthModule
   ],
   controllers: [ContestsController],

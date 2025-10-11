@@ -2,9 +2,7 @@ import { Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import { Painting } from './entities/paintings.entity';
-import { UploadPaintingDto } from './dto/upload-painting.dto';
 
 @Injectable()
 export class PaintingsService {
@@ -16,7 +14,6 @@ export class PaintingsService {
   ) { }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
-    const { competitorId, title, description, roundId } = data;
     if (!file) throw new NotFoundException('No file uploaded!');
 
     const bucket = this.firebaseService.getStorage().bucket();
@@ -29,7 +26,6 @@ export class PaintingsService {
 
     const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' });
 
-    // Update competitor's painting record
     const newPainting = await this.createPainting(data, url);
     
     return newPainting;
