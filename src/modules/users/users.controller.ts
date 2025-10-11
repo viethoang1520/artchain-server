@@ -40,7 +40,21 @@ export class UsersController {
     }
   }
 
+  @Get('me/submissions')
+  @UseGuards(AuthGuard)
+  submissions(@Req() req: any): any {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return { message: 'User ID not found in request' };
+      }
+      return this.usersService.submissions(userId);
+    } catch (error) {
+      return { message: 'Error occurred while fetching user submissions' };
+    }
+  }
 
+  @UseGuards(AuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     try {

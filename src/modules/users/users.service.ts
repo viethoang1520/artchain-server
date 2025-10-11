@@ -8,6 +8,8 @@ import { UserRole } from './entities/user.entity';
 import { CompetitorProfileDto, GuardianProfileDto } from './dto/profile.dto';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
+import { Contest } from '../contests/entities/contests.entity';
 
 @Injectable()
 export class UsersService {
@@ -18,14 +20,33 @@ export class UsersService {
     private competitorsRepository: Repository<Competitor>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
+    @InjectRepository(Painting)
+    private paintingsRepository: Repository<Painting>,
+    @InjectRepository(Contest)
+    private contestsRepository: Repository<Contest>,
   ) { }
-
+  
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
   }
-
+  
   findAll() {
     return `This action returns all users`;
+  }
+  
+  async submissions(userId: string) {
+    const mySubmissions = await this.paintingsRepository.findOne({
+      where: { competitorId: userId },
+    });
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: mySubmissions?.contestId },
+    });
+
+    (mySubmissions as any).contest = contest || 'Unknown Contest';
+    if (!mySubmissions) {
+      return [];
+    }
+    return mySubmissions;
   }
 
   async me(userId: string) {

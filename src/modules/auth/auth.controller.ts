@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
@@ -11,7 +11,7 @@ export class AuthController {
     try {
       return await this.authService.login(loginDto);
     } catch (error) {
-      throw new Error(error.message || 'Login failed');
+      throw new BadRequestException(error.message || 'Login failed');
     }
   }
 
@@ -20,7 +20,7 @@ export class AuthController {
     try {
       return await this.authService.register(registerDto);
     } catch (error) {
-      throw new Error(error.message || 'Registration failed');
+      throw new BadRequestException(error.message || 'Registration failed');
     }
   }
 }
