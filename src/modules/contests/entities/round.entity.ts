@@ -2,39 +2,39 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 @Entity('rounds')
 export class Round {
-  @PrimaryGeneratedColumn()
-  round_id: number;
+  @PrimaryGeneratedColumn({ name: 'round_id' })
+  roundId: number;
 
-  @Column()
-  contest_id: number;
+  @Column({ name: 'contest_id' })
+  contestId: number;
 
-  @Column({ nullable: true })
-  table: string;
+  @Column({ name: 'table', nullable: true })
+  table?: string;
 
-  @Column({ length: 255 })
+  @Column({ name: 'name', length: 255 })
   name: string;
 
-  @Column({ type: 'timestamp', nullable: true })
-  start_date: Date;
+  @Column({ name: 'start_date', type: 'timestamp', nullable: true })
+  startDate?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  end_date: Date;
+  @Column({ name: 'end_date', type: 'timestamp', nullable: true })
+  endDate?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  submission_deadline: Date;
+  @Column({ name: 'submission_deadline', type: 'timestamp', nullable: true })
+  submissionDeadline?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  result_announce_date: Date;
+  @Column({ name: 'result_announce_date', type: 'timestamp', nullable: true })
+  resultAnnounceDate?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  send_original_deadline: Date;
+  @Column({ name: 'send_original_deadline', type: 'timestamp', nullable: true })
+  sendOriginalDeadline?: Date;
 
-  @Column({ default: 'draft' })
+  @Column({ name: 'status', default: 'DRAFT' })
   status: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
-  created_at: Date;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+  createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  updatedAt: Date;
 }
