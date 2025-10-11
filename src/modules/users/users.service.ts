@@ -28,8 +28,7 @@ export class UsersService {
     return `This action returns all users`;
   }
 
-  async me(req: any) {
-    const userId = req.user.sub;
+  async me(userId: string) {
     let userRole;
     if (!userId) {
       throw new NotFoundException('User ID not found in request');
@@ -56,6 +55,7 @@ export class UsersService {
         schoolName: competitor?.schoolName,
         ward: competitor?.ward,
         grade: competitor?.grade,
+        role: user.role,
       };
       return competitorProfile;
     } else if (userRole === UserRole.EXAMINER) {
@@ -68,6 +68,7 @@ export class UsersService {
         email: user.email,
         phone: user.phone,
         specialization: examiner?.specialization,
+        role: user.role,
       };
       return examinerProfile;
     } else if (userRole === UserRole.GUARDIAN) {
@@ -75,6 +76,7 @@ export class UsersService {
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
       };
       return guardianProfile;
     }

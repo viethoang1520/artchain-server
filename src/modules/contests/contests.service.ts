@@ -32,6 +32,8 @@ export class ContestsService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
+    
+
     return {
       success: true,
       data: contest,
