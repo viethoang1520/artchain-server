@@ -10,6 +10,7 @@ import { Examiner } from '../examiners/entities/examiners.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Contest } from '../contests/entities/contests.entity';
+import { isArray } from 'class-validator';
 
 @Injectable()
 export class UsersService {
@@ -45,6 +46,9 @@ export class UsersService {
     (mySubmissions as any).contest = contest || 'Unknown Contest';
     if (!mySubmissions) {
       return [];
+    }
+    if(!isArray(mySubmissions)){
+      return [mySubmissions];
     }
     return mySubmissions;
   }
