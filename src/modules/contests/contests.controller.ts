@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  ParseIntPipe,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, ParseIntPipe } from '@nestjs/common';
 import { ContestsService } from './contests.service';
 import { GetContestDto } from './dto/get-contest.dto';
 
@@ -15,6 +9,11 @@ export class ContestsController {
   @Get()
   findAll(@Query() query: GetContestDto) {
     return this.contestsService.findAll(query);
+  }
+
+  @Get('examiner/:examinerId')
+  findAllForExaminer(@Param('examinerId', ParseIntPipe) examinerId: number) {
+    return this.contestsService.findAllForExaminer(examinerId);
   }
 
   @Get(':id')
