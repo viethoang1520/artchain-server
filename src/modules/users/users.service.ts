@@ -39,14 +39,14 @@ export class UsersService {
     const mySubmissions = await this.paintingsRepository.findOne({
       where: { competitorId: userId },
     });
+    if (!mySubmissions ) {
+      return [];
+    }
     const contest = await this.contestsRepository.findOne({
       where: { contestId: mySubmissions?.contestId },
     });
 
     (mySubmissions as any).contest = contest || 'Unknown Contest';
-    if (!mySubmissions) {
-      return [];
-    }
     if(!isArray(mySubmissions)){
       return [mySubmissions];
     }
