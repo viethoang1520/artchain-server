@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
 import { Repository } from 'typeorm';
@@ -7,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Competitor } from '../competitors/entities/competitors.entity';
+import { Examiner } from '../examiners/entities/examiners.entity';
 
 @Injectable()
 export class AuthService {
@@ -15,8 +20,10 @@ export class AuthService {
     private userRepo: Repository<User>,
     @InjectRepository(Competitor)
     private competitorRepo: Repository<Competitor>,
-    private jwtService: JwtService
-  ) { }
+    @InjectRepository(Examiner)
+    private examinerRepository: Repository<Examiner>,
+    private jwtService: JwtService,
+  ) {}
 
   async login(loginDto: LoginDTO) {
     const { username, password } = loginDto;
@@ -40,9 +47,21 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDTO) {
-    const { username, email, password, fullName, role, birthday, schoolName, ward, grade } = registerDto;
+    const {
+      username,
+      email,
+      password,
+      fullName,
+      role,
+      birthday,
+      schoolName,
+      ward,
+      grade,
+    } = registerDto;
 
-    const existingUser = await this.userRepo.findOne({ where: [{ email }, { username }] });
+    const existingUser = await this.userRepo.findOne({
+      where: [{ email }, { username }],
+    });
     if (existingUser) {
       throw new BadRequestException('User already exists');
     }
@@ -62,8 +81,13 @@ export class AuthService {
       competitor.schoolName = schoolName;
       competitor.ward = ward;
       competitor.grade = grade;
-      
+
       await this.competitorRepo.save(competitor);
+    }
+    if (role === UserRole.EXAMINER) {
+      const examiner = new Examiner();
+      examiner.examinerId = newUser.userId;
+      await this.examinerRepository.save(examiner);
     }
     const { password: _, ...result } = newUser;
     return result;
