@@ -8,6 +8,7 @@ import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 
 @Injectable()
 export class PaintingsService {
+
   constructor(
     private readonly firebaseService: FirebaseService,
     @InjectRepository(Painting)
@@ -15,6 +16,17 @@ export class PaintingsService {
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
   ) {}
+
+
+  async getPaintingsByContest(contestId: number) {
+    const paintings = await this.paintingRepository.find({
+      where: { contestId },
+    });
+    if (!paintings) {
+      throw new NotFoundException(`No paintings found for contest ID ${contestId}`);
+    }
+    return paintings;
+  }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');

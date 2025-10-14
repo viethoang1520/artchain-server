@@ -31,6 +31,21 @@ export class PaintingsController {
     private readonly firebaseService: FirebaseService,
   ) {}
 
+  @Get('')
+  @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi' })
+    @ApiParam({
+    name: 'contestId',
+    description: 'ID của cuộc thi',
+    example: 1,
+  })
+  async getPaintingsByContestId(@Param('contestId') contestId: number) {
+    try {
+      return await this.paintingsService.getPaintingsByContest(contestId);
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to get paintings');
+    }
+  }
+
   @Post('upload')
   @ApiOperation({ summary: 'Upload tranh vẽ với thông tin' })
   @ApiConsumes('multipart/form-data')
