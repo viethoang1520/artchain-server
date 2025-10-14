@@ -5,7 +5,7 @@ import { User } from '../../users/entities/user.entity';
 export class Examiner {
   @PrimaryColumn({ name: 'examiner_id' })
   examinerId: string;
-
+  
   @Column({ name: 'specialization', nullable: true })
   specialization: string;
 

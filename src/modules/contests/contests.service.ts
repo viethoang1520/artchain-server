@@ -76,14 +76,12 @@ export class ContestsService {
 
     const contests = contestExaminers.map((ce) => ce.contest);
 
-    // For each contest, find if it has a ROUND1 and add roundId
     for (const contest of contests) {
       const round = await this.roundsRepository.find({
         where: { contestId: contest.contestId, name: 'ROUND1' },
       });
       (contest as any).roundId = round.length > 0 ? round[0].roundId : null;
 
-      // Add the assignment status from the contest-examiner relationship
       const examinerRelation = contestExaminers.find(
         (ce) => ce.contestId === contest.contestId,
       );
