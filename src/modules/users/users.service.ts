@@ -24,28 +24,30 @@ export class UsersService {
     private paintingsRepository: Repository<Painting>,
     @InjectRepository(Contest)
     private contestsRepository: Repository<Contest>,
-  ) { }
-  
+  ) {}
+
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
   }
-  
+
   findAll() {
     return `This action returns all users`;
   }
-  
+
   async submissions(userId: string) {
     const mySubmissions = await this.paintingsRepository.findOne({
       where: { competitorId: userId },
     });
+
+    if (!mySubmissions) {
+      return [];
+    }
+
     const contest = await this.contestsRepository.findOne({
       where: { contestId: mySubmissions?.contestId },
     });
 
     (mySubmissions as any).contest = contest || 'Unknown Contest';
-    if (!mySubmissions) {
-      return [];
-    }
     return mySubmissions;
   }
 
