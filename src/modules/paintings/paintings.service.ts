@@ -18,7 +18,10 @@ export class PaintingsService {
   ) {}
 
 
-  async getPaintingsByContest(contestId: number) {
+  async getPaintingsByContestId(contestId: number) {
+    if (!contestId) {
+      throw new NotFoundException('Contest ID is required');
+    }
     const paintings = await this.paintingRepository.find({
       where: { contestId },
     });
