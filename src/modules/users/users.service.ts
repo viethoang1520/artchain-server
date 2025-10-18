@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -25,7 +25,7 @@ export class UsersService {
     private paintingsRepository: Repository<Painting>,
     @InjectRepository(Contest)
     private contestsRepository: Repository<Contest>,
-  ) {}
+  ) { }
 
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
@@ -36,22 +36,31 @@ export class UsersService {
   }
 
   async submissions(userId: string) {
-    const mySubmissions = await this.paintingsRepository.findOne({
+    const mySubmissions = await this.paintingsRepository.find({
       where: { competitorId: userId },
     });
 
-    if (!mySubmissions) {
+    if (!mySubmissions || mySubmissions.length === 0) {
       return [];
     }
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId: mySubmissions?.contestId },
+
+    const contestIds = [...new Set(mySubmissions.map(submission => submission.contestId))];
+
+    const contests = await this.contestsRepository.find({
+      where: { contestId: In(contestIds) },
     });
 
-    (mySubmissions as any).contest = contest || 'Unknown Contest';
-    if(!isArray(mySubmissions)){
-      return [mySubmissions];
-    }
-    return mySubmissions;
+    const contestMap = new Map();
+    contests.forEach(contest => {
+      contestMap.set(contest.contestId, contest);
+    });
+
+    const submissionsWithContests = mySubmissions.map(submission => ({
+      ...submission,
+      contest: contestMap.get(submission.contestId) || 'Unknown Contest'
+    }));
+
+    return submissionsWithContests;
   }
 
   async me(userId: string) {

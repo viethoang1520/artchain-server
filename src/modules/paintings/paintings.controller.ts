@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiProperty,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -33,14 +35,14 @@ export class PaintingsController {
 
   @Get('')
   @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi' })
-    @ApiParam({
+    @ApiQuery({
     name: 'contestId',
     description: 'ID của cuộc thi',
     example: 1,
   })
-  async getPaintingsByContestId(@Param('contestId') contestId: number) {
+  async getPaintingsByContestId(@Query('contestId') contestId: number) {
     try {
-      return await this.paintingsService.getPaintingsByContest(contestId);
+      return await this.paintingsService.getPaintingsByContestId(contestId);
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to get paintings');
     }
