@@ -5,9 +5,13 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
-  imports: [FirebaseModule, TypeOrmModule.forFeature([Painting, Evaluation])],
+  imports: [
+    FirebaseModule,
+    TypeOrmModule.forFeature([Painting, Evaluation, User]),
+  ],
   controllers: [PaintingsController],
   providers: [PaintingsService],
 })
