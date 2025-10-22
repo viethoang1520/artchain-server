@@ -20,7 +20,6 @@ import {
   ApiConsumes,
   ApiOperation,
   ApiParam,
-  ApiProperty,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -30,7 +29,6 @@ import {
 export class PaintingsController {
   constructor(
     private readonly paintingsService: PaintingsService,
-    private readonly firebaseService: FirebaseService,
   ) {}
 
   @Get('')
