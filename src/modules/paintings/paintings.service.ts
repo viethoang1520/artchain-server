@@ -36,7 +36,17 @@ export class PaintingsService {
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
-
+    const existingSubmission = await this.paintingRepository.findOne({
+      where: {
+        competitorId: data.competitorId,
+        contestId: data.contestId,
+        roundId: data.roundId,
+        status: 'PENDING',
+      },
+    });
+    if (existingSubmission) {
+      throw new NotFoundException('You have already submitted a painting for this round and contest.');
+    }
     const bucket = this.firebaseService.getStorage().bucket();
     const fileName = `uploads/${Date.now()}-${file.originalname}`;
     const fileUpload = bucket.file(fileName);

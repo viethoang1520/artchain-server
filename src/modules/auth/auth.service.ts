@@ -32,7 +32,11 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
+    
+    const isActive = user.status === 1;
+    if (!isActive) {
+      throw new UnauthorizedException('User account is banned or inactive');
+    }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
