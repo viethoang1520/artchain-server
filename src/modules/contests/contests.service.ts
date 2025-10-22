@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Contest } from './entities/contests.entity';
+import { Contest, ContestStatus } from './entities/contests.entity';
 import { CreateContestDto } from './dto/create-contest.dto';
 import { UpdateContestDto } from './dto/update-contest.dto';
 import { GetContestDto } from './dto/get-contest.dto';
@@ -40,15 +40,23 @@ export class ContestsService {
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
-    const round = await this.roundsRepository.find({
-      where: { contestId: id, name: 'ROUND1' },
+
+    // Get all rounds for this contest
+    const rounds = await this.roundsRepository.find({
+      where: { contestId: id },
     });
-    const roundId = round.length > 0 ? round[0].roundId : null;
+
+    // For backward compatibility, also set roundId for ROUND1
+    const round1 = rounds.find((r) => r.name === 'ROUND1');
+    const roundId = round1 ? round1.roundId : null;
     (contest as any).roundId = roundId;
 
     return {
       success: true,
-      data: contest,
+      data: {
+        ...contest,
+        rounds: rounds,
+      },
     };
   }
 
@@ -98,6 +106,141 @@ export class ContestsService {
       meta: {
         total: contests.length,
       },
+    };
+  }
+
+  async create(createContestDto: CreateContestDto) {
+    try {
+      const contest = this.contestsRepository.create({
+        title: createContestDto.title,
+        description: createContestDto.description,
+        bannerUrl: createContestDto.bannerUrl,
+        numOfAward: createContestDto.numOfAward,
+        startDate: createContestDto.startDate,
+        endDate: createContestDto.endDate,
+        status: createContestDto.status || ContestStatus.DRAFT,
+        createdBy: createContestDto.createdBy,
+      });
+
+      const savedContest = await this.contestsRepository.save(contest);
+
+      const savedRounds: Round[] = [];
+      if (createContestDto.rounds && createContestDto.rounds.length > 0) {
+        for (const roundDto of createContestDto.rounds) {
+          const round = this.roundsRepository.create({
+            contestId: savedContest.contestId,
+            name: roundDto.name,
+            table: roundDto.table,
+            startDate: roundDto.startDate,
+            endDate: roundDto.endDate,
+            submissionDeadline: roundDto.submissionDeadline,
+            resultAnnounceDate: roundDto.resultAnnounceDate,
+            sendOriginalDeadline: roundDto.sendOriginalDeadline,
+            status: roundDto.status || 'DRAFT',
+          });
+          const savedRound = await this.roundsRepository.save(round);
+          savedRounds.push(savedRound);
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Contest created successfully',
+        data: {
+          contest: savedContest,
+          rounds: savedRounds,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async update(id: number, updateContestDto: UpdateContestDto) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${id} not found`);
+    }
+    const { rounds, ...contestData } = updateContestDto as any;
+    const updatedContest = this.contestsRepository.merge(contest, contestData);
+    const savedContest = await this.contestsRepository.save(updatedContest);
+
+    let savedRounds: Round[] = [];
+    if (rounds && Array.isArray(rounds)) {
+      const existingRounds = await this.roundsRepository.find({
+        where: { contestId: id },
+      });
+
+      if (existingRounds.length > 0) {
+        await this.roundsRepository.remove(existingRounds);
+      }
+
+      for (const roundDto of rounds) {
+        const round = this.roundsRepository.create({
+          contestId: id,
+          name: roundDto.name,
+          table: roundDto.table,
+          startDate: roundDto.startDate,
+          endDate: roundDto.endDate,
+          submissionDeadline: roundDto.submissionDeadline,
+          resultAnnounceDate: roundDto.resultAnnounceDate,
+          sendOriginalDeadline: roundDto.sendOriginalDeadline,
+          status: roundDto.status || 'DRAFT',
+        });
+        const savedRound = await this.roundsRepository.save(round);
+        savedRounds.push(savedRound);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Contest updated successfully',
+      data: {
+        contest: savedContest,
+        rounds: savedRounds.length > 0 ? savedRounds : undefined,
+      },
+    };
+  }
+
+  async publish(id: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${id} not found`);
+    }
+
+    if (contest.status !== ContestStatus.DRAFT) {
+      return {
+        success: false,
+        message: `Contest can only be published from DRAFT status. Current status: ${contest.status}`,
+      };
+    }
+
+    const now = new Date();
+    const startDate = new Date(contest.startDate);
+    const endDate = new Date(contest.endDate);
+
+    let newStatus: ContestStatus;
+    if (now < startDate) {
+      newStatus = ContestStatus.UPCOMING;
+    } else if (now >= startDate && now <= endDate) {
+      newStatus = ContestStatus.ACTIVE;
+    } else {
+      newStatus = ContestStatus.ENDED;
+    }
+
+    contest.status = newStatus;
+    const publishedContest = await this.contestsRepository.save(contest);
+
+    return {
+      success: true,
+      message: `Contest published successfully with status: ${newStatus}`,
+      data: publishedContest,
     };
   }
 }
