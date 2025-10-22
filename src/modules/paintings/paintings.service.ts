@@ -5,18 +5,19 @@ import { Repository } from 'typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class PaintingsService {
-
   constructor(
     private readonly firebaseService: FirebaseService,
     @InjectRepository(Painting)
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
-
 
   async getPaintingsByContestId(contestId: number) {
     if (!contestId) {
@@ -26,7 +27,9 @@ export class PaintingsService {
       where: { contestId },
     });
     if (!paintings) {
-      throw new NotFoundException(`No paintings found for contest ID ${contestId}`);
+      throw new NotFoundException(
+        `No paintings found for contest ID ${contestId}`,
+      );
     }
     return paintings;
   }
@@ -42,10 +45,13 @@ export class PaintingsService {
       metadata: { contentType: file.mimetype },
     });
 
-    const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+    const [url] = await fileUpload.getSignedUrl({
+      action: 'read',
+      expires: '03-09-2491',
+    });
 
     const newPainting = await this.createPainting(data, url);
-    
+
     return newPainting;
   }
 
@@ -101,7 +107,7 @@ export class PaintingsService {
     return await this.evaluationRepository.save(newEvaluation);
   }
 
-  async getPaintingEvaluations(paintingId: string): Promise<Evaluation[]> {
+  async getPaintingEvaluations(paintingId: string): Promise<any[]> {
     const painting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
@@ -110,9 +116,25 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
-    return await this.evaluationRepository.find({
+    const evaluations = await this.evaluationRepository.find({
       where: { paintingId },
       relations: ['examiner'],
     });
+
+    // Thêm tên examiner vào mỗi evaluation
+    const evaluationsWithNames = await Promise.all(
+      evaluations.map(async (evaluation) => {
+        const user = await this.userRepository.findOne({
+          where: { userId: evaluation.examinerId },
+        });
+
+        return {
+          ...evaluation,
+          examinerName: user?.fullName || 'Unknown',
+        };
+      }),
+    );
+
+    return evaluationsWithNames;
   }
 }

@@ -1,0 +1,27 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { StaffService } from './staff.service';
+import { StaffController } from './staff.controller';
+import { Contest } from '../contests/entities/contests.entity';
+import { Round } from '../contests/entities/round.entity';
+import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { Examiner } from '../examiners/entities/examiners.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
+import { AuthModule } from '../auth/auth.module';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Contest,
+      Round,
+      ContestExaminer,
+      Examiner,
+      Painting,
+    ]),
+    AuthModule,
+  ],
+  controllers: [StaffController],
+  providers: [StaffService],
+  exports: [StaffService],
+})
+export class StaffModule {}
