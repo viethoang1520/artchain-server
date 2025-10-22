@@ -12,6 +12,7 @@ export class ProfileResponseDto {
 }
 
 export class CompetitorProfileDto {
+  userId: string;
   fullName: string;
   email: string;
   phone: string;
@@ -19,13 +20,16 @@ export class CompetitorProfileDto {
   schoolName?: string;
   ward?: string;
   grade?: string;
+  role: UserRole;
 }
 
 export class ExaminerProfileDto {
+  userId: string;
   fullName: string;
   email: string;
   phone: string;
   specialization?: string;
+  role: UserRole;
 }
 
 
@@ -33,6 +37,7 @@ export class GuardianProfileDto {
   fullName: string;
   email: string;
   phone: string;
+  role: UserRole;
 }
 //-----------------------------------
 export class AchievementDto {

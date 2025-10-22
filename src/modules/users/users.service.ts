@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -8,6 +8,9 @@ import { UserRole } from './entities/user.entity';
 import { CompetitorProfileDto, GuardianProfileDto } from './dto/profile.dto';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
+import { Contest } from '../contests/entities/contests.entity';
+import { isArray } from 'class-validator';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +21,10 @@ export class UsersService {
     private competitorsRepository: Repository<Competitor>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
+    @InjectRepository(Painting)
+    private paintingsRepository: Repository<Painting>,
+    @InjectRepository(Contest)
+    private contestsRepository: Repository<Contest>,
   ) { }
 
   create(createUserDto: CreateUserDto) {
@@ -28,8 +35,35 @@ export class UsersService {
     return `This action returns all users`;
   }
 
-  async me(req: any) {
-    const userId = req.user.sub;
+  async submissions(userId: string) {
+    const mySubmissions = await this.paintingsRepository.find({
+      where: { competitorId: userId },
+    });
+
+    if (!mySubmissions || mySubmissions.length === 0) {
+      return [];
+    }
+
+    const contestIds = [...new Set(mySubmissions.map(submission => submission.contestId))];
+
+    const contests = await this.contestsRepository.find({
+      where: { contestId: In(contestIds) },
+    });
+
+    const contestMap = new Map();
+    contests.forEach(contest => {
+      contestMap.set(contest.contestId, contest);
+    });
+
+    const submissionsWithContests = mySubmissions.map(submission => ({
+      ...submission,
+      contest: contestMap.get(submission.contestId) || 'Unknown Contest'
+    }));
+
+    return submissionsWithContests;
+  }
+
+  async me(userId: string) {
     let userRole;
     if (!userId) {
       throw new NotFoundException('User ID not found in request');
@@ -48,6 +82,7 @@ export class UsersService {
         where: { competitorId: user.userId },
       });
       const competitorProfile: CompetitorProfileDto = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
@@ -55,6 +90,7 @@ export class UsersService {
         schoolName: competitor?.schoolName,
         ward: competitor?.ward,
         grade: competitor?.grade,
+        role: user.role,
       };
       return competitorProfile;
     } else if (userRole === UserRole.EXAMINER) {
@@ -62,10 +98,12 @@ export class UsersService {
         where: { examinerId: user.userId },
       });
       const examinerProfile = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
         specialization: examiner?.specialization,
+        role: user.role,
       };
       return examinerProfile;
     } else if (userRole === UserRole.GUARDIAN) {
@@ -73,6 +111,7 @@ export class UsersService {
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
       };
       return guardianProfile;
     }

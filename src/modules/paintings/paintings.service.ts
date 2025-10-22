@@ -2,23 +2,51 @@ import { Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import { Painting } from './entities/paintings.entity';
-import { UploadPaintingDto } from './dto/upload-painting.dto';
+import { Evaluation } from './entities/evaluation.entity';
+import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class PaintingsService {
-
   constructor(
     private readonly firebaseService: FirebaseService,
     @InjectRepository(Painting)
-    private readonly paintingRepository: Repository<Painting>
-  ) { }
+    private readonly paintingRepository: Repository<Painting>,
+    @InjectRepository(Evaluation)
+    private readonly evaluationRepository: Repository<Evaluation>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async getPaintingsByContestId(contestId: number) {
+    if (!contestId) {
+      throw new NotFoundException('Contest ID is required');
+    }
+    const paintings = await this.paintingRepository.find({
+      where: { contestId },
+    });
+    if (!paintings) {
+      throw new NotFoundException(
+        `No paintings found for contest ID ${contestId}`,
+      );
+    }
+    return paintings;
+  }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
-    const { competitorId, title, description, roundId } = data;
     if (!file) throw new NotFoundException('No file uploaded!');
-
+    const existingSubmission = await this.paintingRepository.findOne({
+      where: {
+        competitorId: data.competitorId,
+        contestId: data.contestId,
+        roundId: data.roundId,
+        status: 'PENDING',
+      },
+    });
+    if (existingSubmission) {
+      throw new NotFoundException('You have already submitted a painting for this round and contest.');
+    }
     const bucket = this.firebaseService.getStorage().bucket();
     const fileName = `uploads/${Date.now()}-${file.originalname}`;
     const fileUpload = bucket.file(fileName);
@@ -27,14 +55,15 @@ export class PaintingsService {
       metadata: { contentType: file.mimetype },
     });
 
-    const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+    const [url] = await fileUpload.getSignedUrl({
+      action: 'read',
+      expires: '03-09-2491',
+    });
 
-    // Update competitor's painting record
     const newPainting = await this.createPainting(data, url);
-    
+
     return newPainting;
   }
-
 
   async createPainting(data, url): Promise<Painting> {
     const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
@@ -49,5 +78,73 @@ export class PaintingsService {
       imageUrl: url,
     });
     return await this.paintingRepository.save(newPainting);
+  }
+
+  async evaluatePainting(
+    evaluateDto: EvaluatePaintingDto,
+  ): Promise<Evaluation> {
+    const { paintingId, examinerId, score, feedback } = evaluateDto;
+
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    const existingEvaluation = await this.evaluationRepository.findOne({
+      where: { paintingId, examinerId },
+    });
+
+    if (existingEvaluation) {
+      existingEvaluation.score = score;
+      existingEvaluation.feedback = feedback || '';
+      existingEvaluation.evaluationDate = new Date();
+      existingEvaluation.status = 'COMPLETED';
+
+      return await this.evaluationRepository.save(existingEvaluation);
+    }
+
+    const newEvaluation = this.evaluationRepository.create({
+      paintingId,
+      examinerId,
+      score,
+      feedback: feedback || '',
+      evaluationDate: new Date(),
+      status: 'COMPLETED',
+    });
+
+    return await this.evaluationRepository.save(newEvaluation);
+  }
+
+  async getPaintingEvaluations(paintingId: string): Promise<any[]> {
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    const evaluations = await this.evaluationRepository.find({
+      where: { paintingId },
+      relations: ['examiner'],
+    });
+
+    // Thêm tên examiner vào mỗi evaluation
+    const evaluationsWithNames = await Promise.all(
+      evaluations.map(async (evaluation) => {
+        const user = await this.userRepository.findOne({
+          where: { userId: evaluation.examinerId },
+        });
+
+        return {
+          ...evaluation,
+          examinerName: user?.fullName || 'Unknown',
+        };
+      }),
+    );
+
+    return evaluationsWithNames;
   }
 }

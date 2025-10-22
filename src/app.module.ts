@@ -8,6 +8,8 @@ import { DatabaseModule } from './database/database.module';
 import { ProfileModule } from './modules/profiles/profiles.module';
 import { ContestsModule } from './modules/contests/contests.module';
 import { PaintingsModule } from './modules/paintings/paintings.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { StaffModule } from './modules/staff/staff.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PaintingsModule } from './modules/paintings/paintings.module';
     ProfileModule,
     ContestsModule,
     PaintingsModule,
+    AdminModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [AppService],

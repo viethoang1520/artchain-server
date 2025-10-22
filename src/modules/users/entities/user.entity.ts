@@ -7,8 +7,9 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToOne } from 'typeorm';
 export enum UserRole {
   COMPETITOR = 'COMPETITOR',
   EXAMINER = 'EXAMINER',
-  ADMIN = 'USER',
+  ADMIN = 'ADMIN',
   GUARDIAN = 'GUARDIAN',
+  STAFF = 'STAFF',
 }
 
 export enum UserStatus {

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, PrimaryColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { Evaluation } from './evaluation.entity';
 
 @Entity('paintings')
 export class Painting {
@@ -8,7 +16,7 @@ export class Painting {
   @Column({ nullable: true, name: 'round_id' })
   roundId: string;
 
-  @Column({ nullable: true, name: 'award_id' }) 
+  @Column({ nullable: true, name: 'award_id' })
   awardId: number;
 
   @Column({ nullable: true, name: 'contest_id' })
@@ -29,7 +37,7 @@ export class Painting {
   @Column({ type: 'timestamp', nullable: true, name: 'submission_date' })
   submissionDate: Date;
 
-  @Column({ type: 'varchar', length: 50, default: 'pending', name: 'status' })
+  @Column({ type: 'varchar', length: 50, default: 'PENDING', name: 'status' })
   status: string;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
@@ -37,4 +45,7 @@ export class Painting {
 
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
+
+  @OneToMany(() => Evaluation, (evaluation) => evaluation.painting)
+  evaluations: Evaluation[];
 }

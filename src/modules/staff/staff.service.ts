@@ -1,0 +1,447 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Contest, ContestStatus } from '../contests/entities/contests.entity';
+import { Round } from '../contests/entities/round.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
+import { CreateContestDto } from '../contests/dto/create-contest.dto';
+import { UpdateContestDto } from '../contests/dto/update-contest.dto';
+import { CreateRoundDto } from '../contests/dto/create-round.dto';
+import { UpdateRoundDto } from '../contests/dto/update-round.dto';
+import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
+
+@Injectable()
+export class StaffService {
+  constructor(
+    @InjectRepository(Contest)
+    private contestsRepository: Repository<Contest>,
+    @InjectRepository(Round)
+    private roundsRepository: Repository<Round>,
+    @InjectRepository(Painting)
+    private paintingsRepository: Repository<Painting>,
+  ) {}
+
+  async createContest(createContestDto: CreateContestDto) {
+    try {
+      const contest = this.contestsRepository.create({
+        title: createContestDto.title,
+        description: createContestDto.description,
+        bannerUrl: createContestDto.bannerUrl,
+        numOfAward: createContestDto.numOfAward,
+        startDate: createContestDto.startDate,
+        endDate: createContestDto.endDate,
+        status: createContestDto.status || ContestStatus.DRAFT,
+        createdBy: createContestDto.createdBy,
+      });
+
+      const savedContest = await this.contestsRepository.save(contest);
+
+      // Create rounds if provided
+      const savedRounds: Round[] = [];
+      if (createContestDto.rounds && createContestDto.rounds.length > 0) {
+        for (const roundDto of createContestDto.rounds) {
+          const round = this.roundsRepository.create({
+            contestId: savedContest.contestId,
+            name: roundDto.name,
+            table: roundDto.table,
+            startDate: roundDto.startDate,
+            endDate: roundDto.endDate,
+            submissionDeadline: roundDto.submissionDeadline,
+            resultAnnounceDate: roundDto.resultAnnounceDate,
+            sendOriginalDeadline: roundDto.sendOriginalDeadline,
+            status: roundDto.status || 'DRAFT',
+          });
+          const savedRound = await this.roundsRepository.save(round);
+          savedRounds.push(savedRound);
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Contest created successfully',
+        data: {
+          contest: savedContest,
+          rounds: savedRounds,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateContest(id: number, updateContestDto: UpdateContestDto) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${id} not found`);
+    }
+
+    const updatedContest = this.contestsRepository.merge(
+      contest,
+      updateContestDto,
+    );
+    const savedContest = await this.contestsRepository.save(updatedContest);
+
+    return {
+      success: true,
+      message: 'Contest updated successfully',
+      data: savedContest,
+    };
+  }
+
+  async publishContest(id: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${id} not found`);
+    }
+
+    if (contest.status !== ContestStatus.DRAFT) {
+      return {
+        success: false,
+        message: `Contest can only be published from DRAFT status. Current status: ${contest.status}`,
+      };
+    }
+
+    const now = new Date();
+    const startDate = new Date(contest.startDate);
+    const endDate = new Date(contest.endDate);
+
+    let newStatus: ContestStatus;
+    if (now < startDate) {
+      newStatus = ContestStatus.UPCOMING;
+    } else if (now >= startDate && now <= endDate) {
+      newStatus = ContestStatus.ACTIVE;
+    } else {
+      newStatus = ContestStatus.ENDED;
+    }
+
+    contest.status = newStatus;
+    const publishedContest = await this.contestsRepository.save(contest);
+
+    return {
+      success: true,
+      message: `Contest published successfully with status: ${newStatus}`,
+      data: publishedContest,
+    };
+  }
+
+  async getAllContests() {
+    const contests = await this.contestsRepository.find({
+      order: { contestId: 'DESC' },
+    });
+
+    const contestsWithRounds = await Promise.all(
+      contests.map(async (contest) => {
+        const rounds = await this.roundsRepository.find({
+          where: { contestId: contest.contestId },
+        });
+        return {
+          ...contest,
+          rounds,
+        };
+      }),
+    );
+
+    return {
+      success: true,
+      data: contestsWithRounds,
+      meta: {
+        total: contestsWithRounds.length,
+      },
+    };
+  }
+
+  async getContest(id: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${id} not found`);
+    }
+
+    const rounds = await this.roundsRepository.find({
+      where: { contestId: id },
+    });
+
+    return {
+      success: true,
+      data: {
+        ...contest,
+        rounds,
+      },
+    };
+  }
+
+  async createRound(contestId: number, createRoundDto: CreateRoundDto) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const round = this.roundsRepository.create({
+      contestId,
+      name: createRoundDto.name,
+      table: createRoundDto.table,
+      startDate: createRoundDto.startDate,
+      endDate: createRoundDto.endDate,
+      submissionDeadline: createRoundDto.submissionDeadline,
+      resultAnnounceDate: createRoundDto.resultAnnounceDate,
+      sendOriginalDeadline: createRoundDto.sendOriginalDeadline,
+      status: createRoundDto.status || 'DRAFT',
+    });
+
+    const savedRound = await this.roundsRepository.save(round);
+
+    return {
+      success: true,
+      message: 'Round created successfully',
+      data: savedRound,
+    };
+  }
+
+  async getRoundsByContest(contestId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const rounds = await this.roundsRepository.find({
+      where: { contestId },
+      order: { roundId: 'ASC' },
+    });
+
+    return {
+      success: true,
+      data: rounds,
+      meta: {
+        contestId,
+        total: rounds.length,
+      },
+    };
+  }
+
+  async getRound(contestId: number, roundId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const round = await this.roundsRepository.findOne({
+      where: { roundId, contestId },
+    });
+
+    if (!round) {
+      throw new NotFoundException(
+        `Round with ID ${roundId} not found in contest ${contestId}`,
+      );
+    }
+
+    return {
+      success: true,
+      data: round,
+    };
+  }
+
+  async updateRound(
+    contestId: number,
+    roundId: number,
+    updateRoundDto: UpdateRoundDto,
+  ) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const round = await this.roundsRepository.findOne({
+      where: { roundId, contestId },
+    });
+
+    if (!round) {
+      throw new NotFoundException(
+        `Round with ID ${roundId} not found in contest ${contestId}`,
+      );
+    }
+
+    if (updateRoundDto.name !== undefined) {
+      round.name = updateRoundDto.name;
+    }
+    if (updateRoundDto.table !== undefined) {
+      round.table = updateRoundDto.table;
+    }
+    if (updateRoundDto.startDate !== undefined) {
+      round.startDate = updateRoundDto.startDate;
+    }
+    if (updateRoundDto.endDate !== undefined) {
+      round.endDate = updateRoundDto.endDate;
+    }
+    if (updateRoundDto.submissionDeadline !== undefined) {
+      round.submissionDeadline = updateRoundDto.submissionDeadline;
+    }
+    if (updateRoundDto.resultAnnounceDate !== undefined) {
+      round.resultAnnounceDate = updateRoundDto.resultAnnounceDate;
+    }
+    if (updateRoundDto.sendOriginalDeadline !== undefined) {
+      round.sendOriginalDeadline = updateRoundDto.sendOriginalDeadline;
+    }
+    if (updateRoundDto.status !== undefined) {
+      round.status = updateRoundDto.status;
+    }
+
+    const savedRound = await this.roundsRepository.save(round);
+
+    return {
+      success: true,
+      message: 'Round updated successfully',
+      data: savedRound,
+    };
+  }
+
+  async deleteRound(contestId: number, roundId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const round = await this.roundsRepository.findOne({
+      where: { roundId, contestId },
+    });
+
+    if (!round) {
+      throw new NotFoundException(
+        `Round with ID ${roundId} not found in contest ${contestId}`,
+      );
+    }
+
+    await this.roundsRepository.remove(round);
+
+    return {
+      success: true,
+      message: 'Round deleted successfully',
+      data: {
+        roundId,
+        contestId,
+      },
+    };
+  }
+
+  async getAllSubmissions(
+    contestId?: number,
+    roundId?: number,
+    status?: string,
+  ) {
+    const queryBuilder =
+      this.paintingsRepository.createQueryBuilder('painting');
+
+    if (contestId) {
+      queryBuilder.where('painting.contest_id = :contestId', { contestId });
+    }
+
+    if (roundId) {
+      queryBuilder.andWhere('painting.round_id = :roundId', { roundId });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('painting.status = :status', { status });
+    }
+
+    queryBuilder.orderBy('painting.submission_date', 'DESC');
+
+    const paintings = await queryBuilder.getMany();
+
+    return {
+      success: true,
+      data: paintings,
+      meta: {
+        total: paintings.length,
+        contestId,
+        roundId,
+        status,
+      },
+    };
+  }
+
+  async getSubmission(paintingId: string) {
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Submission with ID ${paintingId} not found`);
+    }
+
+    return {
+      success: true,
+      data: painting,
+    };
+  }
+
+  async reviewSubmission(paintingId: string, reviewDto: ReviewSubmissionDto) {
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Submission with ID ${paintingId} not found`);
+    }
+
+    if (reviewDto.status === 'REJECTED' && !reviewDto.reason) {
+      throw new BadRequestException(
+        'Reason is required when rejecting a submission',
+      );
+    }
+    painting.status = reviewDto.status;
+
+    const updatedPainting = await this.paintingsRepository.save(painting);
+
+    return {
+      success: true,
+      message: `Submission ${reviewDto.status.toLowerCase()} successfully`,
+      data: {
+        ...updatedPainting,
+        rejectionReason: reviewDto.reason,
+      },
+    };
+  }
+
+  async acceptSubmission(paintingId: string) {
+    return this.reviewSubmission(paintingId, { status: 'ACCEPTED' });
+  }
+
+  async rejectSubmission(paintingId: string, reason: string) {
+    if (!reason) {
+      throw new BadRequestException(
+        'Reason is required when rejecting a submission',
+      );
+    }
+    return this.reviewSubmission(paintingId, { status: 'REJECTED', reason });
+  }
+
+  async getPendingSubmissions(contestId?: number, roundId?: number) {
+    return this.getAllSubmissions(contestId, roundId, 'PENDING');
+  }
+}

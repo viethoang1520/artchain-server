@@ -1,17 +1,50 @@
-import { BadRequestException, Body, Controller, NotFoundException, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { PaintingsService } from './paintings.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FirebaseService } from '../firebase/firebase.service';
 import { memoryStorage } from 'multer';
 import { UploadPaintingDto } from './dto/upload-painting.dto';
-import { ApiBody, ApiConsumes, ApiOperation, ApiProperty } from '@nestjs/swagger';
+import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 @Controller('api/paintings')
+@ApiTags('Paintings')
 export class PaintingsController {
   constructor(
     private readonly paintingsService: PaintingsService,
-    private readonly firebaseService: FirebaseService,
-  ) { }
+  ) {}
+
+  @Get('')
+  @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi' })
+    @ApiQuery({
+    name: 'contestId',
+    description: 'ID của cuộc thi',
+    example: 1,
+  })
+  async getPaintingsByContestId(@Query('contestId') contestId: number) {
+    try {
+      return await this.paintingsService.getPaintingsByContestId(contestId);
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to get paintings');
+    }
+  }
 
   @Post('upload')
   @ApiOperation({ summary: 'Upload tranh vẽ với thông tin' })
@@ -55,11 +88,28 @@ export class PaintingsController {
     },
   })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body('data') data: UploadPaintingDto) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() data: UploadPaintingDto) {
     try {
       return this.paintingsService.uploadFile(file, data);
     } catch (error) {
       throw new BadRequestException(error.message || 'File upload failed');
     }
+  }
+
+  @Post('evaluate')
+  @ApiOperation({ summary: 'Đánh giá tranh' })
+  @ApiBody({ type: EvaluatePaintingDto })
+  async evaluatePainting(@Body() evaluateDto: EvaluatePaintingDto) {
+    return this.paintingsService.evaluatePainting(evaluateDto);
+  }
+
+  @Get(':paintingId/evaluations')
+  @ApiOperation({ summary: 'Lấy tất cả các đánh giá của một tranh' })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'ID của tranh cần xem đánh giá',
+  })
+  async getPaintingEvaluations(@Param('paintingId') paintingId: string) {
+    return this.paintingsService.getPaintingEvaluations(paintingId);
   }
 }

@@ -2,14 +2,13 @@ import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Contest } from './contests.entity';
 import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
 
-
 @Entity('contest_examiners')
 export class ContestExaminer {
   @PrimaryColumn({ name: 'contest_id' })
   contestId: number;
 
   @PrimaryColumn({ name: 'examiner_id' })
-  examinerId: number;
+  examinerId: string;
 
   @Column({ name: 'assignment_date', nullable: true })
   assignmentDate: Date;
