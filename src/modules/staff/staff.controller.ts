@@ -12,6 +12,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { StaffService } from './staff.service';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
@@ -20,6 +21,8 @@ import { UpdateRoundDto } from '../contests/dto/update-round.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('Staff Management')
+@ApiBearerAuth()
 @Controller('api/staff/contests')
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
