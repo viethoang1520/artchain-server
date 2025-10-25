@@ -19,6 +19,6 @@ export class Competitor {
   grade: string;
 
   @Column({ name: 'guardian_id', nullable: true })
-  guardianId: number;
+  guardianId: string;
 
 }

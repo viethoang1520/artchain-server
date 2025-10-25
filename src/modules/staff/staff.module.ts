@@ -8,6 +8,7 @@ import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { AuthModule } from '../auth/auth.module';
+import { PostsModule } from '../posts/posts.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuthModule } from '../auth/auth.module';
       Painting,
     ]),
     AuthModule,
+    PostsModule,
   ],
   controllers: [StaffController],
   providers: [StaffService],
