@@ -13,6 +13,7 @@ import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
+import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 
 @Injectable()
 export class StaffService {
@@ -134,15 +135,60 @@ export class StaffService {
     };
   }
 
-  async getAllContests() {
-    const contests = await this.contestsRepository.find({
-      order: { contestId: 'DESC' },
-    });
+  async getAllContests(queryDto: GetAllContestsDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      startDateFrom,
+      startDateTo,
+      endDateFrom,
+      endDateTo,
+    } = queryDto;
+
+    const queryBuilder = this.contestsRepository.createQueryBuilder('contest');
+    if (search) {
+      queryBuilder.andWhere('contest.title LIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('contest.status = :status', { status });
+    }
+
+    if (startDateFrom) {
+      queryBuilder.andWhere('contest.start_date >= :startDateFrom', {
+        startDateFrom,
+      });
+    }
+    if (startDateTo) {
+      queryBuilder.andWhere('contest.start_date <= :startDateTo', {
+        startDateTo,
+      });
+    }
+    if (endDateFrom) {
+      queryBuilder.andWhere('contest.end_date >= :endDateFrom', {
+        endDateFrom,
+      });
+    }
+    if (endDateTo) {
+      queryBuilder.andWhere('contest.end_date <= :endDateTo', { endDateTo });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    const skip = (page - 1) * limit;
+    queryBuilder.orderBy('contest.contestId', 'DESC').skip(skip).take(limit);
+
+    const contests = await queryBuilder.getMany();
 
     const contestsWithRounds = await Promise.all(
       contests.map(async (contest) => {
         const rounds = await this.roundsRepository.find({
           where: { contestId: contest.contestId },
+          order: { roundId: 'ASC' },
         });
         return {
           ...contest,
@@ -151,11 +197,18 @@ export class StaffService {
       }),
     );
 
+    const totalPages = Math.ceil(total / limit);
+
     return {
       success: true,
       data: contestsWithRounds,
       meta: {
-        total: contestsWithRounds.length,
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
       },
     };
   }

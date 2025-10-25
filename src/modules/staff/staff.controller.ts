@@ -19,6 +19,7 @@ import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
+import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Staff Management')
@@ -55,8 +56,8 @@ export class StaffController {
 
   @Get()
   @UseGuards(AuthGuard)
-  getAllContests(@Request() req: any) {
-    return this.staffService.getAllContests();
+  getAllContests(@Query() queryDto: GetAllContestsDto, @Request() req: any) {
+    return this.staffService.getAllContests(queryDto);
   }
 
   @Get(':id')
