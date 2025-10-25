@@ -20,6 +20,9 @@ import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
+import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto';
+import { GetAllSubmissionsDto } from '../paintings/dto/get-all-submissions.dto';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Staff Management')
@@ -60,81 +63,29 @@ export class StaffController {
     return this.staffService.getAllContests(queryDto);
   }
 
-  @Get(':id')
-  @UseGuards(AuthGuard)
-  getContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
-    return this.staffService.getContest(id);
-  }
-
-  @Post(':contestId/rounds')
-  @UseGuards(AuthGuard)
-  createRound(
-    @Param('contestId', ParseIntPipe) contestId: number,
-    @Body() createRoundDto: CreateRoundDto,
-    @Request() req: any,
-  ) {
-    return this.staffService.createRound(contestId, createRoundDto);
-  }
-
-  @Get(':contestId/rounds')
-  @UseGuards(AuthGuard)
-  getRoundsByContest(
-    @Param('contestId', ParseIntPipe) contestId: number,
-    @Request() req: any,
-  ) {
-    return this.staffService.getRoundsByContest(contestId);
-  }
-
-  @Get(':contestId/rounds/:roundId')
-  @UseGuards(AuthGuard)
-  getRound(
-    @Param('contestId', ParseIntPipe) contestId: number,
-    @Param('roundId', ParseIntPipe) roundId: number,
-    @Request() req: any,
-  ) {
-    return this.staffService.getRound(contestId, roundId);
-  }
-
-  @Patch(':contestId/rounds/:roundId')
-  @UseGuards(AuthGuard)
-  updateRound(
-    @Param('contestId', ParseIntPipe) contestId: number,
-    @Param('roundId', ParseIntPipe) roundId: number,
-    @Body() updateRoundDto: UpdateRoundDto,
-    @Request() req: any,
-  ) {
-    return this.staffService.updateRound(contestId, roundId, updateRoundDto);
-  }
-
-  @Delete(':contestId/rounds/:roundId')
-  @UseGuards(AuthGuard)
-  deleteRound(
-    @Param('contestId', ParseIntPipe) contestId: number,
-    @Param('roundId', ParseIntPipe) roundId: number,
-    @Request() req: any,
-  ) {
-    return this.staffService.deleteRound(contestId, roundId);
-  }
-
   @Get('submissions')
   @UseGuards(AuthGuard)
   getAllSubmissions(
-    @Query('contestId', ParseIntPipe) contestId?: number,
-    @Query('roundId', ParseIntPipe) roundId?: number,
-    @Query('status') status?: string,
+    @Query() queryDto: GetAllSubmissionsDto,
     @Request() req?: any,
   ) {
-    return this.staffService.getAllSubmissions(contestId, roundId, status);
+    return this.staffService.getAllSubmissions(queryDto);
   }
 
   @Get('submissions/pending')
   @UseGuards(AuthGuard)
   getPendingSubmissions(
-    @Query('contestId', ParseIntPipe) contestId?: number,
-    @Query('roundId', ParseIntPipe) roundId?: number,
+    @Query('contestId') contestId?: number,
+    @Query('roundId') roundId?: number,
     @Request() req?: any,
   ) {
-    return this.staffService.getPendingSubmissions(contestId, roundId);
+    // Convert string to number if provided
+    const parsedContestId = contestId ? Number(contestId) : undefined;
+    const parsedRoundId = roundId ? Number(roundId) : undefined;
+    return this.staffService.getPendingSubmissions(
+      parsedContestId,
+      parsedRoundId,
+    );
   }
 
   @Get('submissions/:paintingId')
@@ -170,5 +121,62 @@ export class StaffController {
     @Request() req: any,
   ) {
     return this.staffService.rejectSubmission(paintingId, reason);
+  }
+
+  @Get(':id')
+  @UseGuards(AuthGuard)
+  getContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.staffService.getContest(id);
+  }
+
+  @Post(':contestId/rounds')
+  @UseGuards(AuthGuard)
+  createRound(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Body() createRoundDto: CreateRoundDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.createRound(contestId, createRoundDto);
+  }
+
+  @Get(':contestId/rounds')
+  @UseGuards(AuthGuard)
+  getRoundsByContest(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Query() queryDto: PaginationDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.getRoundsByContest(contestId, queryDto);
+  }
+
+  @Get(':contestId/rounds/:roundId')
+  @UseGuards(AuthGuard)
+  getRound(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Param('roundId', ParseIntPipe) roundId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.getRound(contestId, roundId);
+  }
+
+  @Patch(':contestId/rounds/:roundId')
+  @UseGuards(AuthGuard)
+  updateRound(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Param('roundId', ParseIntPipe) roundId: number,
+    @Body() updateRoundDto: UpdateRoundDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.updateRound(contestId, roundId, updateRoundDto);
+  }
+
+  @Delete(':contestId/rounds/:roundId')
+  @UseGuards(AuthGuard)
+  deleteRound(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Param('roundId', ParseIntPipe) roundId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.deleteRound(contestId, roundId);
   }
 }
