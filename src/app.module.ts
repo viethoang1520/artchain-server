@@ -11,6 +11,7 @@ import { PaintingsModule } from './modules/paintings/paintings.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { GuardiansModule } from './modules/guardians/guardians.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PostsModule } from './modules/posts/posts.module';
     AdminModule,
     StaffModule,
     PostsModule,
+    GuardiansModule,
   ],
   controllers: [AppController],
   providers: [AppService],

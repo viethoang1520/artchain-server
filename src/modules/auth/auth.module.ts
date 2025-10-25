@@ -28,6 +28,6 @@ import { Examiner } from '../examiners/entities/examiners.entity';
   ],
   controllers: [AuthController],
   providers: [AuthService],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}
