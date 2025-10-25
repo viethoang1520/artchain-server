@@ -50,6 +50,49 @@ export class AdminService {
     };
   }
 
+  async getAllAccounts(paginationDto: PaginationDto, role?: string): Promise<PaginatedResponse<User>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build where condition
+    const whereCondition: any = {};
+    if (role) {
+      whereCondition.role = role as UserRole;
+    }
+
+    const [accounts, total] = await this.usersRepository.findAndCount({
+      where: whereCondition,
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+      select: {
+        userId: true,
+        username: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        positionLevel: true,
+      },
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: accounts,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
 
   async banUser(id: string): Promise<{ success: boolean; message: string; data: { userId: string; status: number } }> {
     const user = await this.usersRepository.findOne({
