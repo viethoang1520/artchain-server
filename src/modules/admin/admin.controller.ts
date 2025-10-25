@@ -8,10 +8,10 @@ import { PaginationDto } from './dto/pagination.dto';
 export class AdminController {
   constructor(private readonly adminService: AdminService) { }
 
-  @Get('competitors')
+  @Get('accounts')
   @ApiOperation({
-    summary: 'Get all competitors with pagination',
-    description: 'Retrieve a paginated list of all users with COMPETITOR role'
+    summary: 'Get all accounts with pagination and role filtering',
+    description: 'Retrieve a paginated list of all users with optional role filtering'
   })
   @ApiQuery({
     name: 'page',
@@ -27,9 +27,17 @@ export class AdminController {
     description: 'Number of items per page (default: 10)',
     example: 10
   })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    type: String,
+    description: 'Filter by user role',
+    example: 'COMPETITOR',
+    enum: ['COMPETITOR', 'EXAMINER', 'ADMIN', 'GUARDIAN', 'STAFF']
+  })
   @ApiResponse({
     status: 200,
-    description: 'Successfully retrieved competitors with pagination metadata',
+    description: 'Successfully retrieved accounts with pagination metadata',
     schema: {
       type: 'object',
       properties: {
@@ -43,7 +51,7 @@ export class AdminController {
               fullName: { type: 'string' },
               email: { type: 'string', format: 'email' },
               phone: { type: 'string' },
-              role: { type: 'string', enum: ['COMPETITOR'] },
+              role: { type: 'string', enum: ['COMPETITOR', 'EXAMINER', 'ADMIN', 'GUARDIAN', 'STAFF'] },
               status: { type: 'number' },
               createdAt: { type: 'string', format: 'date-time' },
               positionLevel: { type: 'string' }
@@ -68,11 +76,11 @@ export class AdminController {
     status: 500,
     description: 'Internal server error'
   })
-  findAllCompetitors(@Query() paginationDto: PaginationDto) {
+  getAllAccounts(@Query() paginationDto: PaginationDto, @Query('role') role?: string) {
     try {
-      return this.adminService.findAllCompetitors(paginationDto);
+      return this.adminService.getAllAccounts(paginationDto, role);
     } catch (error) {
-      throw new Error(`Failed to retrieve competitors: ${error.message}`);
+      throw new Error(`Failed to retrieve accounts: ${error.message}`);
     }
   }
 
