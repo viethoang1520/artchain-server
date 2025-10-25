@@ -23,6 +23,25 @@ export class PostsService {
     private readonly postTagsRepository: Repository<PostTag>,
   ) {}
 
+
+  private sanitizePost(post: Post | null): Post | null {
+    if (post?.creator) {
+      const { password, ...creatorWithoutPassword } = post.creator;
+      post.creator = creatorWithoutPassword as any;
+    }
+    return post;
+  }
+
+  private sanitizePosts(posts: Post[]): Post[] {
+    return posts.map((post) => {
+      if (post.creator) {
+        const { password, ...creatorWithoutPassword } = post.creator;
+        post.creator = creatorWithoutPassword as any;
+      }
+      return post;
+    });
+  }
+
   async createPost(createPostDto: CreatePostDto) {
     const { tag_ids, ...postData } = createPostDto;
 
@@ -41,7 +60,7 @@ export class PostsService {
     return {
       success: true,
       message: 'Post created successfully',
-      data: result,
+      data: this.sanitizePost(result),
     };
   }
 
@@ -82,7 +101,7 @@ export class PostsService {
 
     return {
       success: true,
-      data: posts,
+      data: this.sanitizePosts(posts),
       meta: {
         total,
         page,
@@ -106,7 +125,7 @@ export class PostsService {
 
     return {
       success: true,
-      data: post,
+      data: this.sanitizePost(post),
     };
   }
 
@@ -139,7 +158,7 @@ export class PostsService {
     return {
       success: true,
       message: 'Post updated successfully',
-      data: result,
+      data: this.sanitizePost(result),
     };
   }
 
@@ -171,7 +190,7 @@ export class PostsService {
     }
 
     post.status = PostStatus.DRAFT;
-    await this.postsRepository.save(post);
+    await this.postsRepository.update(id, { status: PostStatus.DRAFT });
 
     const result = await this.postsRepository.findOne({
       where: { post_id: id },
@@ -181,7 +200,7 @@ export class PostsService {
     return {
       success: true,
       message: 'Post restored successfully',
-      data: result,
+      data: this.sanitizePost(result),
     };
   }
 
