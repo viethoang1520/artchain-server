@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { GuardiansService } from './guardians.service';
 import { RegisterDTO } from '../auth/dto/register.dto';
@@ -8,10 +8,10 @@ import { RegisterDTO } from '../auth/dto/register.dto';
 export class GuardiansController {
   constructor(private readonly guardiansService: GuardiansService) { }
 
-  @Post()
+  @Post("assign-competitors")
   @ApiOperation({
-    summary: 'Register students and assign to guardian',
-    description: 'Register multiple new students and assign them to a specific guardian. This creates user accounts for students and links them to the guardian.'
+    summary: 'Register competitors and assign to guardian',
+    description: 'Register multiple new competitors and assign them to a specific guardian. This creates user accounts for competitors and links them to the guardian.'
   })
   @ApiBody({
     description: 'Student registration data and guardian assignment',
@@ -27,10 +27,13 @@ export class GuardiansController {
               password: { type: 'string', example: 'password123' },
               fullName: { type: 'string', example: 'John Doe' },
               email: { type: 'string', format: 'email', example: 'student@example.com' },
-              phone: { type: 'string', example: '+1234567890' },
-              role: { type: 'string', enum: ['COMPETITOR'], example: 'COMPETITOR' }
+              role: { type: 'string', enum: ['COMPETITOR'], example: 'COMPETITOR' },
+              birthday: { type: 'string', format: 'date', example: '2010-05-15' },
+              schoolName: { type: 'string', example: 'ABC Elementary School' },
+              ward: { type: 'string', example: 'Ward 1' },
+              grade: { type: 'string', example: 'Grade 5' }
             },
-            required: ['username', 'password', 'fullName', 'email', 'role']
+            required: ['username', 'password', 'fullName', 'email', 'role', 'birthday', 'schoolName', 'ward', 'grade']
           },
           description: 'Array of student registration data (RegisterDTO objects)',
           minItems: 1
@@ -79,6 +82,80 @@ export class GuardiansController {
 
     } catch (error) {
       throw new BadRequestException(error.message);
+    }
+  }
+
+
+  @Get('competitors/:guardianId')
+  @ApiOperation({
+    summary: 'Get all competitors assigned to a guardian',
+    description: 'Retrieve a list of all competitors who are assigned to a specific guardian.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved competitors assigned to the guardian',
+    schema: {
+      type: 'object',
+      properties: {
+        success: {
+          type: 'boolean',
+          example: true
+        },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              competitorId: {
+                type: 'string',
+                description: 'Competitor ID (same as user ID)',
+                example: 'uuid-competitor-id-here'
+              },
+              birthday: {
+                type: 'string',
+                format: 'date',
+                description: 'Competitor birthday',
+                example: '2010-05-15'
+              },
+              schoolName: {
+                type: 'string',
+                description: 'Name of the school',
+                example: 'ABC Elementary School'
+              },
+              ward: {
+                type: 'string',
+                description: 'Ward/district information',
+                example: 'Ward 1'
+              },
+              grade: {
+                type: 'string',
+                description: 'Competitor grade level',
+                example: 'Grade 5'
+              },
+              guardianId: {
+                type: 'string',
+                description: 'Guardian ID assigned to this competitor',
+                example: 'uuid-guardian-id-here'
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not found - Guardian ID not found'
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error'
+  })
+  getStudentsByGuardian(@Param('guardianId') guardianId: string) {
+    try {
+      return this.guardiansService.getStudentsByGuardian(guardianId);
+    } catch (error) {
+      throw new NotFoundException('Guardian not found');
     }
   }
 }

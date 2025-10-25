@@ -25,4 +25,15 @@ export class GuardiansService {
       message: 'Students assigned to guardian successfully'
     };
   }
+
+
+  async getStudentsByGuardian(guardianId: string) {
+    const students = await this.competitorRepository.find({
+      where: { guardianId: guardianId },
+    });
+    return {
+      success: true,
+      data: students
+    };
+  }
 }
