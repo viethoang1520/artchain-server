@@ -10,6 +10,7 @@ import { ContestsModule } from './modules/contests/contests.module';
 import { PaintingsModule } from './modules/paintings/paintings.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { StaffModule } from './modules/staff/staff.module';
+import { PostsModule } from './modules/posts/posts.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { GuardiansModule } from './modules/guardians/guardians.module';
     PaintingsModule,
     AdminModule,
     StaffModule,
+    PostsModule,
     GuardiansModule,
   ],
   controllers: [AppController],

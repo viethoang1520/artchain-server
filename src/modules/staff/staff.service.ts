@@ -13,6 +13,10 @@ import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
+import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto';
+import { GetAllSubmissionsDto } from '../paintings/dto/get-all-submissions.dto';
+import { PaginationDto } from '../../common/dto/pagination.dto';
+import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 
 @Injectable()
 export class StaffService {
@@ -134,15 +138,60 @@ export class StaffService {
     };
   }
 
-  async getAllContests() {
-    const contests = await this.contestsRepository.find({
-      order: { contestId: 'DESC' },
-    });
+  async getAllContests(queryDto: GetAllContestsDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      startDateFrom,
+      startDateTo,
+      endDateFrom,
+      endDateTo,
+    } = queryDto;
+
+    const queryBuilder = this.contestsRepository.createQueryBuilder('contest');
+    if (search) {
+      queryBuilder.andWhere('contest.title LIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('contest.status = :status', { status });
+    }
+
+    if (startDateFrom) {
+      queryBuilder.andWhere('contest.start_date >= :startDateFrom', {
+        startDateFrom,
+      });
+    }
+    if (startDateTo) {
+      queryBuilder.andWhere('contest.start_date <= :startDateTo', {
+        startDateTo,
+      });
+    }
+    if (endDateFrom) {
+      queryBuilder.andWhere('contest.end_date >= :endDateFrom', {
+        endDateFrom,
+      });
+    }
+    if (endDateTo) {
+      queryBuilder.andWhere('contest.end_date <= :endDateTo', { endDateTo });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    const skip = (page - 1) * limit;
+    queryBuilder.orderBy('contest.contestId', 'DESC').skip(skip).take(limit);
+
+    const contests = await queryBuilder.getMany();
 
     const contestsWithRounds = await Promise.all(
       contests.map(async (contest) => {
         const rounds = await this.roundsRepository.find({
           where: { contestId: contest.contestId },
+          order: { roundId: 'ASC' },
         });
         return {
           ...contest,
@@ -151,11 +200,18 @@ export class StaffService {
       }),
     );
 
+    const totalPages = Math.ceil(total / limit);
+
     return {
       success: true,
       data: contestsWithRounds,
       meta: {
-        total: contestsWithRounds.length,
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
       },
     };
   }
@@ -212,7 +268,7 @@ export class StaffService {
     };
   }
 
-  async getRoundsByContest(contestId: number) {
+  async getRoundsByContest(contestId: number, queryDto: PaginationDto) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
     });
@@ -221,17 +277,31 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const rounds = await this.roundsRepository.find({
+    const { page = 1, limit = 10 } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const [rounds, total] = await this.roundsRepository.findAndCount({
       where: { contestId },
       order: { roundId: 'ASC' },
+      skip,
+      take: limit,
     });
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPreviousPage = page > 1;
 
     return {
       success: true,
       data: rounds,
       meta: {
         contestId,
-        total: rounds.length,
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage,
+        hasPreviousPage,
       },
     };
   }
@@ -349,11 +419,10 @@ export class StaffService {
     };
   }
 
-  async getAllSubmissions(
-    contestId?: number,
-    roundId?: number,
-    status?: string,
-  ) {
+  async getAllSubmissions(queryDto: GetAllSubmissionsDto) {
+    const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
+    const skip = (page - 1) * limit;
+
     const queryBuilder =
       this.paintingsRepository.createQueryBuilder('painting');
 
@@ -369,15 +438,27 @@ export class StaffService {
       queryBuilder.andWhere('painting.status = :status', { status });
     }
 
-    queryBuilder.orderBy('painting.submission_date', 'DESC');
+    queryBuilder
+      .orderBy('painting.submission_date', 'DESC')
+      .skip(skip)
+      .take(limit);
 
-    const paintings = await queryBuilder.getMany();
+    const [paintings, total] = await queryBuilder.getManyAndCount();
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPreviousPage = page > 1;
 
     return {
       success: true,
       data: paintings,
       meta: {
-        total: paintings.length,
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage,
+        hasPreviousPage,
         contestId,
         roundId,
         status,
@@ -442,6 +523,10 @@ export class StaffService {
   }
 
   async getPendingSubmissions(contestId?: number, roundId?: number) {
-    return this.getAllSubmissions(contestId, roundId, 'PENDING');
+    const queryDto = new GetAllSubmissionsDto();
+    queryDto.contestId = contestId;
+    queryDto.roundId = roundId;
+    queryDto.status = 'PENDING';
+    return this.getAllSubmissions(queryDto);
   }
 }
