@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -45,7 +45,7 @@ export class PaintingsService {
       },
     });
     if (existingSubmission) {
-      throw new NotFoundException('You have already submitted a painting for this round and contest.');
+      throw new BadRequestException('You have already submitted a painting for this round and contest.');
     }
     const bucket = this.firebaseService.getStorage().bucket();
     const fileName = `uploads/${Date.now()}-${file.originalname}`;

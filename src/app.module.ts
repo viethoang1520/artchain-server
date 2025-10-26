@@ -9,7 +9,7 @@ import { ProfileModule } from './modules/profiles/profiles.module';
 import { ContestsModule } from './modules/contests/contests.module';
 import { PaintingsModule } from './modules/paintings/paintings.module';
 import { AdminModule } from './modules/admin/admin.module';
-import { StaffModule } from './modules/staff/staff.module';
+import { StaffModule } from './modules/staffs/staffs.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
 

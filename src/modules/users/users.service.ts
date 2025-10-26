@@ -5,12 +5,11 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user.entity';
-import { CompetitorProfileDto, GuardianProfileDto } from './dto/profile.dto';
+import { CompetitorProfileDto, ProfileDto } from './dto/profile.dto';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Contest } from '../contests/entities/contests.entity';
-import { isArray } from 'class-validator';
 
 @Injectable()
 export class UsersService {
@@ -106,8 +105,9 @@ export class UsersService {
         role: user.role,
       };
       return examinerProfile;
-    } else if (userRole === UserRole.GUARDIAN) {
-      const guardianProfile: GuardianProfileDto = {
+    } else if (userRole === UserRole.GUARDIAN || userRole === UserRole.STAFF || userRole === UserRole.ADMIN) {
+      const guardianProfile: ProfileDto = {
+        userId: user.userId,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
