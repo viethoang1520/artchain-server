@@ -32,14 +32,14 @@ import { CreateTagDto } from '../posts/dto/create-tag.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
-@Controller('api/staff/contests')
+@Controller('api/staff')
 export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) {}
+  ) { }
 
-  @Post()
+  @Post('contests')
   @UseGuards(AuthGuard)
   createContest(
     @Body() createContestDto: CreateContestDto,
@@ -49,7 +49,7 @@ export class StaffController {
     return this.staffService.createContest({ ...createContestDto, createdBy });
   }
 
-  @Put(':id')
+  @Put('contests/:id')
   @UseGuards(AuthGuard)
   updateContest(
     @Param('id', ParseIntPipe) id: number,
@@ -59,19 +59,19 @@ export class StaffController {
     return this.staffService.updateContest(id, updateContestDto);
   }
 
-  @Patch(':id/publish')
+  @Patch('contests/:id/publish')
   @UseGuards(AuthGuard)
   publishContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.staffService.publishContest(id);
   }
 
-  @Get()
+  @Get('contests')
   @UseGuards(AuthGuard)
   getAllContests(@Query() queryDto: GetAllContestsDto, @Request() req: any) {
     return this.staffService.getAllContests(queryDto);
   }
 
-  @Get('submissions')
+  @Get('contests/submissions')
   @UseGuards(AuthGuard)
   getAllSubmissions(
     @Query() queryDto: GetAllSubmissionsDto,
@@ -80,7 +80,7 @@ export class StaffController {
     return this.staffService.getAllSubmissions(queryDto);
   }
 
-  @Get('submissions/pending')
+  @Get('contests/submissions/pending')
   @UseGuards(AuthGuard)
   getPendingSubmissions(
     @Query('contestId') contestId?: number,
@@ -96,13 +96,13 @@ export class StaffController {
     );
   }
 
-  @Get('submissions/:paintingId')
+  @Get('contests/submissions/:paintingId')
   @UseGuards(AuthGuard)
   getSubmission(@Param('paintingId') paintingId: string, @Request() req: any) {
     return this.staffService.getSubmission(paintingId);
   }
 
-  @Patch('submissions/:paintingId/review')
+  @Patch('contests/submissions/:paintingId/review')
   @UseGuards(AuthGuard)
   reviewSubmission(
     @Param('paintingId') paintingId: string,
@@ -112,7 +112,7 @@ export class StaffController {
     return this.staffService.reviewSubmission(paintingId, reviewDto);
   }
 
-  @Patch('submissions/:paintingId/accept')
+  @Patch('contests/submissions/:paintingId/accept')
   @UseGuards(AuthGuard)
   acceptSubmission(
     @Param('paintingId') paintingId: string,
@@ -121,7 +121,7 @@ export class StaffController {
     return this.staffService.acceptSubmission(paintingId);
   }
 
-  @Patch('submissions/:paintingId/reject')
+  @Patch('contests/submissions/:paintingId/reject')
   @UseGuards(AuthGuard)
   rejectSubmission(
     @Param('paintingId') paintingId: string,
@@ -199,13 +199,13 @@ export class StaffController {
     return this.postsService.deleteTag(id);
   }
 
-  @Get(':id')
+  @Get('contests/:id')
   @UseGuards(AuthGuard)
   getContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.staffService.getContest(id);
   }
 
-  @Post(':contestId/rounds')
+  @Post('contests/:contestId/rounds')
   @UseGuards(AuthGuard)
   createRound(
     @Param('contestId', ParseIntPipe) contestId: number,
@@ -215,7 +215,7 @@ export class StaffController {
     return this.staffService.createRound(contestId, createRoundDto);
   }
 
-  @Get(':contestId/rounds')
+  @Get('contests/:contestId/rounds')
   @UseGuards(AuthGuard)
   getRoundsByContest(
     @Param('contestId', ParseIntPipe) contestId: number,
@@ -225,7 +225,7 @@ export class StaffController {
     return this.staffService.getRoundsByContest(contestId, queryDto);
   }
 
-  @Get(':contestId/rounds/:roundId')
+  @Get('contests/:contestId/rounds/:roundId')
   @UseGuards(AuthGuard)
   getRound(
     @Param('contestId', ParseIntPipe) contestId: number,
@@ -235,7 +235,7 @@ export class StaffController {
     return this.staffService.getRound(contestId, roundId);
   }
 
-  @Patch(':contestId/rounds/:roundId')
+  @Patch('contests/:contestId/rounds/:roundId')
   @UseGuards(AuthGuard)
   updateRound(
     @Param('contestId', ParseIntPipe) contestId: number,
@@ -246,7 +246,7 @@ export class StaffController {
     return this.staffService.updateRound(contestId, roundId, updateRoundDto);
   }
 
-  @Delete(':contestId/rounds/:roundId')
+  @Delete('contests/:contestId/rounds/:roundId')
   @UseGuards(AuthGuard)
   deleteRound(
     @Param('contestId', ParseIntPipe) contestId: number,
