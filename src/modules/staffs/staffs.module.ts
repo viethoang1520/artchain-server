@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { StaffService } from './staff.service';
-import { StaffController } from './staff.controller';
+import { StaffService } from './staffs.service';
+import { StaffController } from './staffs.controller';
 import { Contest } from '../contests/entities/contests.entity';
 import { Round } from '../contests/entities/round.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
@@ -26,4 +26,4 @@ import { PostsModule } from '../posts/posts.module';
   providers: [StaffService],
   exports: [StaffService],
 })
-export class StaffModule {}
+export class StaffModule { }
