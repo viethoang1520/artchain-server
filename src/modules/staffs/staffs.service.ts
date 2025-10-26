@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
 import { Round } from '../contests/entities/round.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
+import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { Examiner } from '../examiners/entities/examiners.entity';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
@@ -17,6 +19,7 @@ import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto
 import { GetAllSubmissionsDto } from '../paintings/dto/get-all-submissions.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
+import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 
 @Injectable()
 export class StaffService {
@@ -27,6 +30,10 @@ export class StaffService {
     private roundsRepository: Repository<Round>,
     @InjectRepository(Painting)
     private paintingsRepository: Repository<Painting>,
+    @InjectRepository(ContestExaminer)
+    private contestExaminersRepository: Repository<ContestExaminer>,
+    @InjectRepository(Examiner)
+    private examinersRepository: Repository<Examiner>,
   ) {}
 
   async createContest(createContestDto: CreateContestDto) {
@@ -528,5 +535,105 @@ export class StaffService {
     queryDto.roundId = roundId;
     queryDto.status = 'PENDING';
     return this.getAllSubmissions(queryDto);
+  }
+
+  async assignExaminerToContest(
+    contestId: number,
+    assignExaminerDto: AssignExaminerDto,
+  ) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const examiner = await this.examinersRepository.findOne({
+      where: { examinerId: assignExaminerDto.examiner_id },
+    });
+
+    if (!examiner) {
+      throw new NotFoundException(
+        `Examiner with ID ${assignExaminerDto.examiner_id} not found`,
+      );
+    }
+
+    const existingAssignment = await this.contestExaminersRepository.findOne({
+      where: {
+        contestId: contestId,
+        examinerId: assignExaminerDto.examiner_id,
+      },
+    });
+
+    if (existingAssignment) {
+      throw new BadRequestException(
+        `Examiner ${assignExaminerDto.examiner_id} is already assigned to contest ${contestId}`,
+      );
+    }
+
+    const contestExaminer = this.contestExaminersRepository.create({
+      contestId: contestId,
+      examinerId: assignExaminerDto.examiner_id,
+      role: assignExaminerDto.role || 'EXAMINER',
+      status: assignExaminerDto.status || 'ACTIVE',
+      assignmentDate: new Date(),
+    });
+
+    const savedAssignment =
+      await this.contestExaminersRepository.save(contestExaminer);
+
+    const result = await this.contestExaminersRepository.findOne({
+      where: {
+        contestId: savedAssignment.contestId,
+        examinerId: savedAssignment.examinerId,
+      },
+      relations: ['contest', 'examiner'],
+    });
+
+    return {
+      success: true,
+      message: 'Examiner assigned to contest successfully',
+      data: result,
+    };
+  }
+
+  async getExaminersByContest(contestId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const examiners = await this.contestExaminersRepository.find({
+      where: { contestId },
+      relations: ['examiner'],
+    });
+
+    return {
+      success: true,
+      data: examiners,
+    };
+  }
+
+  async removeExaminerFromContest(contestId: number, examinerId: string) {
+    const assignment = await this.contestExaminersRepository.findOne({
+      where: { contestId, examinerId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException(
+        `Assignment not found for contest ${contestId} and examiner ${examinerId}`,
+      );
+    }
+
+    await this.contestExaminersRepository.remove(assignment);
+
+    return {
+      success: true,
+      message: 'Examiner removed from contest successfully',
+    };
   }
 }

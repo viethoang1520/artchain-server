@@ -29,6 +29,7 @@ import { CreatePostDto } from '../posts/dto/create-post.dto';
 import { UpdatePostDto } from '../posts/dto/update-post.dto';
 import { GetAllPostsDto } from '../posts/dto/get-all-posts.dto';
 import { CreateTagDto } from '../posts/dto/create-tag.dto';
+import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -37,7 +38,7 @@ export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) { }
+  ) {}
 
   @Post('contests')
   @UseGuards(AuthGuard)
@@ -254,5 +255,37 @@ export class StaffController {
     @Request() req: any,
   ) {
     return this.staffService.deleteRound(contestId, roundId);
+  }
+
+  @Post('contests/:contestId/examiners')
+  @UseGuards(AuthGuard)
+  assignExaminerToContest(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Body() assignExaminerDto: AssignExaminerDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.assignExaminerToContest(
+      contestId,
+      assignExaminerDto,
+    );
+  }
+
+  @Get('contests/:contestId/examiners')
+  @UseGuards(AuthGuard)
+  getExaminersByContest(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.getExaminersByContest(contestId);
+  }
+
+  @Delete('contests/:contestId/examiners/:examinerId')
+  @UseGuards(AuthGuard)
+  removeExaminerFromContest(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Param('examinerId') examinerId: string,
+    @Request() req: any,
+  ) {
+    return this.staffService.removeExaminerFromContest(contestId, examinerId);
   }
 }
