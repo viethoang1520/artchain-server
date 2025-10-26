@@ -33,7 +33,8 @@ export class ExaminerProfileDto {
 }
 
 
-export class GuardianProfileDto {
+export class ProfileDto {
+  userId: string;
   fullName: string;
   email: string;
   phone: string;
