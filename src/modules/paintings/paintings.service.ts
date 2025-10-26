@@ -6,6 +6,7 @@ import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { User } from '../users/entities/user.entity';
+import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 
 @Injectable()
 export class PaintingsService {
@@ -17,6 +18,8 @@ export class PaintingsService {
     private readonly evaluationRepository: Repository<Evaluation>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(ContestExaminer)
+    private readonly contestExaminerRepository: Repository<ContestExaminer>,
   ) {}
 
   async getPaintingsByContestId(contestId: number) {
@@ -85,6 +88,7 @@ export class PaintingsService {
   ): Promise<Evaluation> {
     const { paintingId, examinerId, score, feedback } = evaluateDto;
 
+    // Kiểm tra painting có tồn tại không
     const painting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
@@ -92,11 +96,28 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
+    // Kiểm tra examiner có được gán vào contest này không
+    const contestExaminer = await this.contestExaminerRepository.findOne({
+      where: {
+        contestId: painting.contestId,
+        examinerId: examinerId,
+        status: 'ACTIVE', // Chỉ cho phép examiner có status ACTIVE
+      },
+    });
+
+    if (!contestExaminer) {
+      throw new BadRequestException(
+        `Examiner ${examinerId} is not assigned to contest ${painting.contestId} or is not active`,
+      );
+    }
+
+    // Kiểm tra xem examiner đã chấm bức tranh này chưa
     const existingEvaluation = await this.evaluationRepository.findOne({
       where: { paintingId, examinerId },
     });
 
     if (existingEvaluation) {
+      // Cập nhật evaluation hiện tại
       existingEvaluation.score = score;
       existingEvaluation.feedback = feedback || '';
       existingEvaluation.evaluationDate = new Date();
