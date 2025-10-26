@@ -4,7 +4,7 @@ import { GuardiansService } from './guardians.service';
 import { RegisterDTO } from '../auth/dto/register.dto';
 
 @ApiTags('Guardians')
-@Controller('guardians')
+@Controller('api/guardians')
 export class GuardiansController {
   constructor(private readonly guardiansService: GuardiansService) { }
 
@@ -106,15 +106,49 @@ export class GuardiansController {
           items: {
             type: 'object',
             properties: {
-              competitorId: {
+              // User fields
+              userId: {
                 type: 'string',
-                description: 'Competitor ID (same as user ID)',
-                example: 'uuid-competitor-id-here'
+                description: 'User ID (same as competitor ID)',
+                example: 'uuid-user-id-here'
               },
+              username: {
+                type: 'string',
+                description: 'Username',
+                example: 'student123'
+              },
+              fullName: {
+                type: 'string',
+                description: 'Full name',
+                example: 'John Doe'
+              },
+              email: {
+                type: 'string',
+                format: 'email',
+                description: 'Email address',
+                example: 'student@example.com'
+              },
+              phone: {
+                type: 'string',
+                description: 'Phone number',
+                example: '+1234567890'
+              },
+              status: {
+                type: 'number',
+                description: 'User status (1=active, 0=inactive)',
+                example: 1
+              },
+              createdAt: {
+                type: 'string',
+                format: 'date-time',
+                description: 'Account creation date',
+                example: '2024-01-15T10:30:00Z'
+              },
+              // Competitor fields
               birthday: {
                 type: 'string',
                 format: 'date',
-                description: 'Competitor birthday',
+                description: 'Student birthday',
                 example: '2010-05-15'
               },
               schoolName: {
@@ -129,12 +163,12 @@ export class GuardiansController {
               },
               grade: {
                 type: 'string',
-                description: 'Competitor grade level',
+                description: 'Student grade level',
                 example: 'Grade 5'
               },
               guardianId: {
                 type: 'string',
-                description: 'Guardian ID assigned to this competitor',
+                description: 'Guardian ID assigned to this student',
                 example: 'uuid-guardian-id-here'
               }
             }
