@@ -11,6 +11,7 @@ import { PostTag } from './entities/post-tag.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { GetAllPostsDto } from './dto/get-all-posts.dto';
+import { GetPublicPostsDto } from './dto/get-public-posts.dto';
 
 @Injectable()
 export class PostsService {
@@ -22,7 +23,6 @@ export class PostsService {
     @InjectRepository(PostTag)
     private readonly postTagsRepository: Repository<PostTag>,
   ) {}
-
 
   private sanitizePost(post: Post | null): Post | null {
     if (post?.creator) {
@@ -92,6 +92,55 @@ export class PostsService {
     }
 
     queryBuilder.orderBy('post.created_at', 'DESC').skip(skip).take(limit);
+
+    const [posts, total] = await queryBuilder.getManyAndCount();
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPreviousPage = page > 1;
+
+    return {
+      success: true,
+      data: this.sanitizePosts(posts),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage,
+        hasPreviousPage,
+      },
+    };
+  }
+
+  async getPublicPosts(queryDto: GetPublicPostsDto) {
+    const { page = 1, limit = 10, search, tag_id, account_id } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.postsRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.postTags', 'postTags')
+      .leftJoinAndSelect('postTags.tag', 'tag')
+      .leftJoinAndSelect('post.creator', 'creator')
+      .where('post.status = :publishedStatus', {
+        publishedStatus: PostStatus.PUBLISHED,
+      });
+
+    if (search) {
+      queryBuilder.andWhere('post.title ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (tag_id) {
+      queryBuilder.andWhere('tag.tag_id = :tag_id', { tag_id });
+    }
+
+    if (account_id) {
+      queryBuilder.andWhere('post.account_id = :account_id', { account_id });
+    }
+
+    queryBuilder.orderBy('post.published_at', 'DESC').skip(skip).take(limit);
 
     const [posts, total] = await queryBuilder.getManyAndCount();
 
