@@ -12,6 +12,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { StaffModule } from './modules/staffs/staffs.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
+import { Sponsor } from './modules/sponsors/entities/sponsor.entity';
+import { SponsorsModule } from './modules/sponsors/sponsors.module';
 
 @Module({
   imports: [
@@ -26,8 +28,9 @@ import { GuardiansModule } from './modules/guardians/guardians.module';
     StaffModule,
     PostsModule,
     GuardiansModule,
+    SponsorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

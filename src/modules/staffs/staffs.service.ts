@@ -20,6 +20,9 @@ import { GetAllSubmissionsDto } from '../paintings/dto/get-all-submissions.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
+import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { Campaign } from '../campaigns/entities/campaign.entity';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class StaffService {
@@ -34,7 +37,11 @@ export class StaffService {
     private contestExaminersRepository: Repository<ContestExaminer>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
-  ) {}
+    @InjectRepository(Campaign)
+    private campaignsRepository: Repository<Campaign>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+  ) { }
 
   async createContest(createContestDto: CreateContestDto) {
     try {
@@ -636,4 +643,27 @@ export class StaffService {
       message: 'Examiner removed from contest successfully',
     };
   }
+
+  async createCampaign(data: { createCampaignDto: CreateCampaignDto, staffId: string }) {
+    const user = await this.usersRepository.findOne({
+      where: { userId: data.staffId },
+    });
+    const role = user?.role;
+    if (role !== 'STAFF' && role !== 'ADMIN') {
+      throw new BadRequestException(
+        'Only staff or admin users can create campaigns',
+      );
+    }
+    const campaign = this.campaignsRepository.create({
+      ...data.createCampaignDto,
+      staffId: data.staffId,
+    });
+    await this.campaignsRepository.save(campaign);
+    return {
+      success: true,
+      message: 'Campaign created successfully',
+      data: campaign,
+    };
+  }
+
 }

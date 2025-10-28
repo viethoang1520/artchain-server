@@ -30,6 +30,7 @@ import { UpdatePostDto } from '../posts/dto/update-post.dto';
 import { GetAllPostsDto } from '../posts/dto/get-all-posts.dto';
 import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
+import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -288,4 +289,17 @@ export class StaffController {
   ) {
     return this.staffService.removeExaminerFromContest(contestId, examinerId);
   }
+
+  @Post('campaign')
+  @UseGuards(AuthGuard)
+  createCampaign(
+    @Body() createCampaignDto: CreateCampaignDto,
+    @Request() req: any,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.createCampaign({ createCampaignDto, staffId});
+  }
+
+  
+
 }

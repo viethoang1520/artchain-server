@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user.entity';
@@ -26,13 +25,6 @@ export class UsersService {
     private contestsRepository: Repository<Contest>,
   ) { }
 
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
-  }
-
-  findAll() {
-    return `This action returns all users`;
-  }
 
   async submissions(userId: string) {
     const mySubmissions = await this.paintingsRepository.find({
@@ -151,9 +143,5 @@ export class UsersService {
         phone: user.phone,
       },
     };
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
   }
 }
