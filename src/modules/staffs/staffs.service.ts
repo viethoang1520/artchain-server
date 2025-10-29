@@ -642,10 +642,24 @@ export class StaffService {
       where: { contestId },
       relations: ['examiner'],
     });
+    
+    const examinersWithNames = await Promise.all(
+      examiners.map(async (ce) => {
+        const user = await this.usersRepository.findOne({
+          where: { userId: ce.examinerId },
+        });
+
+        return {
+          ...ce,
+          examinerName: user?.fullName || 'Unknown',
+          examinerEmail: user?.email || null,
+        };
+      }),
+    );
 
     return {
       success: true,
-      data: examiners,
+      data: examinersWithNames,
     };
   }
 
