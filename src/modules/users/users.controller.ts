@@ -1,9 +1,7 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
-  Patch,
   Param,
   Delete,
   Put,
@@ -11,7 +9,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -20,11 +17,6 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 @ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
-
-  @Get()
-  findAll() {
-    return this.usersService.findAll();
-  }
 
   @UseGuards(AuthGuard)
   @Get('me')
@@ -69,8 +61,4 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
-  }
 }

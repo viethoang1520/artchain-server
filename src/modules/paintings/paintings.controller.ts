@@ -23,6 +23,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 
 @Controller('api/paintings')
 @ApiTags('Paintings')
@@ -103,6 +104,13 @@ export class PaintingsController {
     return this.paintingsService.evaluatePainting(evaluateDto);
   }
 
+  @Post('evaluate/preliminary')
+  @ApiOperation({ summary: 'Đánh giá tranh vòng sơ khảo' })
+  @ApiBody({ type: PreliminaryEvaluationDto })
+  async evaluatePreliminary(@Body() evaluateDto: PreliminaryEvaluationDto) {
+    return this.paintingsService.evaluatePreliminary(evaluateDto);
+  }
+
   @Get(':paintingId/evaluations')
   @ApiOperation({ summary: 'Lấy tất cả các đánh giá của một tranh' })
   @ApiParam({
@@ -112,4 +120,6 @@ export class PaintingsController {
   async getPaintingEvaluations(@Param('paintingId') paintingId: string) {
     return this.paintingsService.getPaintingEvaluations(paintingId);
   }
+
+
 }

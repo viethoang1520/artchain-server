@@ -9,6 +9,8 @@ import { Examiner } from '../examiners/entities/examiners.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { AuthModule } from '../auth/auth.module';
 import { PostsModule } from '../posts/posts.module';
+import { Campaign } from '../campaigns/entities/campaign.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PostsModule } from '../posts/posts.module';
       ContestExaminer,
       Examiner,
       Painting,
+      Campaign,
+      User,
     ]),
     AuthModule,
     PostsModule,

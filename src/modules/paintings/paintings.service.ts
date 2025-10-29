@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
+import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 
@@ -20,7 +21,10 @@ export class PaintingsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(ContestExaminer)
     private readonly contestExaminerRepository: Repository<ContestExaminer>,
-  ) {}
+  ) { }
+
+
+
 
   async getPaintingsByContestId(contestId: number) {
     if (!contestId) {
@@ -136,6 +140,37 @@ export class PaintingsService {
     });
 
     return await this.evaluationRepository.save(newEvaluation);
+  }
+
+
+  async evaluatePreliminary(evaluateDto: PreliminaryEvaluationDto): Promise<any> {
+    const { paintingId, examinerId, isPassed } = evaluateDto;
+
+    // Kiểm tra painting có tồn tại không
+    const existingPainting = await this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+    if (!existingPainting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    const contestExaminer = await this.contestExaminerRepository.findOne({
+      where: {
+        contestId: existingPainting.contestId,
+        examinerId: examinerId,
+        status: 'ACTIVE', 
+      },
+    });
+
+    if (!contestExaminer) {
+      throw new BadRequestException(
+        `Examiner ${examinerId} is not assigned to contest ${existingPainting.contestId} or is not active`,
+      );
+    }
+    const painting = new Painting();
+    painting.paintingId = paintingId;
+    painting.isPassed = isPassed;
+    await this.paintingRepository.save(painting);
   }
 
   async getPaintingEvaluations(paintingId: string): Promise<any[]> {
