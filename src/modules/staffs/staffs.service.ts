@@ -642,7 +642,7 @@ export class StaffService {
       where: { contestId },
       relations: ['examiner'],
     });
-    
+
     const examinersWithNames = await Promise.all(
       examiners.map(async (ce) => {
         const user = await this.usersRepository.findOne({
@@ -858,8 +858,12 @@ export class StaffService {
       throw new NotFoundException(`Schedule with ID ${scheduleId} not found`);
     }
 
-    if (updateScheduleDto.date) {
+    // Only update date if it's provided and not empty
+    if (updateScheduleDto.date && updateScheduleDto.date.trim() !== '') {
       (updateScheduleDto as any).date = new Date(updateScheduleDto.date);
+    } else if (updateScheduleDto.date === '') {
+      // If empty string is sent, remove it from update
+      delete (updateScheduleDto as any).date;
     }
 
     Object.assign(schedule, updateScheduleDto);

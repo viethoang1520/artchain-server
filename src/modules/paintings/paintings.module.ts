@@ -7,11 +7,18 @@ import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { Round } from '../contests/entities/round.entity';
 
 @Module({
   imports: [
     FirebaseModule,
-    TypeOrmModule.forFeature([Painting, Evaluation, User, ContestExaminer]),
+    TypeOrmModule.forFeature([
+      Painting,
+      Evaluation,
+      User,
+      ContestExaminer,
+      Round,
+    ]),
   ],
   controllers: [PaintingsController],
   providers: [PaintingsService],

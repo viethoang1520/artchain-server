@@ -13,6 +13,7 @@ import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { Round } from '../contests/entities/round.entity';
 import {
   PreliminaryReviewDto,
   PaintingReviewItem,
@@ -30,11 +31,32 @@ export class PaintingsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(ContestExaminer)
     private readonly contestExaminerRepository: Repository<ContestExaminer>,
+    @InjectRepository(Round)
+    private readonly roundRepository: Repository<Round>,
   ) {}
 
-  async getPaintingsByContestId(contestId: number, roundId?: string) {
+  async getPaintingsByContestId(
+    contestId: number,
+    roundName?: string,
+    isPassed?: boolean,
+  ) {
     if (!contestId) {
       throw new NotFoundException('Contest ID is required');
+    }
+
+    // If roundName is provided, need to find roundId from rounds table
+    let roundId: string | undefined;
+    if (roundName) {
+      const round = await this.roundRepository.findOne({
+        where: {
+          contestId: contestId,
+          name: roundName,
+        },
+      });
+
+      if (round) {
+        roundId = String(round.roundId);
+      }
     }
 
     const whereCondition: any = { contestId };
@@ -43,18 +65,15 @@ export class PaintingsService {
       whereCondition.roundId = roundId;
     }
 
+    if (isPassed !== undefined) {
+      whereCondition.isPassed = isPassed;
+    }
+
     const paintings = await this.paintingRepository.find({
       where: whereCondition,
     });
 
-    if (!paintings || paintings.length === 0) {
-      const message = roundId
-        ? `No paintings found for contest ID ${contestId} and round ${roundId}`
-        : `No paintings found for contest ID ${contestId}`;
-      throw new NotFoundException(message);
-    }
-
-    return paintings;
+    return paintings || [];
   }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {

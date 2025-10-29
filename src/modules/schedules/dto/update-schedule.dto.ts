@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsDateString, IsInt } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+} from 'class-validator';
 
 export class UpdateScheduleDto {
   @ApiPropertyOptional({
@@ -16,6 +22,7 @@ export class UpdateScheduleDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   examinerId?: string;
 
   @ApiPropertyOptional({
@@ -24,6 +31,7 @@ export class UpdateScheduleDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   task?: string;
 
   @ApiPropertyOptional({
@@ -40,5 +48,6 @@ export class UpdateScheduleDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   status?: string;
 }
