@@ -31,6 +31,8 @@ import { GetAllPostsDto } from '../posts/dto/get-all-posts.dto';
 import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
+import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -297,9 +299,58 @@ export class StaffController {
     @Request() req: any,
   ) {
     const staffId = req.user.sub || req.user.userId;
-    return this.staffService.createCampaign({ createCampaignDto, staffId});
+    return this.staffService.createCampaign({ createCampaignDto, staffId });
   }
 
-  
+  @Get('examiners')
+  @UseGuards(AuthGuard)
+  getAllExaminers(@Request() req: any) {
+    return this.staffService.getAllExaminers();
+  }
 
+  @Post('schedules')
+  @UseGuards(AuthGuard)
+  createSchedule(
+    @Body() createScheduleDto: CreateScheduleDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.createSchedule(createScheduleDto);
+  }
+
+  @Get('schedules/examiner/:examinerId')
+  @UseGuards(AuthGuard)
+  getSchedulesByExaminer(
+    @Param('examinerId') examinerId: string,
+    @Request() req: any,
+  ) {
+    return this.staffService.getSchedulesByExaminer(examinerId);
+  }
+
+  @Get('schedules/contest/:contestId')
+  @UseGuards(AuthGuard)
+  getSchedulesByContest(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.getSchedulesByContest(contestId);
+  }
+
+  @Put('schedules/:scheduleId')
+  @UseGuards(AuthGuard)
+  updateSchedule(
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+    @Body() updateScheduleDto: UpdateScheduleDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.updateSchedule(scheduleId, updateScheduleDto);
+  }
+
+  @Delete('schedules/:scheduleId')
+  @UseGuards(AuthGuard)
+  deleteSchedule(
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.deleteSchedule(scheduleId);
+  }
 }
