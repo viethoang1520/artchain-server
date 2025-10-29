@@ -41,7 +41,7 @@ export class StaffService {
     private campaignsRepository: Repository<Campaign>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) { }
+  ) {}
 
   async createContest(createContestDto: CreateContestDto) {
     try {
@@ -243,11 +243,31 @@ export class StaffService {
       where: { contestId: id },
     });
 
+    const contestExaminers = await this.contestExaminersRepository.find({
+      where: { contestId: id },
+      relations: ['examiner'],
+    });
+
+    const examinersWithNames = await Promise.all(
+      contestExaminers.map(async (ce) => {
+        const user = await this.usersRepository.findOne({
+          where: { userId: ce.examinerId },
+        });
+
+        return {
+          ...ce,
+          examinerName: user?.fullName || 'Unknown',
+          examinerEmail: user?.email || null,
+        };
+      }),
+    );
+
     return {
       success: true,
       data: {
         ...contest,
         rounds,
+        examiners: examinersWithNames,
       },
     };
   }
@@ -664,5 +684,4 @@ export class StaffService {
       data: campaign,
     };
   }
-
 }
