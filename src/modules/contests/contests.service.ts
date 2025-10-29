@@ -8,6 +8,7 @@ import { GetContestDto } from './dto/get-contest.dto';
 import { Round } from './entities/round.entity';
 import { ContestExaminer } from './entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class ContestsService {
@@ -20,6 +21,8 @@ export class ContestsService {
     private contestExaminerRepository: Repository<ContestExaminer>,
     @InjectRepository(Examiner)
     private examinerRepository: Repository<Examiner>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   async findAll(query: GetContestDto) {
@@ -41,21 +44,36 @@ export class ContestsService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
-    // Get all rounds for this contest
     const rounds = await this.roundsRepository.find({
       where: { contestId: id },
     });
 
-    // For backward compatibility, also set roundId for ROUND1
-    const round1 = rounds.find((r) => r.name === 'ROUND1');
-    const roundId = round1 ? round1.roundId : null;
-    (contest as any).roundId = roundId;
+    const contestExaminers = await this.contestExaminerRepository.find({
+      where: { contestId: id },
+      relations: ['examiner'],
+    });
+
+    const examinersWithNames = await Promise.all(
+      contestExaminers.map(async (ce) => {
+        const user = await this.userRepository.findOne({
+          where: { userId: ce.examinerId },
+        });
+
+        return {
+          ...ce,
+          examinerName: user?.fullName || 'Unknown',
+          examinerEmail: user?.email || null,
+        };
+      }),
+    );
+
 
     return {
       success: true,
       data: {
         ...contest,
         rounds: rounds,
+        examiners: examinersWithNames,
       },
     };
   }

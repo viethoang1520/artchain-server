@@ -583,7 +583,6 @@ export class StaffService {
       contestId: contestId,
       examinerId: assignExaminerDto.examiner_id,
       role: assignExaminerDto.role || 'EXAMINER',
-      status: assignExaminerDto.status || 'ACTIVE',
       assignmentDate: new Date(),
     });
 

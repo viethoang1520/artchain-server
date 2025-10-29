@@ -24,17 +24,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
+import { PreliminaryReviewDto } from './dto/preliminary-review.dto';
 
 @Controller('api/paintings')
 @ApiTags('Paintings')
 export class PaintingsController {
-  constructor(
-    private readonly paintingsService: PaintingsService,
-  ) {}
+  constructor(private readonly paintingsService: PaintingsService) {}
 
   @Get('')
   @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi' })
-    @ApiQuery({
+  @ApiQuery({
     name: 'contestId',
     description: 'ID của cuộc thi',
     example: 1,
@@ -89,7 +88,10 @@ export class PaintingsController {
     },
   })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() data: UploadPaintingDto) {
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() data: UploadPaintingDto,
+  ) {
     try {
       return this.paintingsService.uploadFile(file, data);
     } catch (error) {
@@ -121,5 +123,13 @@ export class PaintingsController {
     return this.paintingsService.getPaintingEvaluations(paintingId);
   }
 
-
+  @Post('batch/preliminary-review')
+  @ApiOperation({
+    summary: 'Chấm hàng loạt các bài sau vòng sơ khảo',
+    description: 'Cập nhật isPassed và status cho nhiều paintings cùng lúc',
+  })
+  @ApiBody({ type: PreliminaryReviewDto })
+  async batchPreliminaryReview(@Body() reviewDto: PreliminaryReviewDto) {
+    return this.paintingsService.batchPreliminaryReview(reviewDto);
+  }
 }

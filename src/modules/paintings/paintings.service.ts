@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UploadedFile,
+} from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,6 +13,10 @@ import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import {
+  PreliminaryReviewDto,
+  PaintingReviewItem,
+} from './dto/preliminary-review.dto';
 
 @Injectable()
 export class PaintingsService {
@@ -21,10 +30,7 @@ export class PaintingsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(ContestExaminer)
     private readonly contestExaminerRepository: Repository<ContestExaminer>,
-  ) { }
-
-
-
+  ) {}
 
   async getPaintingsByContestId(contestId: number) {
     if (!contestId) {
@@ -52,7 +58,9 @@ export class PaintingsService {
       },
     });
     if (existingSubmission) {
-      throw new BadRequestException('You have already submitted a painting for this round and contest.');
+      throw new BadRequestException(
+        'You have already submitted a painting for this round and contest.',
+      );
     }
     const bucket = this.firebaseService.getStorage().bucket();
     const fileName = `uploads/${Date.now()}-${file.originalname}`;
@@ -142,8 +150,9 @@ export class PaintingsService {
     return await this.evaluationRepository.save(newEvaluation);
   }
 
-
-  async evaluatePreliminary(evaluateDto: PreliminaryEvaluationDto): Promise<any> {
+  async evaluatePreliminary(
+    evaluateDto: PreliminaryEvaluationDto,
+  ): Promise<any> {
     const { paintingId, examinerId, isPassed } = evaluateDto;
 
     // Kiểm tra painting có tồn tại không
@@ -158,7 +167,7 @@ export class PaintingsService {
       where: {
         contestId: existingPainting.contestId,
         examinerId: examinerId,
-        status: 'ACTIVE', 
+        status: 'ACTIVE',
       },
     });
 
@@ -202,5 +211,66 @@ export class PaintingsService {
     );
 
     return evaluationsWithNames;
+  }
+
+  async batchPreliminaryReview(reviewDto: PreliminaryReviewDto): Promise<any> {
+    const { paintings } = reviewDto;
+
+    if (!paintings || paintings.length === 0) {
+      throw new BadRequestException('Paintings array cannot be empty');
+    }
+
+    const results: {
+      success: Array<{ paintingId: string; isPassed: boolean; status: string }>;
+      failed: Array<{ paintingId: string; reason: string }>;
+      total: number;
+    } = {
+      success: [],
+      failed: [],
+      total: paintings.length,
+    };
+
+    for (const item of paintings) {
+      try {
+        const painting = await this.paintingRepository.findOne({
+          where: { paintingId: item.paintingId },
+        });
+
+        if (!painting) {
+          results.failed.push({
+            paintingId: item.paintingId,
+            reason: `Painting not found`,
+          });
+          continue;
+        }
+
+        painting.isPassed = item.isPassed;
+
+        if (item.isPassed) {
+          painting.status = 'QUALIFIED'; 
+        } else {
+          painting.status = 'DISQUALIFIED'; 
+        }
+
+        await this.paintingRepository.save(painting);
+
+        results.success.push({
+          paintingId: item.paintingId,
+          isPassed: item.isPassed,
+          status: painting.status,
+        });
+      } catch (error) {
+        results.failed.push({
+          paintingId: item.paintingId,
+          reason: error.message || 'Unknown error',
+        });
+      }
+    }
+
+    return {
+      success: true,
+      message: `Processed ${results.total} paintings: ${results.success.length} successful, ${results.failed.length} failed`,
+      data: results,
+    };
   }
 }
