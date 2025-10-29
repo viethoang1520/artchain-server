@@ -32,18 +32,28 @@ export class PaintingsService {
     private readonly contestExaminerRepository: Repository<ContestExaminer>,
   ) {}
 
-  async getPaintingsByContestId(contestId: number) {
+  async getPaintingsByContestId(contestId: number, roundId?: string) {
     if (!contestId) {
       throw new NotFoundException('Contest ID is required');
     }
-    const paintings = await this.paintingRepository.find({
-      where: { contestId },
-    });
-    if (!paintings) {
-      throw new NotFoundException(
-        `No paintings found for contest ID ${contestId}`,
-      );
+
+    const whereCondition: any = { contestId };
+
+    if (roundId) {
+      whereCondition.roundId = roundId;
     }
+
+    const paintings = await this.paintingRepository.find({
+      where: whereCondition,
+    });
+
+    if (!paintings || paintings.length === 0) {
+      const message = roundId
+        ? `No paintings found for contest ID ${contestId} and round ${roundId}`
+        : `No paintings found for contest ID ${contestId}`;
+      throw new NotFoundException(message);
+    }
+
     return paintings;
   }
 
@@ -100,7 +110,6 @@ export class PaintingsService {
   ): Promise<Evaluation> {
     const { paintingId, examinerId, score, feedback } = evaluateDto;
 
-    // Kiểm tra painting có tồn tại không
     const painting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
@@ -108,12 +117,11 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
-    // Kiểm tra examiner có được gán vào contest này không
     const contestExaminer = await this.contestExaminerRepository.findOne({
       where: {
         contestId: painting.contestId,
         examinerId: examinerId,
-        status: 'ACTIVE', // Chỉ cho phép examiner có status ACTIVE
+        status: 'ACTIVE',
       },
     });
 
@@ -123,13 +131,11 @@ export class PaintingsService {
       );
     }
 
-    // Kiểm tra xem examiner đã chấm bức tranh này chưa
     const existingEvaluation = await this.evaluationRepository.findOne({
       where: { paintingId, examinerId },
     });
 
     if (existingEvaluation) {
-      // Cập nhật evaluation hiện tại
       existingEvaluation.score = score;
       existingEvaluation.feedback = feedback || '';
       existingEvaluation.evaluationDate = new Date();
@@ -155,7 +161,6 @@ export class PaintingsService {
   ): Promise<any> {
     const { paintingId, examinerId, isPassed } = evaluateDto;
 
-    // Kiểm tra painting có tồn tại không
     const existingPainting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
@@ -196,7 +201,6 @@ export class PaintingsService {
       relations: ['examiner'],
     });
 
-    // Thêm tên examiner vào mỗi evaluation
     const evaluationsWithNames = await Promise.all(
       evaluations.map(async (evaluation) => {
         const user = await this.userRepository.findOne({
@@ -247,9 +251,9 @@ export class PaintingsService {
         painting.isPassed = item.isPassed;
 
         if (item.isPassed) {
-          painting.status = 'QUALIFIED'; 
+          painting.status = 'QUALIFIED';
         } else {
-          painting.status = 'DISQUALIFIED'; 
+          painting.status = 'DISQUALIFIED';
         }
 
         await this.paintingRepository.save(painting);

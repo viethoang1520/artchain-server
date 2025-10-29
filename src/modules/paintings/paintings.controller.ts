@@ -32,15 +32,27 @@ export class PaintingsController {
   constructor(private readonly paintingsService: PaintingsService) {}
 
   @Get('')
-  @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi' })
+  @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi và round' })
   @ApiQuery({
     name: 'contestId',
     description: 'ID của cuộc thi',
     example: 1,
   })
-  async getPaintingsByContestId(@Query('contestId') contestId: number) {
+  @ApiQuery({
+    name: 'roundId',
+    description: 'ID của vòng thi (tùy chọn)',
+    example: 'round1',
+    required: false,
+  })
+  async getPaintingsByContestId(
+    @Query('contestId') contestId: number,
+    @Query('roundId') roundId?: string,
+  ) {
     try {
-      return await this.paintingsService.getPaintingsByContestId(contestId);
+      return await this.paintingsService.getPaintingsByContestId(
+        contestId,
+        roundId,
+      );
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to get paintings');
     }
