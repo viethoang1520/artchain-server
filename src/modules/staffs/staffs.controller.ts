@@ -11,8 +11,13 @@ import {
   ParseIntPipe,
   UseGuards,
   Request,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { StaffService } from './staffs.service';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
@@ -137,12 +142,60 @@ export class StaffController {
 
   @Post('posts')
   @UseGuards(AuthGuard)
-  createPost(@Body() createPostDto: CreatePostDto, @Request() req: any) {
-    const userId = req.user.sub || req.user.userId;
-    return this.postsService.createPost({
-      ...createPostDto,
-      account_id: createPostDto.account_id || userId,
-    });
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file for the post (optional)',
+        },
+        title: {
+          type: 'string',
+          description: 'Title of the post',
+          example: 'Introduction to NestJS',
+        },
+        content: {
+          type: 'string',
+          description: 'Content of the post',
+          example: 'This is a comprehensive guide to NestJS framework...',
+        },
+        status: {
+          type: 'string',
+          enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED', 'DELETED'],
+          description: 'Status of the post',
+          example: 'DRAFT',
+        },
+        tag_ids: {
+          type: 'array',
+          items: { type: 'integer' },
+          description: 'Array of tag IDs',
+          example: [1, 2, 3],
+        },
+      },
+      required: ['title', 'content'],
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async createPost(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createPostDto: CreatePostDto,
+    @Request() req: any,
+  ) {
+    try {
+      const userId = req.user.sub || req.user.userId;
+      return await this.postsService.createPost(
+        {
+          ...createPostDto,
+          account_id: createPostDto.account_id || userId,
+        },
+        file,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to create post');
+    }
   }
 
   @Get('posts')

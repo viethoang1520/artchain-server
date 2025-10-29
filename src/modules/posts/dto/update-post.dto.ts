@@ -45,7 +45,5 @@ export class UpdatePostDto {
     example: [1, 2, 3],
   })
   @IsOptional()
-  @IsArray()
-  @IsInt({ each: true })
-  tag_ids?: number[];
+  tag_ids?: number[] | string;
 }

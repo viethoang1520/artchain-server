@@ -12,6 +12,7 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { GetAllPostsDto } from './dto/get-all-posts.dto';
 import { GetPublicPostsDto } from './dto/get-public-posts.dto';
+import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
 export class PostsService {
@@ -22,6 +23,7 @@ export class PostsService {
     private readonly tagsRepository: Repository<Tag>,
     @InjectRepository(PostTag)
     private readonly postTagsRepository: Repository<PostTag>,
+    private readonly firebaseService: FirebaseService,
   ) {}
 
   private sanitizePost(post: Post | null): Post | null {
@@ -42,14 +44,62 @@ export class PostsService {
     });
   }
 
-  async createPost(createPostDto: CreatePostDto) {
+  async createPost(createPostDto: CreatePostDto, file?: Express.Multer.File) {
     const { tag_ids, ...postData } = createPostDto;
 
-    const post = this.postsRepository.create(postData);
+    let image_url: string | undefined;
+
+    // Upload file to Firebase if provided
+    if (file) {
+      const bucket = this.firebaseService.getStorage().bucket();
+      const fileName = `posts/${Date.now()}-${file.originalname}`;
+      const fileUpload = bucket.file(fileName);
+
+      await fileUpload.save(file.buffer, {
+        metadata: { contentType: file.mimetype },
+      });
+
+      const [url] = await fileUpload.getSignedUrl({
+        action: 'read',
+        expires: '03-09-2491',
+      });
+
+      image_url = url;
+    }
+
+    const post = this.postsRepository.create({
+      ...postData,
+      image_url,
+    });
     const savedPost = await this.postsRepository.save(post);
 
-    if (tag_ids && tag_ids.length > 0) {
-      await this.addTagsToPost(savedPost.post_id, tag_ids);
+    if (tag_ids) {
+      let parsedTagIds: number[] = [];
+
+      if (typeof tag_ids === 'string') {
+        try {
+          const parsed = JSON.parse(tag_ids as string);
+
+          if (Array.isArray(parsed)) {
+            parsedTagIds = parsed;
+          } else if (typeof parsed === 'number') {
+            parsedTagIds = [parsed];
+          }
+        } catch {
+          parsedTagIds = (tag_ids as string)
+            .split(',')
+            .map((id) => parseInt(id.trim(), 10))
+            .filter((id) => !isNaN(id));
+        }
+      } else if (Array.isArray(tag_ids)) {
+        parsedTagIds = tag_ids;
+      } else if (typeof tag_ids === 'number') {
+        parsedTagIds = [tag_ids];
+      }
+
+      if (parsedTagIds.length > 0) {
+        await this.addTagsToPost(savedPost.post_id, parsedTagIds);
+      }
     }
 
     const result = await this.postsRepository.findOne({
@@ -195,8 +245,33 @@ export class PostsService {
     if (tag_ids !== undefined) {
       await this.postTagsRepository.delete({ post_id: id });
 
-      if (tag_ids.length > 0) {
-        await this.addTagsToPost(id, tag_ids);
+      // Parse tag_ids if it's a string (from form-data)
+      let parsedTagIds: number[] = [];
+
+      if (typeof tag_ids === 'string') {
+        try {
+          const parsed = JSON.parse(tag_ids as string);
+
+          // Check if parsed result is an array or a single number
+          if (Array.isArray(parsed)) {
+            parsedTagIds = parsed;
+          } else if (typeof parsed === 'number') {
+            parsedTagIds = [parsed]; // Convert single number to array
+          }
+        } catch {
+          parsedTagIds = (tag_ids as string)
+            .split(',')
+            .map((id) => parseInt(id.trim(), 10))
+            .filter((id) => !isNaN(id));
+        }
+      } else if (Array.isArray(tag_ids)) {
+        parsedTagIds = tag_ids;
+      } else if (typeof tag_ids === 'number') {
+        parsedTagIds = [tag_ids]; // Convert single number to array
+      }
+
+      if (parsedTagIds.length > 0) {
+        await this.addTagsToPost(id, parsedTagIds);
       }
     }
     const result = await this.postsRepository.findOne({
