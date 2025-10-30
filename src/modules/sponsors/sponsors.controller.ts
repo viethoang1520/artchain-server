@@ -9,6 +9,7 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,6 +17,7 @@ import {
   ApiResponse,
   ApiBody,
   ApiConsumes,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { SponsorsService } from './sponsors.service';
 import { CreateSponsorDto } from './dto/create-sponsor.dto';
@@ -26,6 +28,94 @@ import { memoryStorage } from 'multer';
 @Controller('api/sponsors')
 export class SponsorsController {
   constructor(private readonly sponsorsService: SponsorsService) {}
+
+  @Get('')
+  @ApiOperation({
+    summary: 'Get all sponsors',
+    description:
+      'Get all sponsors (public endpoint, no authentication required)',
+  })
+  @ApiQuery({
+    name: 'status',
+    description: 'Filter by status (optional). Values: PENDING or PAID',
+    example: 'PENDING',
+    required: false,
+    enum: ['PENDING', 'PAID'],
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved all sponsors',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          sponsorId: { type: 'number', example: 1 },
+          name: { type: 'string', example: 'ABC Corporation' },
+          logoUrl: {
+            type: 'string',
+            example: 'https://storage.googleapis.com/...',
+          },
+          contactInfo: {
+            type: 'string',
+            example: 'contact@abccorp.com | +1-555-0123',
+          },
+          sponsorshipAmount: { type: 'number', example: 10000.0 },
+          campaignId: { type: 'number', example: 1 },
+          status: { type: 'string', example: 'PENDING' },
+        },
+      },
+    },
+  })
+  async getAllSponsors(@Query('status') status?: string) {
+    try {
+      return await this.sponsorsService.getAllSponsors(status);
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to get sponsors');
+    }
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get sponsor detail by ID',
+    description:
+      'Get detailed information of a specific sponsor (public endpoint)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved sponsor detail',
+    schema: {
+      type: 'object',
+      properties: {
+        sponsorId: { type: 'number', example: 1 },
+        name: { type: 'string', example: 'ABC Corporation' },
+        logoUrl: {
+          type: 'string',
+          example: 'https://storage.googleapis.com/...',
+        },
+        contactInfo: {
+          type: 'string',
+          example: 'contact@abccorp.com | +1-555-0123',
+        },
+        sponsorshipAmount: { type: 'number', example: 10000.0 },
+        campaignId: { type: 'number', example: 1 },
+        status: { type: 'string', example: 'PENDING' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Sponsor not found',
+  })
+  async getSponsorById(@Param('id') id: number) {
+    try {
+      return await this.sponsorsService.getSponsorById(id);
+    } catch (error) {
+      throw new BadRequestException(
+        error.message || 'Failed to get sponsor detail',
+      );
+    }
+  }
 
   @Post('')
   @ApiOperation({

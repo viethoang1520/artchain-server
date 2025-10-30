@@ -59,4 +59,31 @@ export class SponsorsService {
 
     return this.sponsorRepository.save(sponsor);
   }
+
+  async getAllSponsors(status?: string) {
+    const whereCondition: any = {};
+
+    if (status) {
+      whereCondition.status = status;
+    }
+
+    return await this.sponsorRepository.find({
+      where: whereCondition,
+      order: {
+        sponsorId: 'DESC',
+      },
+    });
+  }
+
+  async getSponsorById(id: number) {
+    const sponsor = await this.sponsorRepository.findOne({
+      where: { sponsorId: id },
+    });
+
+    if (!sponsor) {
+      throw new NotFoundException(`Sponsor with ID ${id} not found`);
+    }
+
+    return sponsor;
+  }
 }
