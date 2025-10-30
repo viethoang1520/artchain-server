@@ -37,7 +37,7 @@ export class Painting {
   @Column({ type: 'timestamp', nullable: true, name: 'submission_date' })
   submissionDate: Date;
 
-  @Column({ type: 'boolean', default: false, name: 'is_passed' })
+  @Column({ type: 'boolean', default: null, name: 'is_passed', })
   isPassed: boolean;
   
   @Column({ type: 'varchar', length: 50, default: 'PENDING', name: 'status' })
