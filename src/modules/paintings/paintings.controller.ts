@@ -49,21 +49,31 @@ export class PaintingsController {
   @ApiQuery({
     name: 'is_passed',
     description:
-      'Lọc theo trạng thái (tùy chọn). true/ false',
+      'Lọc theo trạng thái đỗ/rớt (tùy chọn). true = đỗ, false = rớt',
     example: true,
     required: false,
     type: Boolean,
+  })
+  @ApiQuery({
+    name: 'status',
+    description:
+      'Lọc theo trạng thái painting (tùy chọn). Ví dụ: PENDING, APPROVED, REJECTED',
+    example: 'PENDING',
+    required: false,
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
   })
   async getPaintingsByContestId(
     @Query('contestId') contestId: number,
     @Query('roundName') roundName?: string,
     @Query('is_passed') isPassed?: boolean,
+    @Query('status') status?: string,
   ) {
     try {
       return await this.paintingsService.getPaintingsByContestId(
         contestId,
         roundName,
         isPassed,
+        status,
       );
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to get paintings');

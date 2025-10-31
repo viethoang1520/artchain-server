@@ -407,4 +407,22 @@ export class PostsService {
       message: 'Tag deleted successfully',
     };
   }
+
+  async getPostDetail(id: number) {
+    const post = await this.postsRepository.findOne({
+      where: {
+        post_id: id,
+        status: PostStatus.PUBLISHED,
+      },
+      relations: ['postTags', 'postTags.tag', 'creator'],
+    });
+
+    if (!post) {
+      throw new NotFoundException(
+        `Post with ID ${id} not found or not published`,
+      );
+    }
+
+    return this.sanitizePost(post);
+  }
 }

@@ -39,6 +39,7 @@ export class PaintingsService {
     contestId: number,
     roundName?: string,
     isPassed?: boolean,
+    status?: string,
   ) {
     if (!contestId) {
       throw new NotFoundException('Contest ID is required');
@@ -67,6 +68,10 @@ export class PaintingsService {
 
     if (isPassed !== undefined) {
       whereCondition.isPassed = isPassed;
+    }
+
+    if (status) {
+      whereCondition.status = status;
     }
 
     const paintings = await this.paintingRepository.find({
