@@ -33,6 +33,10 @@ export class Campaign {
     type: 'decimal',
     precision: 15,
     scale: 2,
+    transformer: {
+      to: (value: number) => value, // khi lưu
+      from: (value: string) => parseFloat(value), // khi đọc
+    },
     default: 0
   })
   currentAmount: number;

@@ -24,6 +24,10 @@ export class Sponsor {
     type: 'decimal',
     precision: 10,
     scale: 2,
+    transformer: {
+      to: (value: number) => value, // khi lưu
+      from: (value: string) => parseFloat(value), // khi đọc
+    },
     nullable: true,
   })
   sponsorshipAmount: number;

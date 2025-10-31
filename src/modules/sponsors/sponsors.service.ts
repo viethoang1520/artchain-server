@@ -5,6 +5,7 @@ import { Sponsor } from './entities/sponsor.entity';
 import { Repository } from 'typeorm/repository/Repository';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { FirebaseService } from '../firebase/firebase.service';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class SponsorsService {
@@ -14,15 +15,14 @@ export class SponsorsService {
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
     private readonly firebaseService: FirebaseService,
-  ) {}
+    private readonly paymentService: PaymentsService,
+  ) { }
 
   async createSponsor(
     createSponsorDto: CreateSponsorDto,
     file?: Express.Multer.File,
   ) {
-    const { name, contactInfo, sponsorshipAmount, campaignId } =
-      createSponsorDto;
-
+    const { name, contactInfo, sponsorshipAmount, campaignId } = createSponsorDto;
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
     });
@@ -56,8 +56,10 @@ export class SponsorsService {
       sponsorshipAmount,
       campaignId,
     });
-
-    return this.sponsorRepository.save(sponsor);
+    await this.sponsorRepository.save(sponsor);
+    // sponsorId: string, totalAmount: number, campaignId: number
+    const { checkoutUrl, qrCode, order } = await this.paymentService.createPayment(sponsor.sponsorId, sponsorshipAmount, campaignId);
+    return { error: false, data: { sponsor, checkoutUrl, qrCode, order } };
   }
 
   async getAllSponsors(status?: string) {
