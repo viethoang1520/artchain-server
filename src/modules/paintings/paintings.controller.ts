@@ -49,30 +49,43 @@ export class PaintingsController {
   @ApiQuery({
     name: 'is_passed',
     description:
-      'Lọc theo trạng thái đỗ/rớt (tùy chọn). true = đỗ, false = rớt',
+      'Lọc theo trạng thái đỗ/rớt (tùy chọn). true = đỗ, false = rớt, null = chưa chấm',
     example: true,
     required: false,
-    type: Boolean,
+    enum: ['true', 'false', 'null'],
   })
   @ApiQuery({
     name: 'status',
     description:
-      'Lọc theo trạng thái painting (tùy chọn). Ví dụ: PENDING, APPROVED, REJECTED',
+      'Lọc theo trạng thái painting (tùy chọn). Ví dụ: PENDING, ACCEPTED, REJECTED',
     example: 'PENDING',
     required: false,
-    enum: ['PENDING', 'APPROVED', 'REJECTED'],
+    enum: ['PENDING', 'ACCEPTED', 'REJECTED'],
   })
   async getPaintingsByContestId(
     @Query('contestId') contestId: number,
     @Query('roundName') roundName?: string,
-    @Query('is_passed') isPassed?: boolean,
+    @Query('is_passed') isPassed?: string,
     @Query('status') status?: string,
   ) {
+
+    let isPassedValue: boolean | null = null;
+
+    if (isPassed !== undefined) {
+      if (isPassed === 'null') {
+        isPassedValue = null;
+      } else if (isPassed === 'true') {
+        isPassedValue = true;
+      } else if (isPassed === 'false') {
+        isPassedValue = false;
+      }
+    }
+
     try {
       return await this.paintingsService.getPaintingsByContestId(
         contestId,
         roundName,
-        isPassed,
+        isPassedValue,
         status,
       );
     } catch (error) {

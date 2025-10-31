@@ -26,6 +26,8 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
 export class StaffService {
@@ -46,14 +48,40 @@ export class StaffService {
     private usersRepository: Repository<User>,
     @InjectRepository(Schedule)
     private schedulesRepository: Repository<Schedule>,
+    @InjectRepository(Competitor)
+    private competitorsRepository: Repository<Competitor>,
+    private firebaseService: FirebaseService,
   ) {}
 
-  async createContest(createContestDto: CreateContestDto) {
+  async createContest(
+    createContestDto: CreateContestDto,
+    file?: Express.Multer.File,
+  ) {
     try {
+      let bannerUrl: string | undefined = createContestDto.bannerUrl;
+
+      // Upload file to Firebase if provided
+      if (file) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/banners/${Date.now()}-${file.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(file.buffer, {
+          metadata: { contentType: file.mimetype },
+        });
+
+        const [url] = await fileUpload.getSignedUrl({
+          action: 'read',
+          expires: '03-09-2491',
+        });
+
+        bannerUrl = url;
+      }
+
       const contest = this.contestsRepository.create({
         title: createContestDto.title,
         description: createContestDto.description,
-        bannerUrl: createContestDto.bannerUrl,
+        bannerUrl,
         numOfAward: createContestDto.numOfAward,
         startDate: createContestDto.startDate,
         endDate: createContestDto.endDate,
@@ -316,36 +344,222 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const { page = 1, limit = 10 } = queryDto;
-    const skip = (page - 1) * limit;
-
-    const [rounds, total] = await this.roundsRepository.findAndCount({
+    // Get all rounds for this contest without pagination
+    const allRounds = await this.roundsRepository.find({
       where: { contestId },
-      order: { roundId: 'ASC' },
-      skip,
-      take: limit,
+      order: { name: 'ASC', table: 'ASC' },
     });
 
-    const totalPages = Math.ceil(total / limit);
-    const hasNextPage = page < totalPages;
-    const hasPreviousPage = page > 1;
+    // Group rounds by name
+    const groupedRounds = allRounds.reduce(
+      (acc, round) => {
+        const roundName = round.name;
+        if (!acc[roundName]) {
+          acc[roundName] = [];
+        }
+        acc[roundName].push(round);
+        return acc;
+      },
+      {} as Record<string, typeof allRounds>,
+    );
+
+    // Format response for each round type
+    const formattedRounds = await Promise.all(
+      Object.entries(groupedRounds).map(async ([roundName, rounds]) => {
+        if (roundName === 'ROUND_2') {
+          // For ROUND_2, show all tables (A, B, C, D) with basic info
+          const tablesData = rounds
+            .filter((r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table))
+            .map((tableRound) => ({
+              roundId: tableRound.roundId,
+              table: tableRound.table,
+              startDate: tableRound.startDate,
+              endDate: tableRound.endDate,
+              submissionDeadline: tableRound.submissionDeadline,
+              resultAnnounceDate: tableRound.resultAnnounceDate,
+              sendOriginalDeadline: tableRound.sendOriginalDeadline,
+              status: tableRound.status,
+            }));
+
+          return {
+            name: roundName,
+            isRound2: true,
+            tables: tablesData,
+            totalTables: tablesData.length,
+          };
+        } else {
+          // For other rounds (ROUND_1, etc.), only show rounds with table='paintings'
+          const paintingsRounds = rounds.filter((r) => r.table === 'paintings');
+
+          // If no rounds with table='paintings', skip this round
+          if (paintingsRounds.length === 0) {
+            return null;
+          }
+
+          const round = paintingsRounds[0]; // Usually only one round per name for non-ROUND_2
+          return {
+            roundId: round.roundId,
+            name: roundName,
+            isRound2: false,
+            startDate: round.startDate,
+            endDate: round.endDate,
+            submissionDeadline: round.submissionDeadline,
+            resultAnnounceDate: round.resultAnnounceDate,
+            sendOriginalDeadline: round.sendOriginalDeadline,
+            status: round.status,
+            table: round.table,
+          };
+        }
+      }),
+    );
+
+    // Filter out null values (rounds without table='paintings')
+    const validRounds = formattedRounds.filter((r) => r !== null);
 
     return {
       success: true,
-      data: rounds,
+      data: validRounds,
       meta: {
         contestId,
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage,
-        hasPreviousPage,
+        totalRounds: validRounds.length,
+        roundTypes: Object.keys(groupedRounds).filter((roundName) => {
+          const rounds = groupedRounds[roundName];
+          if (roundName === 'ROUND_2') {
+            return rounds.some(
+              (r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table),
+            );
+          }
+          return rounds.some((r) => r.table === 'paintings');
+        }),
       },
     };
   }
 
-  async getRound(contestId: number, roundId: number) {
+  async getRoundByName(contestId: number, name: string) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const round = await this.roundsRepository.findOne({
+      where: { contestId, name },
+    });
+
+    if (!round) {
+      throw new NotFoundException(
+        `Round with name "${name}" not found in contest ${contestId}`,
+      );
+    }
+
+    if (round.name === 'ROUND_2') {
+      const allRound2Tables = await this.roundsRepository
+        .createQueryBuilder('round')
+        .where('round.contestId = :contestId', { contestId })
+        .andWhere('round.name = :name', { name: 'ROUND_2' })
+        .andWhere('round.table IN (:...tables)', {
+          tables: ['A', 'B', 'C', 'D'],
+        })
+        .orderBy('round.table', 'ASC')
+        .getMany();
+
+      if (allRound2Tables.length === 0) {
+        return {
+          success: true,
+          data: round,
+          message: 'ROUND_2 found but no tables (A, B, C, D) created yet',
+        };
+      }
+
+      const tablesWithCompetitors = await Promise.all(
+        allRound2Tables.map(async (tableRound) => {
+          const paintings = await this.paintingsRepository.find({
+            where: { roundId: tableRound.roundId.toString() },
+          });
+
+          const competitorIds = [
+            ...new Set(paintings.map((p) => p.competitorId)),
+          ];
+
+          const competitors = await Promise.all(
+            competitorIds.map(async (competitorId) => {
+              // Get competitor info from competitors table
+              const competitor = await this.competitorsRepository.findOne({
+                where: { competitorId },
+              });
+
+              // Get user info for additional details
+              // const user = await this.usersRepository.findOne({
+              //   where: { userId: competitorId },
+              // });
+
+              const competitorPaintings = paintings.filter(
+                (p) => p.competitorId === competitorId,
+              );
+
+              return {
+                competitorId: competitor?.competitorId,
+                birthday: competitor?.birthday,
+                schoolName: competitor?.schoolName,
+                ward: competitor?.ward,
+                grade: competitor?.grade,
+                guardianId: competitor?.guardianId,
+                // username: user?.username,
+                // email: user?.email,
+                // fullName: user?.fullName,
+                paintings: competitorPaintings.map((p) => ({
+                  paintingId: p.paintingId,
+                  title: p.title,
+                  imageUrl: p.imageUrl,
+                  isPassed: p.isPassed,
+                  status: p.status,
+                })),
+              };
+            }),
+          );
+
+          return {
+            roundId: tableRound.roundId,
+            table: tableRound.table,
+            name: tableRound.name,
+            startDate: tableRound.startDate,
+            endDate: tableRound.endDate,
+            submissionDeadline: tableRound.submissionDeadline,
+            resultAnnounceDate: tableRound.resultAnnounceDate,
+            sendOriginalDeadline: tableRound.sendOriginalDeadline,
+            status: tableRound.status,
+            competitors,
+            competitorCount: competitors.length,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: {
+          roundInfo: round,
+          isRound2: true,
+          tables: tablesWithCompetitors,
+          totalCompetitors: tablesWithCompetitors.reduce(
+            (sum, table) => sum + table.competitorCount,
+            0,
+          ),
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        ...round,
+        isRound2: false,
+      },
+    };
+  }
+
+  async getRoundById(contestId: number, roundId: number) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
     });
@@ -858,11 +1072,9 @@ export class StaffService {
       throw new NotFoundException(`Schedule with ID ${scheduleId} not found`);
     }
 
-    // Only update date if it's provided and not empty
     if (updateScheduleDto.date && updateScheduleDto.date.trim() !== '') {
       (updateScheduleDto as any).date = new Date(updateScheduleDto.date);
     } else if (updateScheduleDto.date === '') {
-      // If empty string is sent, remove it from update
       delete (updateScheduleDto as any).date;
     }
 
@@ -893,8 +1105,7 @@ export class StaffService {
     };
   }
 
-  async createRound2WithTables(contestId: number) {
-    // Kiểm tra xem contest có tồn tại không
+  async createRound2WithTables(contestId: number, date: string) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
     });
@@ -903,7 +1114,28 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    // Lấy tất cả các painting có isPassed = true trong contest này
+    if (!date) {
+      throw new BadRequestException('Date is required for ROUND_2');
+    }
+
+    const round2Date = new Date(date);
+    if (isNaN(round2Date.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    const existingRound2 = await this.roundsRepository.findOne({
+      where: {
+        contestId,
+        name: 'ROUND_2',
+      },
+    });
+
+    if (existingRound2) {
+      throw new BadRequestException(
+        `ROUND_2 has already been created for contest ${contestId}. Cannot create duplicate ROUND_2.`,
+      );
+    }
+
     const passedPaintings = await this.paintingsRepository.find({
       where: {
         contestId,
@@ -917,7 +1149,6 @@ export class StaffService {
       );
     }
 
-    // Lấy danh sách competitorId duy nhất
     const uniqueCompetitorIds = [
       ...new Set(passedPaintings.map((p) => p.competitorId)),
     ];
@@ -928,39 +1159,76 @@ export class StaffService {
       );
     }
 
-    // Shuffle array để random
+    // Shuffle competitors randomly
     const shuffledCompetitors = uniqueCompetitorIds.sort(
       () => Math.random() - 0.5,
     );
 
-    // Chia thành 4 bảng
+    // Divide into 4 tables
     const tableSize = Math.ceil(shuffledCompetitors.length / 4);
     const tables = [
-      shuffledCompetitors.slice(0, tableSize), // Table A
-      shuffledCompetitors.slice(tableSize, tableSize * 2), // Table B
-      shuffledCompetitors.slice(tableSize * 2, tableSize * 3), // Table C
-      shuffledCompetitors.slice(tableSize * 3), // Table D
+      shuffledCompetitors.slice(0, tableSize),
+      shuffledCompetitors.slice(tableSize, tableSize * 2),
+      shuffledCompetitors.slice(tableSize * 2, tableSize * 3),
+      shuffledCompetitors.slice(tableSize * 3),
     ];
 
     const tableNames = ['A', 'B', 'C', 'D'];
     const createdRounds: Round[] = [];
+    const createdPaintings: Painting[] = [];
 
-    // Tạo 4 rounds (ROUND_2) cho mỗi bảng
+    // Create 4 rounds and paintings for each competitor
     for (let i = 0; i < 4; i++) {
+      // Create round for table
       const round = this.roundsRepository.create({
         contestId,
         name: 'ROUND_2',
         table: tableNames[i],
+        startDate: round2Date,
+        endDate: round2Date,
         status: 'DRAFT',
       });
 
       const savedRound = await this.roundsRepository.save(round);
       createdRounds.push(savedRound);
+
+      // Create painting records for each competitor in this table
+      for (const competitorId of tables[i]) {
+        const painting = this.paintingsRepository.create({
+          competitorId,
+          contestId,
+          roundId: savedRound.roundId.toString(),
+          title: `ROUND_2 - Table ${tableNames[i]} - Pending Upload`,
+          description: `Painting for ROUND_2, Table ${tableNames[i]}. Waiting for examiner to upload.`,
+          status: 'PENDING',
+          // isPassed, submissionDate, imageUrl sẽ là null theo default
+        });
+
+        const savedPainting = await this.paintingsRepository.save(painting);
+        createdPaintings.push(savedPainting);
+      }
     }
+
+    // Group paintings by table for response
+    const paintingsByTable = {
+      'Table A': createdPaintings.filter(
+        (p) => p.roundId === createdRounds[0].roundId.toString(),
+      ),
+      'Table B': createdPaintings.filter(
+        (p) => p.roundId === createdRounds[1].roundId.toString(),
+      ),
+      'Table C': createdPaintings.filter(
+        (p) => p.roundId === createdRounds[2].roundId.toString(),
+      ),
+      'Table D': createdPaintings.filter(
+        (p) => p.roundId === createdRounds[3].roundId.toString(),
+      ),
+    };
 
     return {
       success: true,
-      message: 'ROUND_2 created successfully with 4 tables',
+      message:
+        'ROUND_2 created successfully with 4 tables and painting records',
       data: {
         rounds: createdRounds,
         tableDistribution: {
@@ -968,25 +1236,46 @@ export class StaffService {
             roundId: createdRounds[0].roundId,
             competitors: tables[0],
             count: tables[0].length,
+            paintings: paintingsByTable['Table A'].map((p) => ({
+              paintingId: p.paintingId,
+              competitorId: p.competitorId,
+              status: p.status,
+            })),
           },
           'Table B': {
             roundId: createdRounds[1].roundId,
             competitors: tables[1],
             count: tables[1].length,
+            paintings: paintingsByTable['Table B'].map((p) => ({
+              paintingId: p.paintingId,
+              competitorId: p.competitorId,
+              status: p.status,
+            })),
           },
           'Table C': {
             roundId: createdRounds[2].roundId,
             competitors: tables[2],
             count: tables[2].length,
+            paintings: paintingsByTable['Table C'].map((p) => ({
+              paintingId: p.paintingId,
+              competitorId: p.competitorId,
+              status: p.status,
+            })),
           },
           'Table D': {
             roundId: createdRounds[3].roundId,
             competitors: tables[3],
             count: tables[3].length,
+            paintings: paintingsByTable['Table D'].map((p) => ({
+              paintingId: p.paintingId,
+              competitorId: p.competitorId,
+              status: p.status,
+            })),
           },
         },
         totalCompetitors: uniqueCompetitorIds.length,
         passedPaintingsCount: passedPaintings.length,
+        totalPaintingsCreated: createdPaintings.length,
       },
     };
   }

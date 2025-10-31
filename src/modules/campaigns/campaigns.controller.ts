@@ -94,6 +94,54 @@ export class CampaignsController {
     }
   }
 
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get campaign detail by ID',
+    description:
+      'Get detailed information of a specific campaign (public endpoint)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved campaign detail',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            campaignId: { type: 'number', example: 1 },
+            title: { type: 'string', example: 'Save the Ocean' },
+            description: {
+              type: 'string',
+              example: 'Campaign to clean up ocean pollution',
+            },
+            goalAmount: { type: 'number', example: 100000 },
+            currentAmount: { type: 'number', example: 50000 },
+            deadline: { type: 'string', example: '2025-12-31T00:00:00Z' },
+            status: { type: 'string', example: 'ACTIVE' },
+            staffId: { type: 'string', example: 'staff-uuid-123' },
+            createdAt: { type: 'string', example: '2025-01-01T00:00:00Z' },
+            updatedAt: { type: 'string', example: '2025-01-15T00:00:00Z' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Campaign not found',
+  })
+  async getCampaignDetail(@Param('id') id: number) {
+    try {
+      return await this.campaignsService.getCampaignDetail(id);
+    } catch (error) {
+      throw new BadRequestException(
+        error.message || 'Failed to get campaign detail',
+      );
+    }
+  }
+
   @Get(':id/sponsors')
   @ApiOperation({
     summary: 'Get all sponsors in a campaign with pagination',
@@ -179,5 +227,4 @@ export class CampaignsController {
       throw new BadRequestException(error.message || 'Failed to get sponsors');
     }
   }
-
 }

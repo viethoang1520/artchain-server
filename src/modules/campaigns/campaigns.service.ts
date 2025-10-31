@@ -88,6 +88,21 @@ export class CampaignsService {
     };
   }
 
+  async getCampaignDetail(campaignId: number) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+
+    return {
+      success: true,
+      data: campaign,
+    };
+  }
+
   findAll() {
     return `This action returns all campaigns`;
   }
