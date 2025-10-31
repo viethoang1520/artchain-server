@@ -48,6 +48,7 @@ import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
+import { ContestStatus } from '../contests/entities/contests.entity';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -94,7 +95,7 @@ export class StaffController {
         },
         status: {
           type: 'string',
-          enum: ['DRAFT', 'PUBLISHED', 'ONGOING', 'ENDED'],
+          enum: Object.values(ContestStatus),
           example: 'DRAFT',
         },
       },
