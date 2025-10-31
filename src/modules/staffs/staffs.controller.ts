@@ -15,7 +15,15 @@ import {
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiConsumes,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { StaffService } from './staffs.service';
@@ -23,6 +31,7 @@ import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
+import { CreateRound2Dto } from '../contests/dto/create-round2.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto';
@@ -72,6 +81,71 @@ export class StaffController {
   @UseGuards(AuthGuard)
   publishContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.staffService.publishContest(id);
+  }
+
+  @Post('contests/:id/create-round2')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Create ROUND_2 with 4 tables for passed competitors',
+    description:
+      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings (isPassed=true) and randomly distributes them into 4 tables (A, B, C, D)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Contest ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'ROUND_2 created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: {
+          type: 'string',
+          example: 'ROUND_2 created successfully with 4 tables',
+        },
+        data: {
+          type: 'object',
+          properties: {
+            rounds: {
+              type: 'array',
+              description: 'Array of 4 created rounds',
+            },
+            tableDistribution: {
+              type: 'object',
+              description:
+                'Distribution of competitors across 4 tables with their IDs',
+            },
+            totalCompetitors: {
+              type: 'number',
+              example: 20,
+              description: 'Total number of unique competitors',
+            },
+            passedPaintingsCount: {
+              type: 'number',
+              example: 25,
+              description: 'Total number of passed paintings',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - No passed paintings or not enough competitors',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  createRound2WithTables(
+    @Param('id', ParseIntPipe) contestId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.createRound2WithTables(contestId);
   }
 
   @Get('contests')

@@ -892,4 +892,102 @@ export class StaffService {
       message: 'Schedule deleted successfully',
     };
   }
+
+  async createRound2WithTables(contestId: number) {
+    // Kiểm tra xem contest có tồn tại không
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    // Lấy tất cả các painting có isPassed = true trong contest này
+    const passedPaintings = await this.paintingsRepository.find({
+      where: {
+        contestId,
+        isPassed: true,
+      },
+    });
+
+    if (passedPaintings.length === 0) {
+      throw new BadRequestException(
+        'No passed paintings found for this contest',
+      );
+    }
+
+    // Lấy danh sách competitorId duy nhất
+    const uniqueCompetitorIds = [
+      ...new Set(passedPaintings.map((p) => p.competitorId)),
+    ];
+
+    if (uniqueCompetitorIds.length < 4) {
+      throw new BadRequestException(
+        `Need at least 4 competitors to create 4 tables. Found only ${uniqueCompetitorIds.length} competitors`,
+      );
+    }
+
+    // Shuffle array để random
+    const shuffledCompetitors = uniqueCompetitorIds.sort(
+      () => Math.random() - 0.5,
+    );
+
+    // Chia thành 4 bảng
+    const tableSize = Math.ceil(shuffledCompetitors.length / 4);
+    const tables = [
+      shuffledCompetitors.slice(0, tableSize), // Table A
+      shuffledCompetitors.slice(tableSize, tableSize * 2), // Table B
+      shuffledCompetitors.slice(tableSize * 2, tableSize * 3), // Table C
+      shuffledCompetitors.slice(tableSize * 3), // Table D
+    ];
+
+    const tableNames = ['A', 'B', 'C', 'D'];
+    const createdRounds: Round[] = [];
+
+    // Tạo 4 rounds (ROUND_2) cho mỗi bảng
+    for (let i = 0; i < 4; i++) {
+      const round = this.roundsRepository.create({
+        contestId,
+        name: 'ROUND_2',
+        table: tableNames[i],
+        status: 'DRAFT',
+      });
+
+      const savedRound = await this.roundsRepository.save(round);
+      createdRounds.push(savedRound);
+    }
+
+    return {
+      success: true,
+      message: 'ROUND_2 created successfully with 4 tables',
+      data: {
+        rounds: createdRounds,
+        tableDistribution: {
+          'Table A': {
+            roundId: createdRounds[0].roundId,
+            competitors: tables[0],
+            count: tables[0].length,
+          },
+          'Table B': {
+            roundId: createdRounds[1].roundId,
+            competitors: tables[1],
+            count: tables[1].length,
+          },
+          'Table C': {
+            roundId: createdRounds[2].roundId,
+            competitors: tables[2],
+            count: tables[2].length,
+          },
+          'Table D': {
+            roundId: createdRounds[3].roundId,
+            competitors: tables[3],
+            count: tables[3].length,
+          },
+        },
+        totalCompetitors: uniqueCompetitorIds.length,
+        passedPaintingsCount: passedPaintings.length,
+      },
+    };
+  }
 }
