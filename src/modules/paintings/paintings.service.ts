@@ -38,14 +38,13 @@ export class PaintingsService {
   async getPaintingsByContestId(
     contestId: number,
     roundName?: string,
-    isPassed?: boolean,
+    isPassed?: boolean | null,
     status?: string,
   ) {
     if (!contestId) {
       throw new NotFoundException('Contest ID is required');
     }
 
-    // If roundName is provided, need to find roundId from rounds table
     let roundId: string | undefined;
     if (roundName) {
       const round = await this.roundRepository.findOne({
