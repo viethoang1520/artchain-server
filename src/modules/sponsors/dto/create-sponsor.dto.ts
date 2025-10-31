@@ -23,8 +23,8 @@ export class CreateSponsorDto {
     required: false,
   })
   @IsString()
-  @IsOptional()
-  contactInfo?: string;
+  @IsNotEmpty()
+  contactInfo: string;
 
   @ApiProperty({
     description: 'Sponsorship amount',
@@ -34,9 +34,9 @@ export class CreateSponsorDto {
   })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
-  @IsOptional()
+  @IsNotEmpty()
   @Type(() => Number)
-  sponsorshipAmount?: number;
+  sponsorshipAmount: number;
 
   @ApiProperty({
     description: 'Campaign ID that this sponsor is associated with',
@@ -45,13 +45,8 @@ export class CreateSponsorDto {
   })
   @IsNumber()
   @IsPositive()
-  @IsOptional()
+  @IsNotEmpty()
   @Type(() => Number)
-  campaignId?: number;
-  // })
-  // @IsNumber()
-  // @IsPositive()
-  // @IsOptional()
-  // @Type(() => Number)
-  // contestId?: number;
+  campaignId: number;
+
 }
