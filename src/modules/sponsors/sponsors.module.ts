@@ -5,9 +5,10 @@ import { Type } from 'class-transformer';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Sponsor } from './entities/sponsor.entity';
 import { Campaign } from '../campaigns/entities/campaign.entity';
+import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sponsor, Campaign])],
+  imports: [TypeOrmModule.forFeature([Sponsor, Campaign]), FirebaseModule],
   controllers: [SponsorsController],
   providers: [SponsorsService],
 })

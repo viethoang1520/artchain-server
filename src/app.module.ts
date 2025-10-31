@@ -12,8 +12,9 @@ import { AdminModule } from './modules/admin/admin.module';
 import { StaffModule } from './modules/staffs/staffs.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
-import { Sponsor } from './modules/sponsors/entities/sponsor.entity';
 import { SponsorsModule } from './modules/sponsors/sponsors.module';
+import { ExaminersModule } from './modules/examiners/examiners.module';
+import { CampaignsModule } from './modules/campaigns/campaigns.module';
 
 @Module({
   imports: [
@@ -29,8 +30,10 @@ import { SponsorsModule } from './modules/sponsors/sponsors.module';
     PostsModule,
     GuardiansModule,
     SponsorsModule,
+    ExaminersModule,
+    CampaignsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

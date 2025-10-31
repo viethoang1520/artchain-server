@@ -32,7 +32,7 @@ export class Post {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
+  @Column({ type: 'text', nullable: true })
   image_url: string;
 
   @Column({

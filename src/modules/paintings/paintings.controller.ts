@@ -24,24 +24,47 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
+import { PreliminaryReviewDto } from './dto/preliminary-review.dto';
 
 @Controller('api/paintings')
 @ApiTags('Paintings')
 export class PaintingsController {
-  constructor(
-    private readonly paintingsService: PaintingsService,
-  ) {}
+  constructor(private readonly paintingsService: PaintingsService) {}
 
   @Get('')
-  @ApiOperation({ summary: 'Lấy tất cả các tranh theo id cuộc thi' })
-    @ApiQuery({
+  @ApiOperation({
+    summary: 'Lấy tất cả các tranh theo id cuộc thi và tên vòng thi',
+  })
+  @ApiQuery({
     name: 'contestId',
     description: 'ID của cuộc thi',
     example: 1,
   })
-  async getPaintingsByContestId(@Query('contestId') contestId: number) {
+  @ApiQuery({
+    name: 'roundName',
+    description: 'Tên vòng thi (tùy chọn). Ví dụ: ROUND_1, ROUND_2',
+    example: 'ROUND_1',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'is_passed',
+    description:
+      'Lọc theo trạng thái (tùy chọn). true/ false',
+    example: true,
+    required: false,
+    type: Boolean,
+  })
+  async getPaintingsByContestId(
+    @Query('contestId') contestId: number,
+    @Query('roundName') roundName?: string,
+    @Query('is_passed') isPassed?: boolean,
+  ) {
     try {
-      return await this.paintingsService.getPaintingsByContestId(contestId);
+      return await this.paintingsService.getPaintingsByContestId(
+        contestId,
+        roundName,
+        isPassed,
+      );
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to get paintings');
     }
@@ -89,7 +112,10 @@ export class PaintingsController {
     },
   })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() data: UploadPaintingDto) {
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() data: UploadPaintingDto,
+  ) {
     try {
       return this.paintingsService.uploadFile(file, data);
     } catch (error) {
@@ -121,5 +147,13 @@ export class PaintingsController {
     return this.paintingsService.getPaintingEvaluations(paintingId);
   }
 
-
+  @Post('batch/preliminary-review')
+  @ApiOperation({
+    summary: 'Chấm hàng loạt các bài sau vòng sơ khảo',
+    description: 'Cập nhật isPassed và status cho nhiều paintings cùng lúc',
+  })
+  @ApiBody({ type: PreliminaryReviewDto })
+  async batchPreliminaryReview(@Body() reviewDto: PreliminaryReviewDto) {
+    return this.paintingsService.batchPreliminaryReview(reviewDto);
+  }
 }

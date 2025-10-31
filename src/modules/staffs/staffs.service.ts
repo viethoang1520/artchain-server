@@ -22,7 +22,10 @@ import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { Campaign } from '../campaigns/entities/campaign.entity';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
+import { Schedule } from '../schedules/entities/schedule.entity';
+import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
+import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 
 @Injectable()
 export class StaffService {
@@ -41,7 +44,9 @@ export class StaffService {
     private campaignsRepository: Repository<Campaign>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) { }
+    @InjectRepository(Schedule)
+    private schedulesRepository: Repository<Schedule>,
+  ) {}
 
   async createContest(createContestDto: CreateContestDto) {
     try {
@@ -243,11 +248,31 @@ export class StaffService {
       where: { contestId: id },
     });
 
+    const contestExaminers = await this.contestExaminersRepository.find({
+      where: { contestId: id },
+      relations: ['examiner'],
+    });
+
+    const examinersWithNames = await Promise.all(
+      contestExaminers.map(async (ce) => {
+        const user = await this.usersRepository.findOne({
+          where: { userId: ce.examinerId },
+        });
+
+        return {
+          ...ce,
+          examinerName: user?.fullName || 'Unknown',
+          examinerEmail: user?.email || null,
+        };
+      }),
+    );
+
     return {
       success: true,
       data: {
         ...contest,
         rounds,
+        examiners: examinersWithNames,
       },
     };
   }
@@ -583,7 +608,6 @@ export class StaffService {
       contestId: contestId,
       examinerId: assignExaminerDto.examiner_id,
       role: assignExaminerDto.role || 'EXAMINER',
-      status: assignExaminerDto.status || 'ACTIVE',
       assignmentDate: new Date(),
     });
 
@@ -619,9 +643,23 @@ export class StaffService {
       relations: ['examiner'],
     });
 
+    const examinersWithNames = await Promise.all(
+      examiners.map(async (ce) => {
+        const user = await this.usersRepository.findOne({
+          where: { userId: ce.examinerId },
+        });
+
+        return {
+          ...ce,
+          examinerName: user?.fullName || 'Unknown',
+          examinerEmail: user?.email || null,
+        };
+      }),
+    );
+
     return {
       success: true,
-      data: examiners,
+      data: examinersWithNames,
     };
   }
 
@@ -644,7 +682,10 @@ export class StaffService {
     };
   }
 
-  async createCampaign(data: { createCampaignDto: CreateCampaignDto, staffId: string }) {
+  async createCampaign(data: {
+    createCampaignDto: CreateCampaignDto;
+    staffId: string;
+  }) {
     const user = await this.usersRepository.findOne({
       where: { userId: data.staffId },
     });
@@ -666,4 +707,287 @@ export class StaffService {
     };
   }
 
+  async getAllExaminers() {
+    const examiners = await this.usersRepository.find({
+      where: { role: UserRole.EXAMINER },
+    });
+
+    const examinersWithDetails = await Promise.all(
+      examiners.map(async (user) => {
+        const examinerDetails = await this.examinersRepository.findOne({
+          where: { examinerId: user.userId },
+        });
+
+        return {
+          examinerId: user.userId,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          status: user.status,
+          specialization: examinerDetails?.specialization || null,
+          assignedScheduleId: examinerDetails?.assignedScheduleId || null,
+        };
+      }),
+    );
+
+    return {
+      success: true,
+      data: examinersWithDetails,
+      meta: {
+        total: examinersWithDetails.length,
+      },
+    };
+  }
+
+  async createSchedule(createScheduleDto: CreateScheduleDto) {
+    const user = await this.usersRepository.findOne({
+      where: { userId: createScheduleDto.examinerId, role: UserRole.EXAMINER },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        `Examiner with ID ${createScheduleDto.examinerId} not found`,
+      );
+    }
+
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: createScheduleDto.contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(
+        `Contest with ID ${createScheduleDto.contestId} not found`,
+      );
+    }
+
+    const contestExaminer = await this.contestExaminersRepository.findOne({
+      where: {
+        contestId: createScheduleDto.contestId,
+        examinerId: createScheduleDto.examinerId,
+      },
+    });
+
+    if (!contestExaminer) {
+      throw new BadRequestException(
+        `Examiner with ID ${createScheduleDto.examinerId} is not assigned to contest ${createScheduleDto.contestId}`,
+      );
+    }
+
+    const schedule = this.schedulesRepository.create({
+      ...createScheduleDto,
+      date: new Date(createScheduleDto.date),
+    });
+
+    const savedSchedule = await this.schedulesRepository.save(schedule);
+
+    let examiner = await this.examinersRepository.findOne({
+      where: { examinerId: createScheduleDto.examinerId },
+    });
+
+    if (!examiner) {
+      examiner = this.examinersRepository.create({
+        examinerId: createScheduleDto.examinerId,
+        assignedScheduleId: savedSchedule.scheduleId,
+      });
+      await this.examinersRepository.save(examiner);
+    } else if (!examiner.assignedScheduleId) {
+      examiner.assignedScheduleId = savedSchedule.scheduleId;
+      await this.examinersRepository.save(examiner);
+    }
+
+    return {
+      success: true,
+      message: 'Schedule created successfully',
+      data: savedSchedule,
+    };
+  }
+
+  async getSchedulesByExaminer(examinerId: string) {
+    const schedules = await this.schedulesRepository.find({
+      where: { examinerId },
+      order: { date: 'ASC' },
+    });
+
+    return {
+      success: true,
+      data: schedules,
+      meta: {
+        total: schedules.length,
+      },
+    };
+  }
+
+  async getSchedulesByContest(contestId: number) {
+    const schedules = await this.schedulesRepository.find({
+      where: { contestId },
+      order: { date: 'ASC' },
+    });
+
+    const schedulesWithExaminer = await Promise.all(
+      schedules.map(async (schedule) => {
+        const user = await this.usersRepository.findOne({
+          where: { userId: schedule.examinerId },
+        });
+
+        return {
+          ...schedule,
+          examinerName: user?.fullName || 'Unknown',
+          examinerEmail: user?.email || null,
+        };
+      }),
+    );
+
+    return {
+      success: true,
+      data: schedulesWithExaminer,
+      meta: {
+        total: schedulesWithExaminer.length,
+      },
+    };
+  }
+
+  async updateSchedule(
+    scheduleId: number,
+    updateScheduleDto: UpdateScheduleDto,
+  ) {
+    const schedule = await this.schedulesRepository.findOne({
+      where: { scheduleId },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException(`Schedule with ID ${scheduleId} not found`);
+    }
+
+    // Only update date if it's provided and not empty
+    if (updateScheduleDto.date && updateScheduleDto.date.trim() !== '') {
+      (updateScheduleDto as any).date = new Date(updateScheduleDto.date);
+    } else if (updateScheduleDto.date === '') {
+      // If empty string is sent, remove it from update
+      delete (updateScheduleDto as any).date;
+    }
+
+    Object.assign(schedule, updateScheduleDto);
+    const updatedSchedule = await this.schedulesRepository.save(schedule);
+
+    return {
+      success: true,
+      message: 'Schedule updated successfully',
+      data: updatedSchedule,
+    };
+  }
+
+  async deleteSchedule(scheduleId: number) {
+    const schedule = await this.schedulesRepository.findOne({
+      where: { scheduleId },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException(`Schedule with ID ${scheduleId} not found`);
+    }
+
+    await this.schedulesRepository.remove(schedule);
+
+    return {
+      success: true,
+      message: 'Schedule deleted successfully',
+    };
+  }
+
+  async createRound2WithTables(contestId: number) {
+    // Kiểm tra xem contest có tồn tại không
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    // Lấy tất cả các painting có isPassed = true trong contest này
+    const passedPaintings = await this.paintingsRepository.find({
+      where: {
+        contestId,
+        isPassed: true,
+      },
+    });
+
+    if (passedPaintings.length === 0) {
+      throw new BadRequestException(
+        'No passed paintings found for this contest',
+      );
+    }
+
+    // Lấy danh sách competitorId duy nhất
+    const uniqueCompetitorIds = [
+      ...new Set(passedPaintings.map((p) => p.competitorId)),
+    ];
+
+    if (uniqueCompetitorIds.length < 4) {
+      throw new BadRequestException(
+        `Need at least 4 competitors to create 4 tables. Found only ${uniqueCompetitorIds.length} competitors`,
+      );
+    }
+
+    // Shuffle array để random
+    const shuffledCompetitors = uniqueCompetitorIds.sort(
+      () => Math.random() - 0.5,
+    );
+
+    // Chia thành 4 bảng
+    const tableSize = Math.ceil(shuffledCompetitors.length / 4);
+    const tables = [
+      shuffledCompetitors.slice(0, tableSize), // Table A
+      shuffledCompetitors.slice(tableSize, tableSize * 2), // Table B
+      shuffledCompetitors.slice(tableSize * 2, tableSize * 3), // Table C
+      shuffledCompetitors.slice(tableSize * 3), // Table D
+    ];
+
+    const tableNames = ['A', 'B', 'C', 'D'];
+    const createdRounds: Round[] = [];
+
+    // Tạo 4 rounds (ROUND_2) cho mỗi bảng
+    for (let i = 0; i < 4; i++) {
+      const round = this.roundsRepository.create({
+        contestId,
+        name: 'ROUND_2',
+        table: tableNames[i],
+        status: 'DRAFT',
+      });
+
+      const savedRound = await this.roundsRepository.save(round);
+      createdRounds.push(savedRound);
+    }
+
+    return {
+      success: true,
+      message: 'ROUND_2 created successfully with 4 tables',
+      data: {
+        rounds: createdRounds,
+        tableDistribution: {
+          'Table A': {
+            roundId: createdRounds[0].roundId,
+            competitors: tables[0],
+            count: tables[0].length,
+          },
+          'Table B': {
+            roundId: createdRounds[1].roundId,
+            competitors: tables[1],
+            count: tables[1].length,
+          },
+          'Table C': {
+            roundId: createdRounds[2].roundId,
+            competitors: tables[2],
+            count: tables[2].length,
+          },
+          'Table D': {
+            roundId: createdRounds[3].roundId,
+            competitors: tables[3],
+            count: tables[3].length,
+          },
+        },
+        totalCompetitors: uniqueCompetitorIds.length,
+        passedPaintingsCount: passedPaintings.length,
+      },
+    };
+  }
 }

@@ -11,13 +11,27 @@ import {
   ParseIntPipe,
   UseGuards,
   Request,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiConsumes,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { StaffService } from './staffs.service';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
+import { CreateRound2Dto } from '../contests/dto/create-round2.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto';
@@ -31,6 +45,8 @@ import { GetAllPostsDto } from '../posts/dto/get-all-posts.dto';
 import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
+import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -65,6 +81,71 @@ export class StaffController {
   @UseGuards(AuthGuard)
   publishContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.staffService.publishContest(id);
+  }
+
+  @Post('contests/:id/create-round2')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Create ROUND_2 with 4 tables for passed competitors',
+    description:
+      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings (isPassed=true) and randomly distributes them into 4 tables (A, B, C, D)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Contest ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'ROUND_2 created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: {
+          type: 'string',
+          example: 'ROUND_2 created successfully with 4 tables',
+        },
+        data: {
+          type: 'object',
+          properties: {
+            rounds: {
+              type: 'array',
+              description: 'Array of 4 created rounds',
+            },
+            tableDistribution: {
+              type: 'object',
+              description:
+                'Distribution of competitors across 4 tables with their IDs',
+            },
+            totalCompetitors: {
+              type: 'number',
+              example: 20,
+              description: 'Total number of unique competitors',
+            },
+            passedPaintingsCount: {
+              type: 'number',
+              example: 25,
+              description: 'Total number of passed paintings',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - No passed paintings or not enough competitors',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  createRound2WithTables(
+    @Param('id', ParseIntPipe) contestId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.createRound2WithTables(contestId);
   }
 
   @Get('contests')
@@ -135,12 +216,60 @@ export class StaffController {
 
   @Post('posts')
   @UseGuards(AuthGuard)
-  createPost(@Body() createPostDto: CreatePostDto, @Request() req: any) {
-    const userId = req.user.sub || req.user.userId;
-    return this.postsService.createPost({
-      ...createPostDto,
-      account_id: createPostDto.account_id || userId,
-    });
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file for the post (optional)',
+        },
+        title: {
+          type: 'string',
+          description: 'Title of the post',
+          example: 'Introduction to NestJS',
+        },
+        content: {
+          type: 'string',
+          description: 'Content of the post',
+          example: 'This is a comprehensive guide to NestJS framework...',
+        },
+        status: {
+          type: 'string',
+          enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED', 'DELETED'],
+          description: 'Status of the post',
+          example: 'DRAFT',
+        },
+        tag_ids: {
+          type: 'array',
+          items: { type: 'integer' },
+          description: 'Array of tag IDs',
+          example: [1, 2, 3],
+        },
+      },
+      required: ['title', 'content'],
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async createPost(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createPostDto: CreatePostDto,
+    @Request() req: any,
+  ) {
+    try {
+      const userId = req.user.sub || req.user.userId;
+      return await this.postsService.createPost(
+        {
+          ...createPostDto,
+          account_id: createPostDto.account_id || userId,
+        },
+        file,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to create post');
+    }
   }
 
   @Get('posts')
@@ -297,9 +426,58 @@ export class StaffController {
     @Request() req: any,
   ) {
     const staffId = req.user.sub || req.user.userId;
-    return this.staffService.createCampaign({ createCampaignDto, staffId});
+    return this.staffService.createCampaign({ createCampaignDto, staffId });
   }
 
-  
+  @Get('examiners')
+  @UseGuards(AuthGuard)
+  getAllExaminers(@Request() req: any) {
+    return this.staffService.getAllExaminers();
+  }
 
+  @Post('schedules')
+  @UseGuards(AuthGuard)
+  createSchedule(
+    @Body() createScheduleDto: CreateScheduleDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.createSchedule(createScheduleDto);
+  }
+
+  @Get('schedules/examiner/:examinerId')
+  @UseGuards(AuthGuard)
+  getSchedulesByExaminer(
+    @Param('examinerId') examinerId: string,
+    @Request() req: any,
+  ) {
+    return this.staffService.getSchedulesByExaminer(examinerId);
+  }
+
+  @Get('schedules/contest/:contestId')
+  @UseGuards(AuthGuard)
+  getSchedulesByContest(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.getSchedulesByContest(contestId);
+  }
+
+  @Put('schedules/:scheduleId')
+  @UseGuards(AuthGuard)
+  updateSchedule(
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+    @Body() updateScheduleDto: UpdateScheduleDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.updateSchedule(scheduleId, updateScheduleDto);
+  }
+
+  @Delete('schedules/:scheduleId')
+  @UseGuards(AuthGuard)
+  deleteSchedule(
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.deleteSchedule(scheduleId);
+  }
 }

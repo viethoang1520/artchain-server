@@ -1,34 +1,183 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 
-@Controller('campaigns')
+@ApiTags('Campaigns')
+@Controller('api/campaigns')
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
-  @Post()
-  create(@Body() createCampaignDto: CreateCampaignDto) {
-    return this.campaignsService.create(createCampaignDto);
+  @Get('')
+  @ApiOperation({
+    summary: 'Get all campaigns with pagination',
+    description:
+      'Get all campaigns with pagination and optional status filter (public endpoint)',
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Page number (default: 1)',
+    example: 1,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Items per page (default: 10)',
+    example: 10,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'status',
+    description:
+      'Filter by status (optional). Values: ACTIVE, CLOSED, COMPLETED, DRAFT, CANCELLED',
+    example: 'ACTIVE',
+    required: false,
+    enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved campaigns',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              campaignId: { type: 'number', example: 1 },
+              title: { type: 'string', example: 'Save the Ocean' },
+              description: { type: 'string', example: 'Campaign description' },
+              goalAmount: { type: 'number', example: 100000 },
+              currentAmount: { type: 'number', example: 50000 },
+              deadline: { type: 'string', example: '2025-12-31T00:00:00Z' },
+              status: { type: 'string', example: 'ACTIVE' },
+            },
+          },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number', example: 50 },
+            page: { type: 'number', example: 1 },
+            limit: { type: 'number', example: 10 },
+            totalPages: { type: 'number', example: 5 },
+          },
+        },
+      },
+    },
+  })
+  async getAllCampaigns(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('status') status?: string,
+  ) {
+    try {
+      return await this.campaignsService.getAllCampaigns(
+        page || 1,
+        limit || 10,
+        status,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to get campaigns');
+    }
   }
 
-  @Get()
-  findAll() {
-    return this.campaignsService.findAll();
+  @Get(':id/sponsors')
+  @ApiOperation({
+    summary: 'Get all sponsors in a campaign with pagination',
+    description:
+      'Get list of sponsors for a specific campaign with pagination and optional status filter (public endpoint)',
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Page number (default: 1)',
+    example: 1,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Items per page (default: 10)',
+    example: 10,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'status',
+    description: 'Filter by status (optional). Values: PENDING, PAID',
+    example: 'PAID',
+    required: false,
+    enum: ['PENDING', 'PAID'],
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved sponsors',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              sponsorId: { type: 'number', example: 1 },
+              name: { type: 'string', example: 'ABC Corporation' },
+              logoUrl: {
+                type: 'string',
+                example: 'https://storage.googleapis.com/...',
+              },
+              contactInfo: {
+                type: 'string',
+                example: 'contact@abccorp.com',
+              },
+              sponsorshipAmount: { type: 'number', example: 10000 },
+              campaignId: { type: 'number', example: 1 },
+              status: { type: 'string', example: 'PAID' },
+            },
+          },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number', example: 25 },
+            page: { type: 'number', example: 1 },
+            limit: { type: 'number', example: 10 },
+            totalPages: { type: 'number', example: 3 },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Campaign not found',
+  })
+  async getSponsorsByCampaignId(
+    @Param('id') id: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('status') status?: string,
+  ) {
+    try {
+      return await this.campaignsService.getSponsorsByCampaignId(
+        id,
+        page || 1,
+        limit || 10,
+        status,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to get sponsors');
+    }
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.campaignsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCampaignDto: UpdateCampaignDto) {
-    return this.campaignsService.update(+id, updateCampaignDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.campaignsService.remove(+id);
-  }
 }

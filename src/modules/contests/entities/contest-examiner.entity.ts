@@ -13,7 +13,7 @@ export class ContestExaminer {
   @Column({ name: 'assignment_date', nullable: true })
   assignmentDate: Date;
 
-  @Column({ name: 'status', nullable: true })
+  @Column({ name: 'status', nullable: true, default: 'ACTIVE' })
   status: string;
 
   @Column({ name: 'role', nullable: true })

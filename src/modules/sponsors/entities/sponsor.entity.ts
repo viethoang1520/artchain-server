@@ -13,23 +13,29 @@ export class Sponsor {
   @Column({ name: 'name', nullable: false })
   name: string;
 
-  @Column({ name: 'logo_url', nullable: true })
+  @Column({ name: 'logo_url', type: 'text', nullable: true })
   logoUrl: string;
 
   @Column({ name: 'contact_info', nullable: true })
   contactInfo: string;
 
-  @Column({ name: 'sponsorship_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'sponsorship_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   sponsorshipAmount: number;
 
-  @Column({ 
-    name: 'status', 
-    type: 'enum', 
-    enum: SponsorStatus, 
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: SponsorStatus,
     default: SponsorStatus.PENDING,
-    nullable: false
+    nullable: false,
   })
-  status: SponsorStatus; 
+  status: SponsorStatus;
 
   @Column({ name: 'campaign_id', nullable: true })
   campaignId: number;

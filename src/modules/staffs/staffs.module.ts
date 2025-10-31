@@ -11,6 +11,7 @@ import { AuthModule } from '../auth/auth.module';
 import { PostsModule } from '../posts/posts.module';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { User } from '../users/entities/user.entity';
+import { Schedule } from '../schedules/entities/schedule.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { User } from '../users/entities/user.entity';
       Painting,
       Campaign,
       User,
+      Schedule,
     ]),
     AuthModule,
     PostsModule,
@@ -30,4 +32,4 @@ import { User } from '../users/entities/user.entity';
   providers: [StaffService],
   exports: [StaffService],
 })
-export class StaffModule { }
+export class StaffModule {}

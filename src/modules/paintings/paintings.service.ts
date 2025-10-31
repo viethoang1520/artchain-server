@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, UploadedFile } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UploadedFile,
+} from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,6 +13,11 @@ import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { Round } from '../contests/entities/round.entity';
+import {
+  PreliminaryReviewDto,
+  PaintingReviewItem,
+} from './dto/preliminary-review.dto';
 
 @Injectable()
 export class PaintingsService {
@@ -21,24 +31,49 @@ export class PaintingsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(ContestExaminer)
     private readonly contestExaminerRepository: Repository<ContestExaminer>,
-  ) { }
+    @InjectRepository(Round)
+    private readonly roundRepository: Repository<Round>,
+  ) {}
 
-
-
-
-  async getPaintingsByContestId(contestId: number) {
+  async getPaintingsByContestId(
+    contestId: number,
+    roundName?: string,
+    isPassed?: boolean,
+  ) {
     if (!contestId) {
       throw new NotFoundException('Contest ID is required');
     }
-    const paintings = await this.paintingRepository.find({
-      where: { contestId },
-    });
-    if (!paintings) {
-      throw new NotFoundException(
-        `No paintings found for contest ID ${contestId}`,
-      );
+
+    // If roundName is provided, need to find roundId from rounds table
+    let roundId: string | undefined;
+    if (roundName) {
+      const round = await this.roundRepository.findOne({
+        where: {
+          contestId: contestId,
+          name: roundName,
+        },
+      });
+
+      if (round) {
+        roundId = String(round.roundId);
+      }
     }
-    return paintings;
+
+    const whereCondition: any = { contestId };
+
+    if (roundId) {
+      whereCondition.roundId = roundId;
+    }
+
+    if (isPassed !== undefined) {
+      whereCondition.isPassed = isPassed;
+    }
+
+    const paintings = await this.paintingRepository.find({
+      where: whereCondition,
+    });
+
+    return paintings || [];
   }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
@@ -52,7 +87,9 @@ export class PaintingsService {
       },
     });
     if (existingSubmission) {
-      throw new BadRequestException('You have already submitted a painting for this round and contest.');
+      throw new BadRequestException(
+        'You have already submitted a painting for this round and contest.',
+      );
     }
     const bucket = this.firebaseService.getStorage().bucket();
     const fileName = `uploads/${Date.now()}-${file.originalname}`;
@@ -92,7 +129,6 @@ export class PaintingsService {
   ): Promise<Evaluation> {
     const { paintingId, examinerId, score, feedback } = evaluateDto;
 
-    // Kiểm tra painting có tồn tại không
     const painting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
@@ -100,12 +136,11 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
-    // Kiểm tra examiner có được gán vào contest này không
     const contestExaminer = await this.contestExaminerRepository.findOne({
       where: {
         contestId: painting.contestId,
         examinerId: examinerId,
-        status: 'ACTIVE', // Chỉ cho phép examiner có status ACTIVE
+        status: 'ACTIVE',
       },
     });
 
@@ -115,13 +150,11 @@ export class PaintingsService {
       );
     }
 
-    // Kiểm tra xem examiner đã chấm bức tranh này chưa
     const existingEvaluation = await this.evaluationRepository.findOne({
       where: { paintingId, examinerId },
     });
 
     if (existingEvaluation) {
-      // Cập nhật evaluation hiện tại
       existingEvaluation.score = score;
       existingEvaluation.feedback = feedback || '';
       existingEvaluation.evaluationDate = new Date();
@@ -142,11 +175,11 @@ export class PaintingsService {
     return await this.evaluationRepository.save(newEvaluation);
   }
 
-
-  async evaluatePreliminary(evaluateDto: PreliminaryEvaluationDto): Promise<any> {
+  async evaluatePreliminary(
+    evaluateDto: PreliminaryEvaluationDto,
+  ): Promise<any> {
     const { paintingId, examinerId, isPassed } = evaluateDto;
 
-    // Kiểm tra painting có tồn tại không
     const existingPainting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
@@ -158,7 +191,7 @@ export class PaintingsService {
       where: {
         contestId: existingPainting.contestId,
         examinerId: examinerId,
-        status: 'ACTIVE', 
+        status: 'ACTIVE',
       },
     });
 
@@ -187,7 +220,6 @@ export class PaintingsService {
       relations: ['examiner'],
     });
 
-    // Thêm tên examiner vào mỗi evaluation
     const evaluationsWithNames = await Promise.all(
       evaluations.map(async (evaluation) => {
         const user = await this.userRepository.findOne({
@@ -202,5 +234,66 @@ export class PaintingsService {
     );
 
     return evaluationsWithNames;
+  }
+
+  async batchPreliminaryReview(reviewDto: PreliminaryReviewDto): Promise<any> {
+    const { paintings } = reviewDto;
+
+    if (!paintings || paintings.length === 0) {
+      throw new BadRequestException('Paintings array cannot be empty');
+    }
+
+    const results: {
+      success: Array<{ paintingId: string; isPassed: boolean; status: string }>;
+      failed: Array<{ paintingId: string; reason: string }>;
+      total: number;
+    } = {
+      success: [],
+      failed: [],
+      total: paintings.length,
+    };
+
+    for (const item of paintings) {
+      try {
+        const painting = await this.paintingRepository.findOne({
+          where: { paintingId: item.paintingId },
+        });
+
+        if (!painting) {
+          results.failed.push({
+            paintingId: item.paintingId,
+            reason: `Painting not found`,
+          });
+          continue;
+        }
+
+        painting.isPassed = item.isPassed;
+
+        if (item.isPassed) {
+          painting.status = 'QUALIFIED';
+        } else {
+          painting.status = 'DISQUALIFIED';
+        }
+
+        await this.paintingRepository.save(painting);
+
+        results.success.push({
+          paintingId: item.paintingId,
+          isPassed: item.isPassed,
+          status: painting.status,
+        });
+      } catch (error) {
+        results.failed.push({
+          paintingId: item.paintingId,
+          reason: error.message || 'Unknown error',
+        });
+      }
+    }
+
+    return {
+      success: true,
+      message: `Processed ${results.total} paintings: ${results.success.length} successful, ${results.failed.length} failed`,
+      data: results,
+    };
   }
 }

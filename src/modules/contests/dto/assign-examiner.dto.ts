@@ -12,18 +12,9 @@ export class AssignExaminerDto {
 
   @ApiPropertyOptional({
     description: 'Role of the examiner in the contest',
-    example: 'HEAD_JUDGE',
+    example: 'ROUND_1',
   })
   @IsOptional()
   @IsString()
   role?: string;
-
-  @ApiPropertyOptional({
-    description: 'Status of the assignment',
-    example: 'ACTIVE',
-    default: 'ACTIVE',
-  })
-  @IsOptional()
-  @IsString()
-  status?: string;
 }
