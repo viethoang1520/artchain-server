@@ -136,12 +136,27 @@ export class StaffController {
   @ApiOperation({
     summary: 'Create ROUND_2 with 4 tables for passed competitors',
     description:
-      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings (isPassed=true) and randomly distributes them into 4 tables (A, B, C, D)',
+      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings (isPassed=true) and randomly distributes them into 4 tables (A, B, C, D). ROUND_2 takes place in one day, so startDate and endDate will be the same.',
   })
   @ApiParam({
     name: 'id',
     description: 'Contest ID',
     example: 1,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        date: {
+          type: 'string',
+          format: 'date-time',
+          description:
+            'Date when ROUND_2 will take place (used for both startDate and endDate)',
+          example: '2025-11-15T09:00:00.000Z',
+        },
+      },
+      required: ['date'],
+    },
   })
   @ApiResponse({
     status: 201,
@@ -183,7 +198,8 @@ export class StaffController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - No passed paintings or not enough competitors',
+    description:
+      'Bad request - No passed paintings, not enough competitors, or invalid/missing date',
   })
   @ApiResponse({
     status: 404,
@@ -191,9 +207,10 @@ export class StaffController {
   })
   createRound2WithTables(
     @Param('id', ParseIntPipe) contestId: number,
+    @Body('date') date: string,
     @Request() req: any,
   ) {
-    return this.staffService.createRound2WithTables(contestId);
+    return this.staffService.createRound2WithTables(contestId, date);
   }
 
   @Get('contests')
@@ -396,6 +413,81 @@ export class StaffController {
 
   @Get('contests/:contestId/rounds')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Get all rounds in a contest',
+    description:
+      'Get all rounds grouped by round name. ROUND_1 shows basic info, ROUND_2 shows all 4 tables with competitors.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved rounds',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: {
+            oneOf: [
+              {
+                type: 'object',
+                description: 'ROUND_1 or other basic rounds',
+                properties: {
+                  roundId: { type: 'number', example: 1 },
+                  name: { type: 'string', example: 'ROUND_1' },
+                  isRound2: { type: 'boolean', example: false },
+                  startDate: { type: 'string' },
+                  endDate: { type: 'string' },
+                  submissionDeadline: { type: 'string' },
+                  resultAnnounceDate: { type: 'string' },
+                  sendOriginalDeadline: { type: 'string' },
+                  status: { type: 'string', example: 'ACTIVE' },
+                  table: { type: 'string', example: 'paintings' },
+                },
+              },
+              {
+                type: 'object',
+                description: 'ROUND_2 with tables',
+                properties: {
+                  name: { type: 'string', example: 'ROUND_2' },
+                  isRound2: { type: 'boolean', example: true },
+                  tables: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        roundId: { type: 'number', example: 5 },
+                        table: { type: 'string', example: 'A' },
+                        startDate: { type: 'string' },
+                        endDate: { type: 'string' },
+                        submissionDeadline: { type: 'string' },
+                        resultAnnounceDate: { type: 'string' },
+                        sendOriginalDeadline: { type: 'string' },
+                        status: { type: 'string', example: 'DRAFT' },
+                      },
+                    },
+                  },
+                  totalTables: { type: 'number', example: 4 },
+                },
+              },
+            ],
+          },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            contestId: { type: 'number', example: 1 },
+            totalRounds: { type: 'number', example: 2 },
+            roundTypes: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['ROUND_1', 'ROUND_2'],
+            },
+          },
+        },
+      },
+    },
+  })
   getRoundsByContest(
     @Param('contestId', ParseIntPipe) contestId: number,
     @Query() queryDto: PaginationDto,

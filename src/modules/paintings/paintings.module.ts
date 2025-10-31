@@ -8,6 +8,7 @@ import { Evaluation } from './entities/evaluation.entity';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Round } from '../contests/entities/round.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { Round } from '../contests/entities/round.entity';
       User,
       ContestExaminer,
       Round,
+      Competitor,
     ]),
   ],
   controllers: [PaintingsController],

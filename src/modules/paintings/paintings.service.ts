@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
@@ -14,6 +14,7 @@ import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Round } from '../contests/entities/round.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
 import {
   PreliminaryReviewDto,
   PaintingReviewItem,
@@ -33,6 +34,8 @@ export class PaintingsService {
     private readonly contestExaminerRepository: Repository<ContestExaminer>,
     @InjectRepository(Round)
     private readonly roundRepository: Repository<Round>,
+    @InjectRepository(Competitor)
+    private readonly competitorRepository: Repository<Competitor>,
   ) {}
 
   async getPaintingsByContestId(
@@ -45,28 +48,107 @@ export class PaintingsService {
       throw new NotFoundException('Contest ID is required');
     }
 
-    let roundId: string | undefined;
+    let roundIds: string[] = [];
     if (roundName) {
-      const round = await this.roundRepository.findOne({
-        where: {
-          contestId: contestId,
-          name: roundName,
-        },
-      });
+      if (roundName === 'ROUND_2') {
+        const round2Tables = await this.roundRepository.find({
+          where: {
+            contestId: contestId,
+            name: 'ROUND_2',
+          },
+        });
 
-      if (round) {
-        roundId = String(round.roundId);
+        if (round2Tables.length > 0) {
+          roundIds = round2Tables
+            .filter((r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table))
+            .map((r) => String(r.roundId));
+        }
+      } else {
+        const round = await this.roundRepository.findOne({
+          where: {
+            contestId: contestId,
+            name: roundName,
+          },
+        });
+
+        if (round) {
+          roundIds = [String(round.roundId)];
+        }
       }
     }
 
     const whereCondition: any = { contestId };
 
-    if (roundId) {
-      whereCondition.roundId = roundId;
+    if (roundIds.length > 0) {
+      if (roundIds.length === 1) {
+        whereCondition.roundId = roundIds[0];
+      } else {
+        const paintingsPromises = roundIds.map((roundId) => {
+          const condition = { ...whereCondition, roundId };
+
+          if (isPassed !== undefined) {
+            if (isPassed === null) {
+              condition.isPassed = IsNull();
+            } else {
+              condition.isPassed = isPassed;
+            }
+          }
+
+          if (status) {
+            condition.status = status;
+          }
+
+          return this.paintingRepository.find({ where: condition });
+        });
+
+        const paintingsArrays = await Promise.all(paintingsPromises);
+        const allPaintings = paintingsArrays.flat();
+
+        const paintingsWithCompetitor = await Promise.all(
+          allPaintings.map(async (painting) => {
+            const competitor = await this.competitorRepository.findOne({
+              where: { competitorId: painting.competitorId },
+            });
+
+            const user = await this.userRepository.findOne({
+              where: { userId: painting.competitorId },
+            });
+
+            return {
+              ...painting,
+              competitor: competitor
+                ? {
+                    competitorId: competitor.competitorId,
+                    birthday: competitor.birthday,
+                    schoolName: competitor.schoolName,
+                    ward: competitor.ward,
+                    grade: competitor.grade,
+                    guardianId: competitor.guardianId,
+                  }
+                : null,
+              user: user
+                ? {
+                    userId: user.userId,
+                    username: user.username,
+                    email: user.email,
+                    fullName: user.fullName,
+                    phone: user.phone,
+                  }
+                : null,
+            };
+          }),
+        );
+
+        return paintingsWithCompetitor || [];
+      }
     }
 
     if (isPassed !== undefined) {
-      whereCondition.isPassed = isPassed;
+      if (isPassed === null) {
+        whereCondition.isPassed = IsNull();
+      } else {
+        whereCondition.isPassed = isPassed;
+      }
     }
 
     if (status) {
@@ -77,7 +159,42 @@ export class PaintingsService {
       where: whereCondition,
     });
 
-    return paintings || [];
+    const paintingsWithCompetitor = await Promise.all(
+      paintings.map(async (painting) => {
+        const competitor = await this.competitorRepository.findOne({
+          where: { competitorId: painting.competitorId },
+        });
+
+        const user = await this.userRepository.findOne({
+          where: { userId: painting.competitorId },
+        });
+
+        return {
+          ...painting,
+          competitor: competitor
+            ? {
+                competitorId: competitor.competitorId,
+                birthday: competitor.birthday,
+                schoolName: competitor.schoolName,
+                ward: competitor.ward,
+                grade: competitor.grade,
+                guardianId: competitor.guardianId,
+              }
+            : null,
+          user: user
+            ? {
+                userId: user.userId,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                phone: user.phone,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return paintingsWithCompetitor || [];
   }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
@@ -272,12 +389,6 @@ export class PaintingsService {
         }
 
         painting.isPassed = item.isPassed;
-
-        if (item.isPassed) {
-          painting.status = 'QUALIFIED';
-        } else {
-          painting.status = 'DISQUALIFIED';
-        }
 
         await this.paintingRepository.save(painting);
 

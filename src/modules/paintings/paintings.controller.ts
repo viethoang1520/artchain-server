@@ -65,13 +65,20 @@ export class PaintingsController {
   async getPaintingsByContestId(
     @Query('contestId') contestId: number,
     @Query('roundName') roundName?: string,
-    @Query('is_passed') isPassed?: boolean | null,
+    @Query('is_passed') isPassed?: string,
     @Query('status') status?: string,
   ) {
 
-    let isPassedValue: boolean | null | undefined = isPassed;
-    if (isPassed === ('null' as any)) {
-      isPassedValue = null;
+    let isPassedValue: boolean | null = null;
+
+    if (isPassed !== undefined) {
+      if (isPassed === 'null') {
+        isPassedValue = null;
+      } else if (isPassed === 'true') {
+        isPassedValue = true;
+      } else if (isPassed === 'false') {
+        isPassedValue = false;
+      }
     }
 
     try {
