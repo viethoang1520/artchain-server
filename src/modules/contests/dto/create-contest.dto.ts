@@ -35,7 +35,7 @@ export class CreateContestDto {
     description: 'Array of rounds for the contest',
     example: [
       {
-        name: 'ROUND1',
+        name: 'ROUND_1',
         table: 'paintings',
         startDate: '2025-10-15T00:00:00.000Z',
         endDate: '2025-10-30T00:00:00.000Z',

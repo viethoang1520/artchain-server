@@ -26,6 +26,8 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
 export class StaffService {
@@ -46,14 +48,40 @@ export class StaffService {
     private usersRepository: Repository<User>,
     @InjectRepository(Schedule)
     private schedulesRepository: Repository<Schedule>,
+    @InjectRepository(Competitor)
+    private competitorsRepository: Repository<Competitor>,
+    private firebaseService: FirebaseService,
   ) {}
 
-  async createContest(createContestDto: CreateContestDto) {
+  async createContest(
+    createContestDto: CreateContestDto,
+    file?: Express.Multer.File,
+  ) {
     try {
+      let bannerUrl: string | undefined = createContestDto.bannerUrl;
+
+      // Upload file to Firebase if provided
+      if (file) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/banners/${Date.now()}-${file.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(file.buffer, {
+          metadata: { contentType: file.mimetype },
+        });
+
+        const [url] = await fileUpload.getSignedUrl({
+          action: 'read',
+          expires: '03-09-2491',
+        });
+
+        bannerUrl = url;
+      }
+
       const contest = this.contestsRepository.create({
         title: createContestDto.title,
         description: createContestDto.description,
-        bannerUrl: createContestDto.bannerUrl,
+        bannerUrl,
         numOfAward: createContestDto.numOfAward,
         startDate: createContestDto.startDate,
         endDate: createContestDto.endDate,
@@ -345,7 +373,133 @@ export class StaffService {
     };
   }
 
-  async getRound(contestId: number, roundId: number) {
+  async getRoundByName(contestId: number, name: string) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const round = await this.roundsRepository.findOne({
+      where: { contestId, name },
+    });
+
+    if (!round) {
+      throw new NotFoundException(
+        `Round with name "${name}" not found in contest ${contestId}`,
+      );
+    }
+
+    if (round.name === 'ROUND_2') {
+      const allRound2Tables = await this.roundsRepository
+        .createQueryBuilder('round')
+        .where('round.contestId = :contestId', { contestId })
+        .andWhere('round.name = :name', { name: 'ROUND_2' })
+        .andWhere('round.table IN (:...tables)', {
+          tables: ['A', 'B', 'C', 'D'],
+        })
+        .orderBy('round.table', 'ASC')
+        .getMany();
+
+      if (allRound2Tables.length === 0) {
+        return {
+          success: true,
+          data: round,
+          message: 'ROUND_2 found but no tables (A, B, C, D) created yet',
+        };
+      }
+
+      const tablesWithCompetitors = await Promise.all(
+        allRound2Tables.map(async (tableRound) => {
+          const paintings = await this.paintingsRepository.find({
+            where: { roundId: tableRound.roundId.toString() },
+          });
+
+          const competitorIds = [
+            ...new Set(paintings.map((p) => p.competitorId)),
+          ];
+
+          const competitors = await Promise.all(
+            competitorIds.map(async (competitorId) => {
+              // Get competitor info from competitors table
+              const competitor = await this.competitorsRepository.findOne({
+                where: { competitorId },
+              });
+
+              // Get user info for additional details
+              const user = await this.usersRepository.findOne({
+                where: { userId: competitorId },
+              });
+
+              const competitorPaintings = paintings.filter(
+                (p) => p.competitorId === competitorId,
+              );
+
+              return {
+                competitorId: competitor?.competitorId,
+                birthday: competitor?.birthday,
+                schoolName: competitor?.schoolName,
+                ward: competitor?.ward,
+                grade: competitor?.grade,
+                guardianId: competitor?.guardianId,
+                // User info
+                userId: user?.userId,
+                username: user?.username,
+                email: user?.email,
+                fullName: user?.fullName,
+                paintings: competitorPaintings.map((p) => ({
+                  paintingId: p.paintingId,
+                  title: p.title,
+                  imageUrl: p.imageUrl,
+                  isPassed: p.isPassed,
+                  status: p.status,
+                })),
+              };
+            }),
+          );
+
+          return {
+            roundId: tableRound.roundId,
+            table: tableRound.table,
+            name: tableRound.name,
+            startDate: tableRound.startDate,
+            endDate: tableRound.endDate,
+            submissionDeadline: tableRound.submissionDeadline,
+            resultAnnounceDate: tableRound.resultAnnounceDate,
+            sendOriginalDeadline: tableRound.sendOriginalDeadline,
+            status: tableRound.status,
+            competitors,
+            competitorCount: competitors.length,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: {
+          roundInfo: round,
+          isRound2: true,
+          tables: tablesWithCompetitors,
+          totalCompetitors: tablesWithCompetitors.reduce(
+            (sum, table) => sum + table.competitorCount,
+            0,
+          ),
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        ...round,
+        isRound2: false,
+      },
+    };
+  }
+
+  async getRoundById(contestId: number, roundId: number) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
     });

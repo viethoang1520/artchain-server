@@ -12,6 +12,8 @@ import { PostsModule } from '../posts/posts.module';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { User } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
   imports: [
@@ -24,9 +26,11 @@ import { Schedule } from '../schedules/entities/schedule.entity';
       Campaign,
       User,
       Schedule,
+      Competitor,
     ]),
     AuthModule,
     PostsModule,
+    FirebaseModule,
   ],
   controllers: [StaffController],
   providers: [StaffService],

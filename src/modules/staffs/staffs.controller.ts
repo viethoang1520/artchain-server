@@ -23,6 +23,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -59,12 +60,58 @@ export class StaffController {
 
   @Post('contests')
   @UseGuards(AuthGuard)
-  createContest(
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Banner image file (optional)',
+        },
+        title: {
+          type: 'string',
+          example: 'Art Competition 2025',
+        },
+        description: {
+          type: 'string',
+          example: 'A competition for young artists',
+        },
+        numOfAward: {
+          type: 'number',
+          example: 3,
+        },
+        startDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        endDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2025-11-15T00:00:00.000Z',
+        },
+        status: {
+          type: 'string',
+          enum: ['DRAFT', 'PUBLISHED', 'ONGOING', 'ENDED'],
+          example: 'DRAFT',
+        },
+      },
+      required: ['title', 'startDate', 'endDate'],
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  async createContest(
+    @UploadedFile() file: Express.Multer.File,
     @Body() createContestDto: CreateContestDto,
     @Request() req: any,
   ) {
     const createdBy = req.user.sub || req.user.userId;
-    return this.staffService.createContest({ ...createContestDto, createdBy });
+    return this.staffService.createContest(
+      { ...createContestDto, createdBy },
+      file,
+    );
   }
 
   @Put('contests/:id')
@@ -356,14 +403,36 @@ export class StaffController {
     return this.staffService.getRoundsByContest(contestId, queryDto);
   }
 
+  @Get('contests/:contestId/rounds/detail')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Get round detail by name',
+    description:
+      'Get round details by name. For ROUND_2, it will also include tables (A, B, C, D) and competitors in each table.',
+  })
+  @ApiQuery({
+    name: 'name',
+    required: true,
+    description:
+      'Filter by round name (e.g., "ROUND_1", "ROUND_2"). Required parameter.',
+    example: 'ROUND_2',
+  })
+  getRoundByName(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Query('name') name: string,
+    @Request() req?: any,
+  ) {
+    return this.staffService.getRoundByName(contestId, name);
+  }
+
   @Get('contests/:contestId/rounds/:roundId')
   @UseGuards(AuthGuard)
   getRound(
     @Param('contestId', ParseIntPipe) contestId: number,
     @Param('roundId', ParseIntPipe) roundId: number,
-    @Request() req: any,
+    @Request() req?: any,
   ) {
-    return this.staffService.getRound(contestId, roundId);
+    return this.staffService.getRoundById(contestId, roundId);
   }
 
   @Patch('contests/:contestId/rounds/:roundId')
