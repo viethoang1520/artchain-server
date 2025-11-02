@@ -7,29 +7,88 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AwardsService } from './awards.service';
 import { CreateAwardDto } from './dto/create-award.dto';
 import { UpdateAwardDto } from './dto/update-award.dto';
+import { CreateAwardsBatchDto } from './dto/create-awards-batch.dto';
+import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiBearerAuth()
 @ApiTags('Awards')
 @Controller('api/awards')
+@UseGuards(AuthGuard)
 export class AwardsController {
   constructor(private readonly awardsService: AwardsService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new award' })
+//   @Post()
+//   @ApiOperation({ summary: 'Create a new award' })
+//   @ApiResponse({
+//     status: 201,
+//     description: 'Award created successfully',
+//   })
+//   @ApiResponse({
+//     status: 404,
+//     description: 'Contest not found',
+//   })
+//   create(@Body() createAwardDto: CreateAwardDto) {
+//     return this.awardsService.create(createAwardDto);
+//   }
+
+  @Post('batch')
+  @ApiOperation({ summary: 'Create multiple awards at once' })
   @ApiResponse({
     status: 201,
-    description: 'Award created successfully',
+    description: 'Awards created successfully',
+    schema: {
+      example: {
+        success: true,
+        message: '3 awards created successfully',
+        data: [
+          {
+            awardId: 1,
+            contestId: 1,
+            name: 'First Prize',
+            description: 'Best painting in the contest',
+            rank: 1,
+            quantity: 1,
+            prize: 5000000,
+            createdAt: '2025-11-02T12:00:00.000Z',
+            updatedAt: '2025-11-02T12:00:00.000Z',
+          },
+          {
+            awardId: 2,
+            contestId: 1,
+            name: 'Second Prize',
+            description: 'Runner-up',
+            rank: 2,
+            quantity: 2,
+            prize: 3000000,
+            createdAt: '2025-11-02T12:00:00.000Z',
+            updatedAt: '2025-11-02T12:00:00.000Z',
+          },
+        ],
+        meta: {
+          total: 2,
+          contestIds: [1],
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
     description: 'Contest not found',
   })
-  create(@Body() createAwardDto: CreateAwardDto) {
-    return this.awardsService.create(createAwardDto);
+  createBatch(@Body() createAwardsBatchDto: CreateAwardsBatchDto) {
+    return this.awardsService.createBatch(createAwardsBatchDto);
   }
 
   @Get()

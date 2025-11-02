@@ -43,6 +43,9 @@ export class Painting {
   @Column({ type: 'varchar', length: 50, default: 'PENDING', name: 'status' })
   status: string;
 
+  @Column({ nullable: true, name: 'award_id' })
+  awardId: number | null;
+
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
 

@@ -28,6 +28,7 @@ import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
+import { Award } from '../awards/entities/award.entity';
 
 @Injectable()
 export class StaffService {
@@ -50,6 +51,8 @@ export class StaffService {
     private schedulesRepository: Repository<Schedule>,
     @InjectRepository(Competitor)
     private competitorsRepository: Repository<Competitor>,
+    @InjectRepository(Award)
+    private awardsRepository: Repository<Award>,
     private firebaseService: FirebaseService,
   ) {}
 
@@ -1276,6 +1279,101 @@ export class StaffService {
         totalCompetitors: uniqueCompetitorIds.length,
         passedPaintingsCount: passedPaintings.length,
         totalPaintingsCreated: createdPaintings.length,
+      },
+    };
+  }
+
+  async assignAwardToPainting(paintingId: string, awardId: number) {
+    // Check if painting exists
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+      relations: ['award'],
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    // Check if painting already has an award
+    if (painting.awardId) {
+      throw new BadRequestException(
+        `Painting already has an award assigned (Award ID: ${painting.awardId})`,
+      );
+    }
+
+    // Check if award exists
+    const award = await this.awardsRepository.findOne({
+      where: { awardId },
+      relations: ['paintings'],
+    });
+
+    if (!award) {
+      throw new NotFoundException(`Award with ID ${awardId} not found`);
+    }
+
+    if (award.quantity) {
+      const paintingsWithAward = await this.paintingsRepository.count({
+        where: { awardId },
+      });
+
+      if (paintingsWithAward >= award.quantity) {
+        throw new BadRequestException(
+          `Award "${award.name}" has reached its maximum quantity (${award.quantity}). Cannot assign more paintings.`,
+        );
+      }
+    }
+
+    painting.awardId = awardId;
+    const updatedPainting = await this.paintingsRepository.save(painting);
+
+    const currentCount = await this.paintingsRepository.count({
+      where: { awardId },
+    });
+
+    return {
+      success: true,
+      message: 'Award assigned to painting successfully',
+      data: {
+        paintingId: updatedPainting.paintingId,
+        awardId: updatedPainting.awardId,
+        awardName: award.name,
+        awardRank: award.rank,
+        awardPrize: award.prize,
+      },
+      meta: {
+        currentAssignedCount: currentCount,
+        maxQuantity: award.quantity,
+        remainingSlots: award.quantity ? award.quantity - currentCount : null,
+      },
+    };
+  }
+
+  async unassignAwardFromPainting(paintingId: string) {
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    if (!painting.awardId) {
+      throw new BadRequestException(
+        'Painting does not have any award assigned',
+      );
+    }
+
+    const previousAwardId = painting.awardId;
+
+    painting.awardId = null;
+    await this.paintingsRepository.save(painting);
+
+    return {
+      success: true,
+      message: 'Award unassigned from painting successfully',
+      data: {
+        paintingId: painting.paintingId,
+        previousAwardId,
       },
     };
   }

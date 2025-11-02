@@ -49,6 +49,7 @@ import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
+import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -641,5 +642,92 @@ export class StaffController {
     @Request() req: any,
   ) {
     return this.staffService.deleteSchedule(scheduleId);
+  }
+
+  @Post('paintings/:paintingId/award')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Assign award to a painting' })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'Painting ID (UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Award assigned successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Award assigned to painting successfully',
+        data: {
+          paintingId: '550e8400-e29b-41d4-a716-446655440000',
+          awardId: 1,
+          awardName: 'First Prize',
+          awardRank: 1,
+          awardPrize: 5000000,
+        },
+        meta: {
+          currentAssignedCount: 1,
+          maxQuantity: 3,
+          remainingSlots: 2,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Painting already has an award or award quantity limit reached',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Painting or Award not found',
+  })
+  assignAwardToPainting(
+    @Param('paintingId') paintingId: string,
+    @Body() assignAwardDto: AssignAwardToPaintingDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.assignAwardToPainting(
+      paintingId,
+      assignAwardDto.awardId,
+    );
+  }
+
+  @Delete('paintings/:paintingId/award')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Remove award from a painting' })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'Painting ID (UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Award removed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Award unassigned from painting successfully',
+        data: {
+          paintingId: '550e8400-e29b-41d4-a716-446655440000',
+          previousAwardId: 1,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Painting does not have any award assigned',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Painting not found',
+  })
+  unassignAwardFromPainting(
+    @Param('paintingId') paintingId: string,
+    @Request() req: any,
+  ) {
+    return this.staffService.unassignAwardFromPainting(paintingId);
   }
 }
