@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Award } from '../../awards/entities/award.entity';
 
 export enum ContestStatus {
   UPCOMING = 'UPCOMING',
@@ -19,7 +20,7 @@ export class Contest {
   @Column({ name: 'description', nullable: true })
   description: string;
 
-  @Column({name: 'banner_url', nullable: true})
+  @Column({ name: 'banner_url', nullable: true })
   bannerUrl: string;
 
   @Column({ name: 'num_of_award', nullable: true })
@@ -36,4 +37,7 @@ export class Contest {
 
   @Column({ name: 'created_by' })
   createdBy: string;
+
+  @OneToMany(() => Award, (award) => award.contest)
+  awards: Award[];
 }
