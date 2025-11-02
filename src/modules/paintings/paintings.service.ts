@@ -11,6 +11,7 @@ import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
+import { EvaluateRound2Dto } from './dto/evaluate-round2.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Round } from '../contests/entities/round.entity';
@@ -41,9 +42,19 @@ export class PaintingsService {
   async getPaintingsByContestId(
     contestId: number,
     roundName?: string,
-    isPassed?: boolean | null,
+    // isPassed?: boolean | null,
     status?: string,
+    examinerId?: string,
   ) {
+    const checkEvaluatedByExaminer = async (
+      paintingId: string,
+      examinerId: string,
+    ) => {
+      const evaluation = await this.evaluationRepository.findOne({
+        where: { paintingId, examinerId },
+      });
+      return !!evaluation;
+    };
     if (!contestId) {
       throw new NotFoundException('Contest ID is required');
     }
@@ -86,13 +97,13 @@ export class PaintingsService {
         const paintingsPromises = roundIds.map((roundId) => {
           const condition = { ...whereCondition, roundId };
 
-          if (isPassed !== undefined) {
-            if (isPassed === null) {
-              condition.isPassed = IsNull();
-            } else {
-              condition.isPassed = isPassed;
-            }
-          }
+          // if (isPassed !== undefined) {
+          //   if (isPassed === null) {
+          //     condition.isPassed = IsNull();
+          //   } else {
+          //     condition.isPassed = isPassed;
+          //   }
+          // }
 
           if (status) {
             condition.status = status;
@@ -102,7 +113,20 @@ export class PaintingsService {
         });
 
         const paintingsArrays = await Promise.all(paintingsPromises);
-        const allPaintings = paintingsArrays.flat();
+        let allPaintings = paintingsArrays.flat();
+
+        if (examinerId) {
+          const unevaluatedPaintings = await Promise.all(
+            allPaintings.map(async (painting) => {
+              const hasEvaluated = await checkEvaluatedByExaminer(
+                painting.paintingId,
+                examinerId,
+              );
+              return hasEvaluated ? null : painting;
+            }),
+          );
+          allPaintings = unevaluatedPaintings.filter((p) => p !== null);
+        }
 
         const paintingsWithCompetitor = await Promise.all(
           allPaintings.map(async (painting) => {
@@ -139,25 +163,42 @@ export class PaintingsService {
           }),
         );
 
-        return paintingsWithCompetitor || [];
+        return {
+          paintings: paintingsWithCompetitor || [],
+          count: paintingsWithCompetitor.length,
+        };
       }
     }
 
-    if (isPassed !== undefined) {
-      if (isPassed === null) {
-        whereCondition.isPassed = IsNull();
-      } else {
-        whereCondition.isPassed = isPassed;
-      }
-    }
+    // if (isPassed !== undefined) {
+    //   if (isPassed === null) {
+    //     whereCondition.isPassed = IsNull();
+    //   } else {
+    //     whereCondition.isPassed = isPassed;
+    //   }
+    // }
 
     if (status) {
       whereCondition.status = status;
     }
 
-    const paintings = await this.paintingRepository.find({
+    let paintings = await this.paintingRepository.find({
       where: whereCondition,
     });
+
+    // Filter paintings that have NOT been evaluated by this examiner (if examinerId provided)
+    if (examinerId) {
+      const unevaluatedPaintings = await Promise.all(
+        paintings.map(async (painting) => {
+          const hasEvaluated = await checkEvaluatedByExaminer(
+            painting.paintingId,
+            examinerId,
+          );
+          return hasEvaluated ? null : painting;
+        }),
+      );
+      paintings = unevaluatedPaintings.filter((p) => p !== null);
+    }
 
     const paintingsWithCompetitor = await Promise.all(
       paintings.map(async (painting) => {
@@ -194,7 +235,10 @@ export class PaintingsService {
       }),
     );
 
-    return paintingsWithCompetitor || [];
+    return {
+      paintings: paintingsWithCompetitor || [],
+      count: paintingsWithCompetitor.length,
+    };
   }
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
@@ -276,7 +320,7 @@ export class PaintingsService {
     });
 
     if (existingEvaluation) {
-      existingEvaluation.score = score;
+      existingEvaluation.scoreRound1 = score;
       existingEvaluation.feedback = feedback || '';
       existingEvaluation.evaluationDate = new Date();
       existingEvaluation.status = 'COMPLETED';
@@ -287,13 +331,114 @@ export class PaintingsService {
     const newEvaluation = this.evaluationRepository.create({
       paintingId,
       examinerId,
-      score,
+      scoreRound1: score,
       feedback: feedback || '',
       evaluationDate: new Date(),
       status: 'COMPLETED',
     });
 
-    return await this.evaluationRepository.save(newEvaluation);
+    const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
+    return savedEvaluation;
+  }
+
+  async evaluateRound2Painting(
+    evaluateDto: EvaluateRound2Dto,
+  ): Promise<Evaluation> {
+    const {
+      paintingId,
+      examinerId,
+      creativityScore,
+      compositionScore,
+      colorScore,
+      technicalScore,
+      aestheticScore,
+      feedback,
+    } = evaluateDto;
+
+    // Validate painting exists
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    const round = await this.roundRepository.findOne({
+      where: { roundId: parseInt(painting.roundId) },
+    });
+
+    if (!round || round.name !== 'ROUND_2') {
+      throw new BadRequestException(
+        'This evaluation method is only for ROUND_2 paintings',
+      );
+    }
+
+    const contestExaminer = await this.contestExaminerRepository.findOne({
+      where: {
+        contestId: painting.contestId,
+        examinerId: examinerId,
+        status: 'ACTIVE',
+      },
+    });
+
+    if (!contestExaminer) {
+      throw new BadRequestException(
+        `Examiner ${examinerId} is not assigned to contest ${painting.contestId} or is not active`,
+      );
+    }
+
+    const totalScore =
+      creativityScore +
+      compositionScore +
+      colorScore +
+      technicalScore +
+      aestheticScore;
+
+    const existingEvaluation = await this.evaluationRepository.findOne({
+      where: { paintingId, examinerId },
+    });
+
+    if (existingEvaluation) {
+      existingEvaluation.creativityScore = creativityScore;
+      existingEvaluation.compositionScore = compositionScore;
+      existingEvaluation.colorScore = colorScore;
+      existingEvaluation.technicalScore = technicalScore;
+      existingEvaluation.aestheticScore = aestheticScore;
+      existingEvaluation.scoreRound2 = totalScore;
+      existingEvaluation.feedback = feedback || '';
+      existingEvaluation.evaluationDate = new Date();
+      existingEvaluation.status = 'ACCEPTED';
+
+      const updatedEvaluation =
+        await this.evaluationRepository.save(existingEvaluation);
+
+      return {
+        ...updatedEvaluation,
+        message: 'Evaluation updated successfully',
+      } as any;
+    }
+
+    const newEvaluation = this.evaluationRepository.create({
+      paintingId,
+      examinerId,
+      creativityScore,
+      compositionScore,
+      colorScore,
+      technicalScore,
+      aestheticScore,
+      scoreRound2: totalScore,
+      feedback: feedback || '',
+      evaluationDate: new Date(),
+      status: 'ACTIVE',
+    });
+
+    const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
+
+    return {
+      ...savedEvaluation,
+      message: 'Evaluation created successfully',
+    } as any;
   }
 
   async evaluatePreliminary(
@@ -409,6 +554,104 @@ export class PaintingsService {
       success: true,
       message: `Processed ${results.total} paintings: ${results.success.length} successful, ${results.failed.length} failed`,
       data: results,
+    };
+  }
+
+  async getRound2PaintingsWithAvgScore(contestId: number) {
+    const rounds = await this.roundRepository.find({
+      where: { contestId, name: 'ROUND_2' },
+    });
+
+    if (rounds.length === 0) {
+      throw new NotFoundException(`ROUND_2 not found for contest ${contestId}`);
+    }
+
+    const topPaintingsPerTable = await Promise.all(
+      rounds.map(async (round) => {
+        const paintings = await this.paintingRepository.find({
+          where: {
+            contestId: contestId,
+            roundId: round.roundId.toString(),
+          },
+        });
+
+        if (paintings.length === 0) {
+          return null;
+        }
+
+        const paintingsWithAvgScore = await Promise.all(
+          paintings.map(async (painting) => {
+            const evaluations = await this.evaluationRepository.find({
+              where: { paintingId: painting.paintingId },
+            });
+
+            let avgScoreRound2 = 0;
+            let evaluationCount = 0;
+
+            if (evaluations.length > 0) {
+              const validScores = evaluations.filter(
+                (e) => e.scoreRound2 !== null && e.scoreRound2 !== undefined,
+              );
+
+              if (validScores.length > 0) {
+                const totalScore = validScores.reduce(
+                  (sum, evaluation) => sum + evaluation.scoreRound2,
+                  0,
+                );
+                avgScoreRound2 = totalScore / validScores.length;
+                evaluationCount = validScores.length;
+              }
+            }
+
+            const competitor = await this.competitorRepository.findOne({
+              where: { competitorId: painting.competitorId },
+            });
+
+            let competitorName = 'Unknown';
+            if (competitor) {
+              const user = await this.userRepository.findOne({
+                where: { userId: competitor.competitorId },
+              });
+              if (user) {
+                competitorName = user.fullName || 'Unknown';
+              }
+            }
+
+            return {
+              paintingId: painting.paintingId,
+              title: painting.title,
+              imageUrl: painting.imageUrl,
+              competitorId: painting.competitorId,
+              competitorName,
+              avgScoreRound2: Math.round(avgScoreRound2 * 100) / 100,
+              evaluationCount,
+              status: painting.status,
+              table: round.table || 'Unknown',
+              roundId: round.roundId,
+              createdAt: painting.createdAt,
+            };
+          }),
+        );
+
+        paintingsWithAvgScore.sort(
+          (a, b) => b.avgScoreRound2 - a.avgScoreRound2,
+        );
+
+        return paintingsWithAvgScore[0]; 
+      }),
+    );
+
+    const topPaintings = topPaintingsPerTable.filter(
+      (painting) => painting !== null,
+    );
+
+    topPaintings.sort((a, b) => b.avgScoreRound2 - a.avgScoreRound2);
+
+    return {
+      success: true,
+      message: `Top 1 from each table retrieved successfully`,
+      data: topPaintings,
+      count: topPaintings.length,
     };
   }
 }

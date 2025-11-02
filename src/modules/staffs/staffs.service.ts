@@ -29,6 +29,7 @@ import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { Award } from '../awards/entities/award.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 
 @Injectable()
 export class StaffService {
@@ -53,6 +54,8 @@ export class StaffService {
     private competitorsRepository: Repository<Competitor>,
     @InjectRepository(Award)
     private awardsRepository: Repository<Award>,
+    @InjectRepository(Evaluation)
+    private evaluationsRepository: Repository<Evaluation>,
     private firebaseService: FirebaseService,
   ) {}
 
@@ -537,7 +540,6 @@ export class StaffService {
                   paintingId: p.paintingId,
                   title: p.title,
                   imageUrl: p.imageUrl,
-                  isPassed: p.isPassed,
                   status: p.status,
                 })),
               };
@@ -1163,7 +1165,7 @@ export class StaffService {
     const passedPaintings = await this.paintingsRepository.find({
       where: {
         contestId,
-        isPassed: true,
+        status: 'ACCEPTED',
       },
     });
 
@@ -1183,27 +1185,73 @@ export class StaffService {
       );
     }
 
-    // Shuffle competitors randomly
-    const shuffledCompetitors = uniqueCompetitorIds.sort(
-      () => Math.random() - 0.5,
+    const round2Limit = contest.round2Quantity || uniqueCompetitorIds.length;
+
+    if (uniqueCompetitorIds.length < round2Limit) {
+      throw new BadRequestException(
+        `Contest configured for ${round2Limit} competitors in ROUND_2, but only ${uniqueCompetitorIds.length} competitors passed ROUND_1`,
+      );
+    }
+
+    const competitorScores = await Promise.all(
+      uniqueCompetitorIds.map(async (competitorId) => {
+        const competitorPaintings = passedPaintings.filter(
+          (p) => p.competitorId === competitorId && p.contestId === contestId,
+        );
+
+        const paintingIds = competitorPaintings.map((p) => p.paintingId);
+        const evaluations = await this.evaluationsRepository.find({
+          where: paintingIds.map((paintingId) => ({ paintingId })),
+        });
+
+        let avgScore = 0;
+        if (evaluations.length > 0) {
+          const totalScore = evaluations.reduce(
+            (sum, evaluation) => sum + (evaluation.scoreRound1 || 0),
+            0,
+          );
+          avgScore = totalScore / evaluations.length;
+        }
+
+        return {
+          competitorId,
+          avgScore,
+          evaluationCount: evaluations.length,
+        };
+      }),
     );
 
-    // Divide into 4 tables
-    const tableSize = Math.ceil(shuffledCompetitors.length / 4);
-    const tables = [
-      shuffledCompetitors.slice(0, tableSize),
-      shuffledCompetitors.slice(tableSize, tableSize * 2),
-      shuffledCompetitors.slice(tableSize * 2, tableSize * 3),
-      shuffledCompetitors.slice(tableSize * 3),
-    ];
+    competitorScores.sort((a, b) => b.avgScore - a.avgScore);
 
+    const topCompetitors = competitorScores.slice(0, round2Limit);
+
+    // Distribute competitors using seeding method:
+    // Seeds 1-4 go to tables A, B, C, D
+    // Seeds 5-8 go to tables D, C, B, A (reverse order)
+    // Seeds 9-12 go to tables A, B, C, D
+    // And so on...
+    const tables: string[][] = [[], [], [], []];
     const tableNames = ['A', 'B', 'C', 'D'];
+
+    for (let i = 0; i < topCompetitors.length; i++) {
+      const seed = i + 1; // Seed number (1-based)
+      const group = Math.floor(i / 4); // Which group of 4
+      const positionInGroup = i % 4; // Position within the group (0-3)
+
+      let tableIndex;
+      if (group % 2 === 0) {
+        tableIndex = positionInGroup;
+      } else {
+        tableIndex = 3 - positionInGroup;
+      }
+
+      tables[tableIndex].push(topCompetitors[i].competitorId);
+    }
+
     const createdRounds: Round[] = [];
     const createdPaintings: Painting[] = [];
 
-    // Create 4 rounds and paintings for each competitor
     for (let i = 0; i < 4; i++) {
-      // Create round for table
       const round = this.roundsRepository.create({
         contestId,
         name: 'ROUND_2',
@@ -1216,7 +1264,6 @@ export class StaffService {
       const savedRound = await this.roundsRepository.save(round);
       createdRounds.push(savedRound);
 
-      // Create painting records for each competitor in this table
       for (const competitorId of tables[i]) {
         const painting = this.paintingsRepository.create({
           competitorId,
@@ -1224,8 +1271,7 @@ export class StaffService {
           roundId: savedRound.roundId.toString(),
           title: `ROUND_2 - Table ${tableNames[i]} - Pending Upload`,
           description: `Painting for ROUND_2, Table ${tableNames[i]}. Waiting for examiner to upload.`,
-          status: 'PENDING',
-          // isPassed, submissionDate, imageUrl sẽ là null theo default
+          status: 'ACCEPTED',
         });
 
         const savedPainting = await this.paintingsRepository.save(painting);
@@ -1233,7 +1279,6 @@ export class StaffService {
       }
     }
 
-    // Group paintings by table for response
     const paintingsByTable = {
       'Table A': createdPaintings.filter(
         (p) => p.roundId === createdRounds[0].roundId.toString(),
@@ -1252,9 +1297,15 @@ export class StaffService {
     return {
       success: true,
       message:
-        'ROUND_2 created successfully with 4 tables and painting records',
+        'ROUND_2 created successfully with 4 tables using seeding based on average scores',
       data: {
         rounds: createdRounds,
+        seedingInfo: topCompetitors.map((comp, index) => ({
+          seed: index + 1,
+          competitorId: comp.competitorId,
+          avgScore: comp.avgScore,
+          evaluationCount: comp.evaluationCount,
+        })),
         tableDistribution: {
           'Table A': {
             roundId: createdRounds[0].roundId,
@@ -1297,7 +1348,7 @@ export class StaffService {
             })),
           },
         },
-        totalCompetitors: uniqueCompetitorIds.length,
+        totalCompetitors: topCompetitors.length,
         passedPaintingsCount: passedPaintings.length,
         totalPaintingsCreated: createdPaintings.length,
       },
