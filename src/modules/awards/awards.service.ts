@@ -141,6 +141,7 @@ export class AwardsService {
     const awards = await this.awardRepository.find({
       where: { contestId },
       order: { rank: 'ASC' },
+      relations: ['paintings'],
     });
 
     return {

@@ -26,6 +26,12 @@ export class Contest {
   @Column({ name: 'num_of_award', nullable: true })
   numOfAward: number;
 
+  @Column({ name: 'round_2_quantity', nullable: true })
+  round2Quantity: number;
+
+  @Column({ name: 'rule', nullable: true })
+  ruleUrl: string;
+
   @Column({ name: 'start_date' })
   startDate: Date;
 

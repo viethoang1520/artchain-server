@@ -12,6 +12,7 @@ import {
   UseGuards,
   Request,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
@@ -25,7 +26,10 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileInterceptor,
+  FileFieldsInterceptor,
+} from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { StaffService } from './staffs.service';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
@@ -67,10 +71,15 @@ export class StaffController {
     schema: {
       type: 'object',
       properties: {
-        file: {
+        banner: {
           type: 'string',
           format: 'binary',
           description: 'Banner image file (optional)',
+        },
+        rule: {
+          type: 'string',
+          format: 'binary',
+          description: 'Contest rules PDF file (optional)',
         },
         title: {
           type: 'string',
@@ -83,6 +92,11 @@ export class StaffController {
         numOfAward: {
           type: 'number',
           example: 3,
+        },
+        round2Quantity: {
+          type: 'number',
+          example: 20,
+          description: 'Number of competitors to advance to Round 2',
         },
         startDate: {
           type: 'string',
@@ -99,21 +113,106 @@ export class StaffController {
           enum: Object.values(ContestStatus),
           example: 'DRAFT',
         },
+
+        roundName: {
+          type: 'string',
+          description: 'Round name (e.g., ROUND_1)',
+          example: 'ROUND_1',
+        },
+        roundTable: {
+          type: 'string',
+          description: 'Round table name',
+          example: 'paintings',
+        },
+        roundStartDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round start date',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        roundEndDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round end date',
+          example: '2025-10-30T00:00:00.000Z',
+        },
+        roundSubmissionDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round submission deadline',
+          example: '2025-10-28T00:00:00.000Z',
+        },
+        roundResultAnnounceDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round result announcement date',
+          example: '2025-10-31T00:00:00.000Z',
+        },
+        roundSendOriginalDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round send original deadline',
+          example: '2025-11-05T00:00:00.000Z',
+        },
+        roundStatus: {
+          type: 'string',
+          description: 'Round status',
+          example: 'DRAFT',
+        },
       },
       required: ['title', 'startDate', 'endDate'],
     },
   })
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'banner', maxCount: 1 },
+        { name: 'rule', maxCount: 1 },
+      ],
+      { storage: memoryStorage() },
+    ),
+  )
   async createContest(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: { banner?: Express.Multer.File[]; rule?: Express.Multer.File[] },
     @Body() createContestDto: CreateContestDto,
     @Request() req: any,
   ) {
     const createdBy = req.user.sub || req.user.userId;
-    return this.staffService.createContest(
-      { ...createContestDto, createdBy },
-      file,
-    );
+    const bannerFile = files?.banner?.[0];
+    const ruleFile = files?.rule?.[0];
+
+    let parsedDto = { ...createContestDto, createdBy };
+
+    if (
+      createContestDto['roundName'] ||
+      createContestDto['roundTable'] ||
+      createContestDto['roundStartDate']
+    ) {
+      parsedDto.rounds = [
+        {
+          name: createContestDto['roundName'],
+          table: createContestDto['roundTable'],
+          startDate: createContestDto['roundStartDate'],
+          endDate: createContestDto['roundEndDate'],
+          submissionDeadline: createContestDto['roundSubmissionDeadline'],
+          resultAnnounceDate: createContestDto['roundResultAnnounceDate'],
+          sendOriginalDeadline: createContestDto['roundSendOriginalDeadline'],
+          status: createContestDto['roundStatus'] || 'DRAFT',
+        },
+      ];
+
+      delete parsedDto['roundName'];
+      delete parsedDto['roundTable'];
+      delete parsedDto['roundStartDate'];
+      delete parsedDto['roundEndDate'];
+      delete parsedDto['roundSubmissionDeadline'];
+      delete parsedDto['roundResultAnnounceDate'];
+      delete parsedDto['roundSendOriginalDeadline'];
+      delete parsedDto['roundStatus'];
+    }
+
+    return this.staffService.createContest(parsedDto, bannerFile, ruleFile);
   }
 
   @Put('contests/:id')

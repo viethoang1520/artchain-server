@@ -58,19 +58,21 @@ export class StaffService {
 
   async createContest(
     createContestDto: CreateContestDto,
-    file?: Express.Multer.File,
+    bannerFile?: Express.Multer.File,
+    ruleFile?: Express.Multer.File,
   ) {
     try {
       let bannerUrl: string | undefined = createContestDto.bannerUrl;
+      let ruleUrl: string | undefined = createContestDto.ruleUrl;
 
-      // Upload file to Firebase if provided
-      if (file) {
+      // Upload banner file to Firebase if provided
+      if (bannerFile) {
         const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `contests/banners/${Date.now()}-${file.originalname}`;
+        const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
         const fileUpload = bucket.file(fileName);
 
-        await fileUpload.save(file.buffer, {
-          metadata: { contentType: file.mimetype },
+        await fileUpload.save(bannerFile.buffer, {
+          metadata: { contentType: bannerFile.mimetype },
         });
 
         const [url] = await fileUpload.getSignedUrl({
@@ -81,11 +83,30 @@ export class StaffService {
         bannerUrl = url;
       }
 
+      if (ruleFile) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/rules/${Date.now()}-${ruleFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(ruleFile.buffer, {
+          metadata: { contentType: ruleFile.mimetype },
+        });
+
+        const [url] = await fileUpload.getSignedUrl({
+          action: 'read',
+          expires: '03-09-2491',
+        });
+
+        ruleUrl = url;
+      }
+
       const contest = this.contestsRepository.create({
         title: createContestDto.title,
         description: createContestDto.description,
         bannerUrl,
+        ruleUrl,
         numOfAward: createContestDto.numOfAward,
+        round2Quantity: createContestDto.round2Quantity,
         startDate: createContestDto.startDate,
         endDate: createContestDto.endDate,
         status: createContestDto.status || ContestStatus.DRAFT,
