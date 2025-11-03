@@ -225,7 +225,7 @@ export class StaffService {
       }
 
       // Merge updated data with contest (excluding rounds)
-      const { rounds, ...contestData } = updateContestDto;
+      const { rounds: roundsData, ...contestData } = updateContestDto;
       const updatedData = {
         ...contestData,
         ...(bannerUrl && { bannerUrl }),
@@ -238,16 +238,19 @@ export class StaffService {
       );
       const savedContest = await this.contestsRepository.save(updatedContest);
 
-      // Fetch updated contest with rounds
-      const contestWithRounds = await this.contestsRepository.findOne({
+      // Fetch rounds separately
+      const rounds = await this.roundsRepository.find({
         where: { contestId: id },
-        relations: ['rounds'],
+        order: { roundId: 'ASC' },
       });
 
       return {
         success: true,
         message: 'Contest updated successfully',
-        data: contestWithRounds || savedContest,
+        data: {
+          ...savedContest,
+          rounds,
+        },
       };
     } catch (error) {
       throw new BadRequestException(
