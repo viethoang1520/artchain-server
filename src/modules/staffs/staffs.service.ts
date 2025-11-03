@@ -151,7 +151,12 @@ export class StaffService {
     }
   }
 
-  async updateContest(id: number, updateContestDto: UpdateContestDto) {
+  async updateContest(
+    id: number,
+    updateContestDto: UpdateContestDto,
+    bannerFile?: Express.Multer.File,
+    ruleFile?: Express.Multer.File,
+  ) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId: id },
     });
@@ -160,17 +165,95 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
-    const updatedContest = this.contestsRepository.merge(
-      contest,
-      updateContestDto,
-    );
-    const savedContest = await this.contestsRepository.save(updatedContest);
+    try {
+      let bannerUrl: string | undefined = updateContestDto.bannerUrl;
+      let ruleUrl: string | undefined = updateContestDto.ruleUrl;
 
-    return {
-      success: true,
-      message: 'Contest updated successfully',
-      data: savedContest,
-    };
+      // Upload new banner file to Firebase if provided
+      if (bannerFile) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(bannerFile.buffer, {
+          metadata: { contentType: bannerFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        bannerUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      }
+
+      // Upload new rule file to Firebase if provided
+      if (ruleFile) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/rules/${Date.now()}-${ruleFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(ruleFile.buffer, {
+          metadata: { contentType: ruleFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        ruleUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      }
+
+      // Update Round 1 if round data is provided
+      if (updateContestDto.rounds && updateContestDto.rounds.length > 0) {
+        const roundData = updateContestDto.rounds[0];
+
+        // Find existing Round 1
+        const existingRound = await this.roundsRepository.findOne({
+          where: { contestId: id, name: 'ROUND_1' },
+        });
+
+        if (existingRound) {
+          // Update existing Round 1
+          const updatedRound = this.roundsRepository.merge(
+            existingRound,
+            roundData,
+          );
+          await this.roundsRepository.save(updatedRound);
+        } else {
+          // Create new Round 1 if it doesn't exist
+          const newRound = this.roundsRepository.create({
+            ...roundData,
+            contestId: id,
+            name: roundData.name || 'ROUND_1',
+          });
+          await this.roundsRepository.save(newRound);
+        }
+      }
+
+      // Merge updated data with contest (excluding rounds)
+      const { rounds, ...contestData } = updateContestDto;
+      const updatedData = {
+        ...contestData,
+        ...(bannerUrl && { bannerUrl }),
+        ...(ruleUrl && { ruleUrl }),
+      };
+
+      const updatedContest = this.contestsRepository.merge(
+        contest,
+        updatedData,
+      );
+      const savedContest = await this.contestsRepository.save(updatedContest);
+
+      // Fetch updated contest with rounds
+      const contestWithRounds = await this.contestsRepository.findOne({
+        where: { contestId: id },
+        relations: ['rounds'],
+      });
+
+      return {
+        success: true,
+        message: 'Contest updated successfully',
+        data: contestWithRounds || savedContest,
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to update contest: ${error.message}`,
+      );
+    }
   }
 
   async publishContest(id: number) {
@@ -1448,5 +1531,62 @@ export class StaffService {
         previousAwardId,
       },
     };
+  }
+
+  async uploadRound2PaintingImage(
+    paintingId: string,
+    imageFile: Express.Multer.File,
+  ) {
+    // Validate painting exists
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    // Validate painting is in ROUND_2
+    const round = await this.roundsRepository.findOne({
+      where: { roundId: parseInt(painting.roundId) },
+    });
+
+    if (!round || round.name !== 'ROUND_2') {
+      throw new BadRequestException(
+        'This painting is not in ROUND_2. Can only upload images for ROUND_2 paintings.',
+      );
+    }
+
+    // Upload image to Firebase Storage
+    try {
+      const bucket = this.firebaseService.getStorage().bucket();
+      const fileName = `paintings/round2/${Date.now()}-${imageFile.originalname}`;
+      const fileUpload = bucket.file(fileName);
+
+      await fileUpload.save(imageFile.buffer, {
+        metadata: { contentType: imageFile.mimetype },
+      });
+
+      await fileUpload.makePublic();
+      const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+      // Update painting imageUrl
+      painting.imageUrl = imageUrl;
+      await this.paintingsRepository.save(painting);
+
+      return {
+        success: true,
+        message: 'Round 2 painting image uploaded successfully',
+        data: {
+          paintingId: painting.paintingId,
+          imageUrl,
+          title: painting.title,
+          round: round.name,
+          table: round.table,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to upload image: ${error.message}`);
+    }
   }
 }

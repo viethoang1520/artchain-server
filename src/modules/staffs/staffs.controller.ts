@@ -217,12 +217,157 @@ export class StaffController {
 
   @Put('contests/:id')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Cập nhật thông tin cuộc thi và Round 1',
+    description:
+      'Cập nhật thông tin contest và Round 1. Có thể upload file banner và rule mới. Nếu không upload file mới, giữ nguyên URL cũ.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          example: 'Updated Art Competition 2025',
+        },
+        description: {
+          type: 'string',
+          example: 'Updated description',
+        },
+        numOfAward: {
+          type: 'number',
+          example: 5,
+        },
+        round2Quantity: {
+          type: 'number',
+          example: 24,
+        },
+        startDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        endDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2025-11-15T00:00:00.000Z',
+        },
+        status: {
+          type: 'string',
+          enum: Object.values(ContestStatus),
+          example: 'DRAFT',
+        },
+        banner: {
+          type: 'string',
+          format: 'binary',
+          description: 'Banner image file (optional - only if updating)',
+        },
+        rule: {
+          type: 'string',
+          format: 'binary',
+          description: 'Rule PDF file (optional - only if updating)',
+        },
+        roundName: {
+          type: 'string',
+          description: 'Round 1 name (optional)',
+          example: 'ROUND_1',
+        },
+        roundTable: {
+          type: 'string',
+          description: 'Round 1 table name (optional)',
+          example: 'paintings',
+        },
+        roundStartDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 start date (optional)',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        roundEndDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 end date (optional)',
+          example: '2025-10-30T00:00:00.000Z',
+        },
+        roundSubmissionDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 submission deadline (optional)',
+          example: '2025-10-28T00:00:00.000Z',
+        },
+        roundResultAnnounceDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 result announcement date (optional)',
+          example: '2025-10-31T00:00:00.000Z',
+        },
+        roundSendOriginalDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 send original deadline (optional)',
+          example: '2025-11-05T00:00:00.000Z',
+        },
+        roundStatus: {
+          type: 'string',
+          description: 'Round 1 status (optional)',
+          example: 'DRAFT',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'banner', maxCount: 1 },
+        { name: 'rule', maxCount: 1 },
+      ],
+      { storage: memoryStorage() },
+    ),
+  )
   updateContest(
     @Param('id', ParseIntPipe) id: number,
+    @UploadedFiles()
+    files: { banner?: Express.Multer.File[]; rule?: Express.Multer.File[] },
     @Body() updateContestDto: UpdateContestDto,
     @Request() req: any,
   ) {
-    return this.staffService.updateContest(id, updateContestDto);
+    const bannerFile = files?.banner?.[0];
+    const ruleFile = files?.rule?.[0];
+
+    // Parse round data if provided
+    let parsedDto = { ...updateContestDto };
+
+    if (
+      updateContestDto['roundName'] ||
+      updateContestDto['roundStartDate'] ||
+      updateContestDto['roundEndDate']
+    ) {
+      parsedDto.rounds = [
+        {
+          name: updateContestDto['roundName'],
+          table: updateContestDto['roundTable'],
+          startDate: updateContestDto['roundStartDate'],
+          endDate: updateContestDto['roundEndDate'],
+          submissionDeadline: updateContestDto['roundSubmissionDeadline'],
+          resultAnnounceDate: updateContestDto['roundResultAnnounceDate'],
+          sendOriginalDeadline: updateContestDto['roundSendOriginalDeadline'],
+          status: updateContestDto['roundStatus'],
+        },
+      ];
+
+      // Clean up round fields from DTO
+      delete parsedDto['roundName'];
+      delete parsedDto['roundTable'];
+      delete parsedDto['roundStartDate'];
+      delete parsedDto['roundEndDate'];
+      delete parsedDto['roundSubmissionDeadline'];
+      delete parsedDto['roundResultAnnounceDate'];
+      delete parsedDto['roundSendOriginalDeadline'];
+      delete parsedDto['roundStatus'];
+    }
+
+    return this.staffService.updateContest(id, parsedDto, bannerFile, ruleFile);
   }
 
   @Patch('contests/:id/publish')
@@ -828,5 +973,83 @@ export class StaffController {
     @Request() req: any,
   ) {
     return this.staffService.unassignAwardFromPainting(paintingId);
+  }
+
+  @Post('paintings/:paintingId/upload-round2-image')
+  @ApiOperation({
+    summary: 'Upload ảnh gốc cho painting vòng 2',
+    description:
+      'Staff upload ảnh gốc (original image) cho paintings trong ROUND_2. Chỉ cho phép upload cho paintings thuộc ROUND_2.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['image'],
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'File ảnh gốc của painting (JPG, PNG, etc.)',
+        },
+      },
+    },
+  })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'ID của painting cần upload ảnh',
+    example: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Upload ảnh thành công',
+    schema: {
+      example: {
+        success: true,
+        message: 'Round 2 painting image uploaded successfully',
+        data: {
+          paintingId: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+          imageUrl:
+            'https://storage.googleapis.com/bucket-name/paintings/round2/1234567890-image.jpg',
+          title: 'Tên tranh',
+          round: 'ROUND_2',
+          table: 'A',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Painting không thuộc ROUND_2 hoặc upload thất bại',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Painting không tồn tại',
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+    }),
+  )
+  uploadRound2PaintingImage(
+    @Param('paintingId') paintingId: string,
+    @UploadedFile() image: Express.Multer.File,
+  ) {
+    if (!image) {
+      throw new BadRequestException('Image file is required');
+    }
+    return this.staffService.uploadRound2PaintingImage(paintingId, image);
   }
 }

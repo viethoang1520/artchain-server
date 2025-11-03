@@ -29,7 +29,7 @@ export class Round {
   @Column({ name: 'send_original_deadline', type: 'timestamp', nullable: true })
   sendOriginalDeadline?: Date;
 
-  @Column({ name: 'status', default: 'DRAFT' })
+  @Column({ name: 'status', default: 'ACTIVE' })
   status: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })

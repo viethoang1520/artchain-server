@@ -20,6 +20,7 @@ import {
   PreliminaryReviewDto,
   PaintingReviewItem,
 } from './dto/preliminary-review.dto';
+import { Award } from '../awards/entities/award.entity';
 
 @Injectable()
 export class PaintingsService {
@@ -37,6 +38,8 @@ export class PaintingsService {
     private readonly roundRepository: Repository<Round>,
     @InjectRepository(Competitor)
     private readonly competitorRepository: Repository<Competitor>,
+    @InjectRepository(Award)
+    private readonly awardRepository: Repository<Award>,
   ) {}
 
   async getPaintingsByContestId(
@@ -617,6 +620,23 @@ export class PaintingsService {
               }
             }
 
+            // Get award information if painting has been awarded
+            let awardInfo: any = null;
+            if (painting.awardId) {
+              const award = await this.awardRepository.findOne({
+                where: { awardId: painting.awardId },
+              });
+              if (award) {
+                awardInfo = {
+                  awardId: award.awardId,
+                  name: award.name,
+                  description: award.description,
+                  rank: award.rank,
+                  prize: award.prize,
+                };
+              }
+            }
+
             return {
               paintingId: painting.paintingId,
               title: painting.title,
@@ -628,6 +648,7 @@ export class PaintingsService {
               status: painting.status,
               table: round.table || 'Unknown',
               roundId: round.roundId,
+              award: awardInfo,
               createdAt: painting.createdAt,
             };
           }),
@@ -637,7 +658,7 @@ export class PaintingsService {
           (a, b) => b.avgScoreRound2 - a.avgScoreRound2,
         );
 
-        return paintingsWithAvgScore[0]; 
+        return paintingsWithAvgScore[0];
       }),
     );
 
