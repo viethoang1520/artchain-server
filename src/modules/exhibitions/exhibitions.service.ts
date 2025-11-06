@@ -11,6 +11,9 @@ import { Painting } from '../paintings/entities/paintings.entity';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddPaintingsToExhibitionDto } from './dto/add-paintings.dto';
+import { User } from '../users/entities/user.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { Award } from '../awards/entities/award.entity';
 
 @Injectable()
 export class ExhibitionsService {
@@ -21,6 +24,12 @@ export class ExhibitionsService {
     private exhibitionPaintingRepository: Repository<ExhibitionPainting>,
     @InjectRepository(Painting)
     private paintingRepository: Repository<Painting>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Competitor)
+    private competitorRepository: Repository<Competitor>,
+    @InjectRepository(Award)
+    private awardRepository: Repository<Award>,
   ) {}
 
   async create(createExhibitionDto: CreateExhibitionDto) {
@@ -69,10 +78,70 @@ export class ExhibitionsService {
       throw new NotFoundException(`Exhibition with ID ${id} not found`);
     }
 
+    // Enrich painting data with competitor and award information
+    const enrichedPaintings = await Promise.all(
+      exhibition.exhibitionPaintings.map(async (ep) => {
+        const painting = ep.painting;
+
+        // Get competitor info
+        let competitorInfo: any = null;
+        if (painting.competitorId) {
+          const competitor = await this.competitorRepository.findOne({
+            where: { competitorId: painting.competitorId },
+          });
+
+          if (competitor) {
+            const user = await this.userRepository.findOne({
+              where: { userId: competitor.competitorId },
+            });
+
+            if (user) {
+              competitorInfo = {
+                competitorId: competitor.competitorId,
+                fullName: user.fullName,
+                email: user.email,
+                birthday: competitor.birthday,
+                schoolName: competitor.schoolName,
+                grade: competitor.grade,
+              };
+            }
+          }
+        }
+
+        // Get award info
+        let awardInfo: any = null;
+        if (painting.awardId) {
+          const award = await this.awardRepository.findOne({
+            where: { awardId: painting.awardId },
+          });
+
+          if (award) {
+            awardInfo = {
+              awardId: award.awardId,
+              name: award.name,
+              description: award.description,
+              rank: award.rank,
+              prize: award.prize,
+            };
+          }
+        }
+
+        return {
+          ...painting,
+          competitor: competitorInfo,
+          award: awardInfo,
+          addedAt: ep.createdAt,
+        };
+      }),
+    );
+
     return {
       success: true,
       message: 'Exhibition retrieved successfully',
-      data: exhibition,
+      data: {
+        ...exhibition,
+        exhibitionPaintings: enrichedPaintings,
+      },
     };
   }
 

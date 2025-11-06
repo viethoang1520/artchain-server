@@ -1011,6 +1011,7 @@ export class StaffService {
   async createCampaign(data: {
     createCampaignDto: CreateCampaignDto;
     staffId: string;
+    imageFile?: Express.Multer.File;
   }) {
     const user = await this.usersRepository.findOne({
       where: { userId: data.staffId },
@@ -1021,10 +1022,39 @@ export class StaffService {
         'Only staff or admin users can create campaigns',
       );
     }
-    const campaign = this.campaignsRepository.create({
+
+    let imageUrl: string | undefined = undefined;
+
+    // Upload image to Firebase Storage if provided
+    if (data.imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `campaigns/${Date.now()}-${data.imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(data.imageFile.buffer, {
+          metadata: { contentType: data.imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to upload image: ${error.message}`,
+        );
+      }
+    }
+
+    const campaignData: any = {
       ...data.createCampaignDto,
       staffId: data.staffId,
-    });
+    };
+
+    if (imageUrl) {
+      campaignData.image = imageUrl;
+    }
+
+    const campaign = this.campaignsRepository.create(campaignData);
     await this.campaignsRepository.save(campaign);
     return {
       success: true,
@@ -1538,7 +1568,9 @@ export class StaffService {
 
   async uploadRound2PaintingImage(
     paintingId: string,
-    imageFile: Express.Multer.File,
+    imageFile?: Express.Multer.File,
+    title?: string,
+    description?: string,
   ) {
     // Validate painting exists
     const painting = await this.paintingsRepository.findOne({
@@ -1556,40 +1588,61 @@ export class StaffService {
 
     if (!round || round.name !== 'ROUND_2') {
       throw new BadRequestException(
-        'This painting is not in ROUND_2. Can only upload images for ROUND_2 paintings.',
+        'This painting is not in ROUND_2. Can only update ROUND_2 paintings.',
       );
     }
 
-    // Upload image to Firebase Storage
-    try {
-      const bucket = this.firebaseService.getStorage().bucket();
-      const fileName = `paintings/round2/${Date.now()}-${imageFile.originalname}`;
-      const fileUpload = bucket.file(fileName);
-
-      await fileUpload.save(imageFile.buffer, {
-        metadata: { contentType: imageFile.mimetype },
-      });
-
-      await fileUpload.makePublic();
-      const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-
-      // Update painting imageUrl
-      painting.imageUrl = imageUrl;
-      await this.paintingsRepository.save(painting);
-
-      return {
-        success: true,
-        message: 'Round 2 painting image uploaded successfully',
-        data: {
-          paintingId: painting.paintingId,
-          imageUrl,
-          title: painting.title,
-          round: round.name,
-          table: round.table,
-        },
-      };
-    } catch (error) {
-      throw new BadRequestException(`Failed to upload image: ${error.message}`);
+    // Check if at least one field is provided
+    if (!imageFile && !title && !description) {
+      throw new BadRequestException(
+        'At least one field (image, title, or description) must be provided',
+      );
     }
+
+    let imageUrl = painting.imageUrl;
+
+    // Upload image to Firebase Storage if provided
+    if (imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `paintings/round2/${Date.now()}-${imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(imageFile.buffer, {
+          metadata: { contentType: imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        painting.imageUrl = imageUrl;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to upload image: ${error.message}`,
+        );
+      }
+    }
+
+    // Update optional fields only if provided
+    if (title) {
+      painting.title = title;
+    }
+    if (description) {
+      painting.description = description;
+    }
+
+    await this.paintingsRepository.save(painting);
+
+    return {
+      success: true,
+      message: 'Round 2 painting updated successfully',
+      data: {
+        paintingId: painting.paintingId,
+        imageUrl: painting.imageUrl,
+        title: painting.title,
+        description: painting.description,
+        round: round.name,
+        table: round.table,
+      },
+    };
   }
 }

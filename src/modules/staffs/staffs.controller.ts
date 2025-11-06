@@ -235,10 +235,6 @@ export class StaffController {
           type: 'string',
           example: 'Updated description',
         },
-        numOfAward: {
-          type: 'number',
-          example: 5,
-        },
         round2Quantity: {
           type: 'number',
           example: 24,
@@ -253,11 +249,6 @@ export class StaffController {
           format: 'date-time',
           example: '2025-11-15T00:00:00.000Z',
         },
-        status: {
-          type: 'string',
-          enum: Object.values(ContestStatus),
-          example: 'DRAFT',
-        },
         banner: {
           type: 'string',
           format: 'binary',
@@ -267,16 +258,6 @@ export class StaffController {
           type: 'string',
           format: 'binary',
           description: 'Rule PDF file (optional - only if updating)',
-        },
-        roundName: {
-          type: 'string',
-          description: 'Round 1 name (optional)',
-          example: 'ROUND_1',
-        },
-        roundTable: {
-          type: 'string',
-          description: 'Round 1 table name (optional)',
-          example: 'paintings',
         },
         roundStartDate: {
           type: 'string',
@@ -307,11 +288,6 @@ export class StaffController {
           format: 'date-time',
           description: 'Round 1 send original deadline (optional)',
           example: '2025-11-05T00:00:00.000Z',
-        },
-        roundStatus: {
-          type: 'string',
-          description: 'Round 1 status (optional)',
-          example: 'DRAFT',
         },
       },
     },
@@ -828,12 +804,99 @@ export class StaffController {
 
   @Post('campaign')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Tạo campaign mới',
+    description: 'Staff tạo campaign mới với thông tin và có thể upload ảnh',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Campaign image file (optional - JPG, PNG, etc.)',
+        },
+        title: {
+          type: 'string',
+          description: 'Campaign title',
+          example: 'Art Contest Fundraising 2025',
+        },
+        description: {
+          type: 'string',
+          description: 'Campaign description and goals',
+          example: 'Fundraising campaign to support young artists',
+        },
+        goalAmount: {
+          type: 'number',
+          description: 'Target amount to raise',
+          example: 50000,
+        },
+        deadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Campaign deadline',
+          example: '2025-12-31T23:59:59.000Z',
+        },
+        status: {
+          type: 'string',
+          enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
+          description: 'Campaign status',
+          example: 'DRAFT',
+        },
+      },
+      required: ['title', 'goalAmount', 'deadline'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Campaign created successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Campaign created successfully',
+        data: {
+          campaignId: 1,
+          title: 'Art Contest Fundraising 2025',
+          description: 'Fundraising campaign...',
+          image: 'https://storage.googleapis.com/.../campaigns/...',
+          goalAmount: 50000,
+          currentAmount: 0,
+          deadline: '2025-12-31T23:59:59.000Z',
+          status: 'DRAFT',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+    }),
+  )
   createCampaign(
     @Body() createCampaignDto: CreateCampaignDto,
-    @Request() req: any,
+    @UploadedFile() image?: Express.Multer.File,
+    @Request() req?: any,
   ) {
     const staffId = req.user.sub || req.user.userId;
-    return this.staffService.createCampaign({ createCampaignDto, staffId });
+    return this.staffService.createCampaign({
+      createCampaignDto,
+      staffId,
+      imageFile: image,
+    });
   }
 
   @Get('examiners')
@@ -977,20 +1040,29 @@ export class StaffController {
 
   @Post('paintings/:paintingId/upload-round2-image')
   @ApiOperation({
-    summary: 'Upload ảnh gốc cho painting vòng 2',
+    summary: 'Upload ảnh gốc cho painting vòng 2 và cập nhật thông tin',
     description:
-      'Staff upload ảnh gốc (original image) cho paintings trong ROUND_2. Chỉ cho phép upload cho paintings thuộc ROUND_2.',
+      'Staff upload ảnh gốc (original image) cho paintings trong ROUND_2 và có thể cập nhật title, description. Tất cả các field đều optional, chỉ cập nhật field nào được gửi lên.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['image'],
       properties: {
         image: {
           type: 'string',
           format: 'binary',
-          description: 'File ảnh gốc của painting (JPG, PNG, etc.)',
+          description: 'File ảnh gốc của painting (optional - JPG, PNG, etc.)',
+        },
+        title: {
+          type: 'string',
+          description: 'Tiêu đề mới cho painting (optional)',
+          example: 'Bức tranh phong cảnh mùa thu',
+        },
+        description: {
+          type: 'string',
+          description: 'Mô tả mới cho painting (optional)',
+          example: 'Bức tranh miêu tả khung cảnh mùa thu tuyệt đẹp...',
         },
       },
     },
@@ -1002,16 +1074,17 @@ export class StaffController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Upload ảnh thành công',
+    description: 'Upload ảnh và cập nhật thông tin thành công',
     schema: {
       example: {
         success: true,
-        message: 'Round 2 painting image uploaded successfully',
+        message: 'Round 2 painting updated successfully',
         data: {
           paintingId: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
           imageUrl:
             'https://storage.googleapis.com/bucket-name/paintings/round2/1234567890-image.jpg',
-          title: 'Tên tranh',
+          title: 'Bức tranh phong cảnh mùa thu',
+          description: 'Bức tranh miêu tả khung cảnh mùa thu tuyệt đẹp...',
           round: 'ROUND_2',
           table: 'A',
         },
@@ -1020,7 +1093,8 @@ export class StaffController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Painting không thuộc ROUND_2 hoặc upload thất bại',
+    description:
+      'Painting không thuộc ROUND_2 hoặc upload thất bại hoặc không có field nào để cập nhật',
   })
   @ApiResponse({
     status: 404,
@@ -1045,11 +1119,15 @@ export class StaffController {
   )
   uploadRound2PaintingImage(
     @Param('paintingId') paintingId: string,
-    @UploadedFile() image: Express.Multer.File,
+    @UploadedFile() image?: Express.Multer.File,
+    @Body('title') title?: string,
+    @Body('description') description?: string,
   ) {
-    if (!image) {
-      throw new BadRequestException('Image file is required');
-    }
-    return this.staffService.uploadRound2PaintingImage(paintingId, image);
+    return this.staffService.uploadRound2PaintingImage(
+      paintingId,
+      image,
+      title,
+      description,
+    );
   }
 }
