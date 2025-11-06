@@ -165,6 +165,13 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
+    // Check if contest is already published
+    if (contest.status !== 'DRAFT') {
+      throw new BadRequestException(
+        `Cannot update contest. Contest has been published (status: ${contest.status}). Only DRAFT contests can be updated.`,
+      );
+    }
+
     try {
       let bannerUrl: string | undefined = updateContestDto.bannerUrl;
       let ruleUrl: string | undefined = updateContestDto.ruleUrl;
@@ -275,6 +282,18 @@ export class StaffService {
       };
     }
 
+    // Validate numberOfTablesRound2 before publishing
+    if (contest.numberOfTablesRound2) {
+      if (
+        contest.numberOfTablesRound2 < 2 ||
+        contest.numberOfTablesRound2 > 26
+      ) {
+        throw new BadRequestException(
+          `Invalid numberOfTablesRound2: ${contest.numberOfTablesRound2}. Must be between 2 and 26 before publishing.`,
+        );
+      }
+    }
+
     const now = new Date();
     const startDate = new Date(contest.startDate);
     const endDate = new Date(contest.endDate);
@@ -293,7 +312,7 @@ export class StaffService {
 
     return {
       success: true,
-      message: `Contest published successfully with status: ${newStatus}`,
+      message: `Contest published successfully with status: ${newStatus}. Contest configuration is now locked and cannot be updated.`,
       data: publishedContest,
     };
   }
@@ -1247,7 +1266,11 @@ export class StaffService {
     };
   }
 
-  async createRound2WithTables(contestId: number, date: string) {
+  async createRound2WithTables(
+    contestId: number,
+    date: string,
+    numberOfTables?: number,
+  ) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
     });
@@ -1258,6 +1281,16 @@ export class StaffService {
 
     if (!date) {
       throw new BadRequestException('Date is required for ROUND_2');
+    }
+
+    // Use numberOfTables from parameter, or from contest config, or default to 4
+    const tablesToCreate = numberOfTables || contest.numberOfTablesRound2 || 4;
+
+    // Validate numberOfTables
+    if (tablesToCreate < 2 || tablesToCreate > 26) {
+      throw new BadRequestException(
+        'Number of tables must be between 2 and 26 (A-Z)',
+      );
     }
 
     const round2Date = new Date(date);
@@ -1295,9 +1328,9 @@ export class StaffService {
       ...new Set(passedPaintings.map((p) => p.competitorId)),
     ];
 
-    if (uniqueCompetitorIds.length < 4) {
+    if (uniqueCompetitorIds.length < tablesToCreate) {
       throw new BadRequestException(
-        `Need at least 4 competitors to create 4 tables. Found only ${uniqueCompetitorIds.length} competitors`,
+        `Need at least ${tablesToCreate} competitors to create ${tablesToCreate} tables. Found only ${uniqueCompetitorIds.length} competitors`,
       );
     }
 
@@ -1341,24 +1374,30 @@ export class StaffService {
 
     const topCompetitors = competitorScores.slice(0, round2Limit);
 
+    // Generate table names: A, B, C, D, ... up to tablesToCreate
+    const tableNames: string[] = [];
+    for (let i = 0; i < tablesToCreate; i++) {
+      tableNames.push(String.fromCharCode(65 + i)); // 65 is 'A' in ASCII
+    }
+
     // Distribute competitors using seeding method:
-    // Seeds 1-4 go to tables A, B, C, D
-    // Seeds 5-8 go to tables D, C, B, A (reverse order)
-    // Seeds 9-12 go to tables A, B, C, D
+    // Seeds 1-n go to tables in order
+    // Seeds (n+1)-2n go to tables in reverse order
+    // Seeds (2n+1)-3n go to tables in order
     // And so on...
-    const tables: string[][] = [[], [], [], []];
-    const tableNames = ['A', 'B', 'C', 'D'];
+    const tables: string[][] = Array(tablesToCreate)
+      .fill(null)
+      .map(() => []);
 
     for (let i = 0; i < topCompetitors.length; i++) {
-      const seed = i + 1; // Seed number (1-based)
-      const group = Math.floor(i / 4); // Which group of 4
-      const positionInGroup = i % 4; // Position within the group (0-3)
+      const group = Math.floor(i / tablesToCreate); // Which group
+      const positionInGroup = i % tablesToCreate; // Position within the group
 
       let tableIndex;
       if (group % 2 === 0) {
         tableIndex = positionInGroup;
       } else {
-        tableIndex = 3 - positionInGroup;
+        tableIndex = tablesToCreate - 1 - positionInGroup;
       }
 
       tables[tableIndex].push(topCompetitors[i].competitorId);
@@ -1367,7 +1406,7 @@ export class StaffService {
     const createdRounds: Round[] = [];
     const createdPaintings: Painting[] = [];
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < tablesToCreate; i++) {
       const round = this.roundsRepository.create({
         contestId,
         name: 'ROUND_2',
@@ -1395,25 +1434,31 @@ export class StaffService {
       }
     }
 
-    const paintingsByTable = {
-      'Table A': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[0].roundId.toString(),
-      ),
-      'Table B': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[1].roundId.toString(),
-      ),
-      'Table C': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[2].roundId.toString(),
-      ),
-      'Table D': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[3].roundId.toString(),
-      ),
-    };
+    // Build dynamic table distribution object
+    const paintingsByTable: { [key: string]: Painting[] } = {};
+    const tableDistribution: any = {};
+
+    for (let i = 0; i < tablesToCreate; i++) {
+      const tableName = `Table ${tableNames[i]}`;
+      paintingsByTable[tableName] = createdPaintings.filter(
+        (p) => p.roundId === createdRounds[i].roundId.toString(),
+      );
+
+      tableDistribution[tableName] = {
+        roundId: createdRounds[i].roundId,
+        competitors: tables[i],
+        count: tables[i].length,
+        paintings: paintingsByTable[tableName].map((p) => ({
+          paintingId: p.paintingId,
+          competitorId: p.competitorId,
+          status: p.status,
+        })),
+      };
+    }
 
     return {
       success: true,
-      message:
-        'ROUND_2 created successfully with 4 tables using seeding based on average scores',
+      message: `ROUND_2 created successfully with ${tablesToCreate} tables using seeding based on average scores`,
       data: {
         rounds: createdRounds,
         seedingInfo: topCompetitors.map((comp, index) => ({
@@ -1422,48 +1467,8 @@ export class StaffService {
           avgScore: comp.avgScore,
           evaluationCount: comp.evaluationCount,
         })),
-        tableDistribution: {
-          'Table A': {
-            roundId: createdRounds[0].roundId,
-            competitors: tables[0],
-            count: tables[0].length,
-            paintings: paintingsByTable['Table A'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-          'Table B': {
-            roundId: createdRounds[1].roundId,
-            competitors: tables[1],
-            count: tables[1].length,
-            paintings: paintingsByTable['Table B'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-          'Table C': {
-            roundId: createdRounds[2].roundId,
-            competitors: tables[2],
-            count: tables[2].length,
-            paintings: paintingsByTable['Table C'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-          'Table D': {
-            roundId: createdRounds[3].roundId,
-            competitors: tables[3],
-            count: tables[3].length,
-            paintings: paintingsByTable['Table D'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-        },
+        tableDistribution,
+        numberOfTables: tablesToCreate,
         totalCompetitors: topCompetitors.length,
         passedPaintingsCount: passedPaintings.length,
         totalPaintingsCreated: createdPaintings.length,

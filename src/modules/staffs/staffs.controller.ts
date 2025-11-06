@@ -98,6 +98,14 @@ export class StaffController {
           example: 20,
           description: 'Number of competitors to advance to Round 2',
         },
+        numberOfTablesRound2: {
+          type: 'number',
+          example: 4,
+          description:
+            'Number of tables for Round 2 (default: 4, min: 2, max: 26)',
+          minimum: 2,
+          maximum: 26,
+        },
         startDate: {
           type: 'string',
           format: 'date-time',
@@ -220,7 +228,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Cập nhật thông tin cuộc thi và Round 1',
     description:
-      'Cập nhật thông tin contest và Round 1. Có thể upload file banner và rule mới. Nếu không upload file mới, giữ nguyên URL cũ.',
+      'Cập nhật thông tin contest và Round 1. CHỈ cho phép cập nhật khi contest ở trạng thái DRAFT. Sau khi publish sẽ KHÔNG thể cập nhật nữa. Có thể upload file banner và rule mới. Nếu không upload file mới, giữ nguyên URL cũ.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -238,6 +246,11 @@ export class StaffController {
         round2Quantity: {
           type: 'number',
           example: 24,
+        },
+        numberOfTablesRound2: {
+          type: 'number',
+          example: 4,
+          description: 'Number of tables for Round 2 (min: 2, max: 26)',
         },
         startDate: {
           type: 'string',
@@ -291,6 +304,19 @@ export class StaffController {
         },
       },
     },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contest updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Contest has been published and cannot be updated. Only DRAFT contests can be updated.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
   })
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -348,6 +374,37 @@ export class StaffController {
 
   @Patch('contests/:id/publish')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Publish contest',
+    description:
+      'Publish a contest from DRAFT status. After publishing, the contest configuration will be LOCKED and cannot be updated anymore. Status will change to UPCOMING, ACTIVE, or ENDED based on current date.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contest published successfully. Configuration is now locked.',
+    schema: {
+      example: {
+        success: true,
+        message:
+          'Contest published successfully with status: UPCOMING. Contest configuration is now locked and cannot be updated.',
+        data: {
+          contestId: 1,
+          title: 'Art Competition 2025',
+          status: 'UPCOMING',
+          numberOfTablesRound2: 4,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Contest can only be published from DRAFT status, or invalid configuration (e.g., numberOfTablesRound2 out of range).',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
   publishContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.staffService.publishContest(id);
   }
@@ -355,9 +412,9 @@ export class StaffController {
   @Post('contests/:id/create-round2')
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Create ROUND_2 with 4 tables for passed competitors',
+    summary: 'Create ROUND_2 with configurable number of tables',
     description:
-      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings (isPassed=true) and randomly distributes them into 4 tables (A, B, C, D). ROUND_2 takes place in one day, so startDate and endDate will be the same.',
+      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings and distributes them into specified number of tables (default 4). Uses seeding method based on ROUND_1 scores. ROUND_2 takes place in one day, so startDate and endDate will be the same.',
   })
   @ApiParam({
     name: 'id',
@@ -374,6 +431,14 @@ export class StaffController {
           description:
             'Date when ROUND_2 will take place (used for both startDate and endDate)',
           example: '2025-11-15T09:00:00.000Z',
+        },
+        numberOfTables: {
+          type: 'number',
+          description:
+            'Number of tables to create (default: 4). Must be between 2 and 26.',
+          example: 4,
+          minimum: 2,
+          maximum: 26,
         },
       },
       required: ['date'],
@@ -395,12 +460,17 @@ export class StaffController {
           properties: {
             rounds: {
               type: 'array',
-              description: 'Array of 4 created rounds',
+              description: 'Array of created rounds',
             },
             tableDistribution: {
               type: 'object',
               description:
-                'Distribution of competitors across 4 tables with their IDs',
+                'Distribution of competitors across tables with their IDs',
+            },
+            numberOfTables: {
+              type: 'number',
+              example: 4,
+              description: 'Number of tables created',
             },
             totalCompetitors: {
               type: 'number',
@@ -429,9 +499,14 @@ export class StaffController {
   createRound2WithTables(
     @Param('id', ParseIntPipe) contestId: number,
     @Body('date') date: string,
-    @Request() req: any,
+    @Body('numberOfTables') numberOfTables?: number,
+    @Request() req?: any,
   ) {
-    return this.staffService.createRound2WithTables(contestId, date);
+    return this.staffService.createRound2WithTables(
+      contestId,
+      date,
+      numberOfTables,
+    );
   }
 
   @Get('contests')

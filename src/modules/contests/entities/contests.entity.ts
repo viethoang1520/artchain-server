@@ -29,6 +29,9 @@ export class Contest {
   @Column({ name: 'round_2_quantity', nullable: true })
   round2Quantity: number;
 
+  @Column({ name: 'number_of_tables_round_2', nullable: true, default: 4 })
+  numberOfTablesRound2: number;
+
   @Column({ name: 'rule', nullable: true })
   ruleUrl: string;
 
