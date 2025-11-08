@@ -34,6 +34,15 @@ export class CreateContestDto {
   numberOfTablesRound2?: number;
 
   @ApiProperty({
+    example: false,
+    required: false,
+    description:
+      'Bật/tắt ràng buộc lịch chấm. true = examiner chỉ chấm đúng ngày được phân công, false = examiner có thể chấm bất cứ lúc nào (dùng cho demo)',
+    default: false,
+  })
+  isScheduleEnforced?: boolean;
+
+  @ApiProperty({
     example: 'https://example.com/rules.pdf',
     required: false,
     description: 'URL to the contest rules PDF file',
