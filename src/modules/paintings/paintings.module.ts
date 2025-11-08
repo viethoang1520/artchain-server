@@ -9,6 +9,8 @@ import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Round } from '../contests/entities/round.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
+import { Award } from '../awards/entities/award.entity';
+import { Schedule } from '../schedules/entities/schedule.entity';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { Competitor } from '../competitors/entities/competitors.entity';
       ContestExaminer,
       Round,
       Competitor,
+      Award,
+      Schedule,
     ]),
   ],
   controllers: [PaintingsController],

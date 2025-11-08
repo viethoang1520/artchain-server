@@ -14,6 +14,8 @@ import { User } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseModule } from '../firebase/firebase.module';
+import { Award } from '../awards/entities/award.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { FirebaseModule } from '../firebase/firebase.module';
       User,
       Schedule,
       Competitor,
+      Award,
+      Evaluation
     ]),
     AuthModule,
     PostsModule,

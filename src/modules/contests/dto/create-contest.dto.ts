@@ -17,6 +17,29 @@ export class CreateContestDto {
   @ApiProperty({ example: 3, required: false })
   numOfAward?: number;
 
+  @ApiProperty({
+    example: 20,
+    required: false,
+    description: 'Number of competitors to advance to Round 2',
+  })
+  round2Quantity?: number;
+
+  @ApiProperty({
+    example: 4,
+    required: false,
+    description: 'Number of tables for Round 2 (default: 4, min: 2, max: 26)',
+    minimum: 2,
+    maximum: 26,
+  })
+  numberOfTablesRound2?: number;
+
+  @ApiProperty({
+    example: 'https://example.com/rules.pdf',
+    required: false,
+    description: 'URL to the contest rules PDF file',
+  })
+  ruleUrl?: string;
+
   @ApiProperty({ example: '2025-10-15T00:00:00.000Z' })
   startDate: Date;
 

@@ -12,6 +12,7 @@ import {
   UseGuards,
   Request,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
@@ -25,7 +26,10 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileInterceptor,
+  FileFieldsInterceptor,
+} from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { StaffService } from './staffs.service';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
@@ -46,9 +50,11 @@ import { GetAllPostsDto } from '../posts/dto/get-all-posts.dto';
 import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
+import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -66,10 +72,15 @@ export class StaffController {
     schema: {
       type: 'object',
       properties: {
-        file: {
+        banner: {
           type: 'string',
           format: 'binary',
           description: 'Banner image file (optional)',
+        },
+        rule: {
+          type: 'string',
+          format: 'binary',
+          description: 'Contest rules PDF file (optional)',
         },
         title: {
           type: 'string',
@@ -82,6 +93,19 @@ export class StaffController {
         numOfAward: {
           type: 'number',
           example: 3,
+        },
+        round2Quantity: {
+          type: 'number',
+          example: 20,
+          description: 'Number of competitors to advance to Round 2',
+        },
+        numberOfTablesRound2: {
+          type: 'number',
+          example: 4,
+          description:
+            'Number of tables for Round 2 (default: 4, min: 2, max: 26)',
+          minimum: 2,
+          maximum: 26,
         },
         startDate: {
           type: 'string',
@@ -98,35 +122,290 @@ export class StaffController {
           enum: Object.values(ContestStatus),
           example: 'DRAFT',
         },
+
+        roundName: {
+          type: 'string',
+          description: 'Round name (e.g., ROUND_1)',
+          example: 'ROUND_1',
+        },
+        roundTable: {
+          type: 'string',
+          description: 'Round table name',
+          example: 'paintings',
+        },
+        roundStartDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round start date',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        roundEndDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round end date',
+          example: '2025-10-30T00:00:00.000Z',
+        },
+        roundSubmissionDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round submission deadline',
+          example: '2025-10-28T00:00:00.000Z',
+        },
+        roundResultAnnounceDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round result announcement date',
+          example: '2025-10-31T00:00:00.000Z',
+        },
+        roundSendOriginalDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round send original deadline',
+          example: '2025-11-05T00:00:00.000Z',
+        },
+        roundStatus: {
+          type: 'string',
+          description: 'Round status',
+          example: 'DRAFT',
+        },
       },
       required: ['title', 'startDate', 'endDate'],
     },
   })
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'banner', maxCount: 1 },
+        { name: 'rule', maxCount: 1 },
+      ],
+      { storage: memoryStorage() },
+    ),
+  )
   async createContest(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: { banner?: Express.Multer.File[]; rule?: Express.Multer.File[] },
     @Body() createContestDto: CreateContestDto,
     @Request() req: any,
   ) {
     const createdBy = req.user.sub || req.user.userId;
-    return this.staffService.createContest(
-      { ...createContestDto, createdBy },
-      file,
-    );
+    const bannerFile = files?.banner?.[0];
+    const ruleFile = files?.rule?.[0];
+
+    let parsedDto = { ...createContestDto, createdBy };
+
+    if (
+      createContestDto['roundName'] ||
+      createContestDto['roundTable'] ||
+      createContestDto['roundStartDate']
+    ) {
+      parsedDto.rounds = [
+        {
+          name: createContestDto['roundName'],
+          table: createContestDto['roundTable'],
+          startDate: createContestDto['roundStartDate'],
+          endDate: createContestDto['roundEndDate'],
+          submissionDeadline: createContestDto['roundSubmissionDeadline'],
+          resultAnnounceDate: createContestDto['roundResultAnnounceDate'],
+          sendOriginalDeadline: createContestDto['roundSendOriginalDeadline'],
+          status: createContestDto['roundStatus'] || 'DRAFT',
+        },
+      ];
+
+      delete parsedDto['roundName'];
+      delete parsedDto['roundTable'];
+      delete parsedDto['roundStartDate'];
+      delete parsedDto['roundEndDate'];
+      delete parsedDto['roundSubmissionDeadline'];
+      delete parsedDto['roundResultAnnounceDate'];
+      delete parsedDto['roundSendOriginalDeadline'];
+      delete parsedDto['roundStatus'];
+    }
+
+    return this.staffService.createContest(parsedDto, bannerFile, ruleFile);
   }
 
   @Put('contests/:id')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Cập nhật thông tin cuộc thi và Round 1',
+    description:
+      'Cập nhật thông tin contest và Round 1. CHỈ cho phép cập nhật khi contest ở trạng thái DRAFT. Sau khi publish sẽ KHÔNG thể cập nhật nữa. Có thể upload file banner và rule mới. Nếu không upload file mới, giữ nguyên URL cũ.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          example: 'Updated Art Competition 2025',
+        },
+        description: {
+          type: 'string',
+          example: 'Updated description',
+        },
+        round2Quantity: {
+          type: 'number',
+          example: 24,
+        },
+        numberOfTablesRound2: {
+          type: 'number',
+          example: 4,
+          description: 'Number of tables for Round 2 (min: 2, max: 26)',
+        },
+        startDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        endDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2025-11-15T00:00:00.000Z',
+        },
+        banner: {
+          type: 'string',
+          format: 'binary',
+          description: 'Banner image file (optional - only if updating)',
+        },
+        rule: {
+          type: 'string',
+          format: 'binary',
+          description: 'Rule PDF file (optional - only if updating)',
+        },
+        roundStartDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 start date (optional)',
+          example: '2025-10-15T00:00:00.000Z',
+        },
+        roundEndDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 end date (optional)',
+          example: '2025-10-30T00:00:00.000Z',
+        },
+        roundSubmissionDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 submission deadline (optional)',
+          example: '2025-10-28T00:00:00.000Z',
+        },
+        roundResultAnnounceDate: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 result announcement date (optional)',
+          example: '2025-10-31T00:00:00.000Z',
+        },
+        roundSendOriginalDeadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Round 1 send original deadline (optional)',
+          example: '2025-11-05T00:00:00.000Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contest updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Contest has been published and cannot be updated. Only DRAFT contests can be updated.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'banner', maxCount: 1 },
+        { name: 'rule', maxCount: 1 },
+      ],
+      { storage: memoryStorage() },
+    ),
+  )
   updateContest(
     @Param('id', ParseIntPipe) id: number,
+    @UploadedFiles()
+    files: { banner?: Express.Multer.File[]; rule?: Express.Multer.File[] },
     @Body() updateContestDto: UpdateContestDto,
     @Request() req: any,
   ) {
-    return this.staffService.updateContest(id, updateContestDto);
+    const bannerFile = files?.banner?.[0];
+    const ruleFile = files?.rule?.[0];
+
+    // Parse round data if provided
+    let parsedDto = { ...updateContestDto };
+
+    if (
+      updateContestDto['roundName'] ||
+      updateContestDto['roundStartDate'] ||
+      updateContestDto['roundEndDate']
+    ) {
+      parsedDto.rounds = [
+        {
+          name: updateContestDto['roundName'],
+          table: updateContestDto['roundTable'],
+          startDate: updateContestDto['roundStartDate'],
+          endDate: updateContestDto['roundEndDate'],
+          submissionDeadline: updateContestDto['roundSubmissionDeadline'],
+          resultAnnounceDate: updateContestDto['roundResultAnnounceDate'],
+          sendOriginalDeadline: updateContestDto['roundSendOriginalDeadline'],
+          status: updateContestDto['roundStatus'],
+        },
+      ];
+
+      // Clean up round fields from DTO
+      delete parsedDto['roundName'];
+      delete parsedDto['roundTable'];
+      delete parsedDto['roundStartDate'];
+      delete parsedDto['roundEndDate'];
+      delete parsedDto['roundSubmissionDeadline'];
+      delete parsedDto['roundResultAnnounceDate'];
+      delete parsedDto['roundSendOriginalDeadline'];
+      delete parsedDto['roundStatus'];
+    }
+
+    return this.staffService.updateContest(id, parsedDto, bannerFile, ruleFile);
   }
 
   @Patch('contests/:id/publish')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Publish contest',
+    description:
+      'Publish a contest from DRAFT status. After publishing, the contest configuration will be LOCKED and cannot be updated anymore. Status will change to UPCOMING, ACTIVE, or ENDED based on current date.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contest published successfully. Configuration is now locked.',
+    schema: {
+      example: {
+        success: true,
+        message:
+          'Contest published successfully with status: UPCOMING. Contest configuration is now locked and cannot be updated.',
+        data: {
+          contestId: 1,
+          title: 'Art Competition 2025',
+          status: 'UPCOMING',
+          numberOfTablesRound2: 4,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Contest can only be published from DRAFT status, or invalid configuration (e.g., numberOfTablesRound2 out of range).',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
   publishContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.staffService.publishContest(id);
   }
@@ -134,9 +413,9 @@ export class StaffController {
   @Post('contests/:id/create-round2')
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Create ROUND_2 with 4 tables for passed competitors',
+    summary: 'Create ROUND_2 with configurable number of tables',
     description:
-      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings (isPassed=true) and randomly distributes them into 4 tables (A, B, C, D). ROUND_2 takes place in one day, so startDate and endDate will be the same.',
+      'Creates ROUND_2 rounds for a contest. Automatically gets all competitors with passed paintings and distributes them into specified number of tables (default 4). Uses seeding method based on ROUND_1 scores. ROUND_2 takes place in one day, so startDate and endDate will be the same.',
   })
   @ApiParam({
     name: 'id',
@@ -153,6 +432,14 @@ export class StaffController {
           description:
             'Date when ROUND_2 will take place (used for both startDate and endDate)',
           example: '2025-11-15T09:00:00.000Z',
+        },
+        numberOfTables: {
+          type: 'number',
+          description:
+            'Number of tables to create (default: 4). Must be between 2 and 26.',
+          example: 4,
+          minimum: 2,
+          maximum: 26,
         },
       },
       required: ['date'],
@@ -174,12 +461,17 @@ export class StaffController {
           properties: {
             rounds: {
               type: 'array',
-              description: 'Array of 4 created rounds',
+              description: 'Array of created rounds',
             },
             tableDistribution: {
               type: 'object',
               description:
-                'Distribution of competitors across 4 tables with their IDs',
+                'Distribution of competitors across tables with their IDs',
+            },
+            numberOfTables: {
+              type: 'number',
+              example: 4,
+              description: 'Number of tables created',
             },
             totalCompetitors: {
               type: 'number',
@@ -208,9 +500,14 @@ export class StaffController {
   createRound2WithTables(
     @Param('id', ParseIntPipe) contestId: number,
     @Body('date') date: string,
-    @Request() req: any,
+    @Body('numberOfTables') numberOfTables?: number,
+    @Request() req?: any,
   ) {
-    return this.staffService.createRound2WithTables(contestId, date);
+    return this.staffService.createRound2WithTables(
+      contestId,
+      date,
+      numberOfTables,
+    );
   }
 
   @Get('contests')
@@ -583,12 +880,206 @@ export class StaffController {
 
   @Post('campaign')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Tạo campaign mới',
+    description: 'Staff tạo campaign mới với thông tin và có thể upload ảnh',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Campaign image file (optional - JPG, PNG, etc.)',
+        },
+        title: {
+          type: 'string',
+          description: 'Campaign title',
+          example: 'Art Contest Fundraising 2025',
+        },
+        description: {
+          type: 'string',
+          description: 'Campaign description and goals',
+          example: 'Fundraising campaign to support young artists',
+        },
+        goalAmount: {
+          type: 'number',
+          description: 'Target amount to raise',
+          example: 50000,
+        },
+        deadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Campaign deadline',
+          example: '2025-12-31T23:59:59.000Z',
+        },
+        status: {
+          type: 'string',
+          enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
+          description: 'Campaign status',
+          example: 'DRAFT',
+        },
+      },
+      required: ['title', 'goalAmount', 'deadline'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Campaign created successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Campaign created successfully',
+        data: {
+          campaignId: 1,
+          title: 'Art Contest Fundraising 2025',
+          description: 'Fundraising campaign...',
+          image: 'https://storage.googleapis.com/.../campaigns/...',
+          goalAmount: 50000,
+          currentAmount: 0,
+          deadline: '2025-12-31T23:59:59.000Z',
+          status: 'DRAFT',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+    }),
+  )
   createCampaign(
     @Body() createCampaignDto: CreateCampaignDto,
-    @Request() req: any,
+    @UploadedFile() image?: Express.Multer.File,
+    @Request() req?: any,
   ) {
     const staffId = req.user.sub || req.user.userId;
-    return this.staffService.createCampaign({ createCampaignDto, staffId });
+    return this.staffService.createCampaign({
+      createCampaignDto,
+      staffId,
+      imageFile: image,
+    });
+  }
+
+  @Put('campaign/:id')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Cập nhật campaign',
+    description:
+      'Staff cập nhật thông tin campaign và có thể upload ảnh mới. Tất cả fields đều optional, chỉ cập nhật field nào được gửi lên.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Campaign image file (optional - JPG, PNG, etc.)',
+        },
+        title: {
+          type: 'string',
+          description: 'Campaign title',
+          example: 'Updated Art Contest Fundraising 2025',
+        },
+        description: {
+          type: 'string',
+          description: 'Campaign description and goals',
+          example: 'Updated fundraising campaign description',
+        },
+        goalAmount: {
+          type: 'number',
+          description: 'Target amount to raise',
+          example: 60000,
+        },
+        deadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Campaign deadline',
+          example: '2025-12-31T23:59:59.000Z',
+        },
+        status: {
+          type: 'string',
+          enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
+          description: 'Campaign status',
+          example: 'ACTIVE',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Campaign updated successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Campaign updated successfully',
+        data: {
+          campaignId: 1,
+          title: 'Updated Art Contest Fundraising 2025',
+          description: 'Updated description...',
+          image: 'https://storage.googleapis.com/.../campaigns/...',
+          goalAmount: 60000,
+          currentAmount: 0,
+          deadline: '2025-12-31T23:59:59.000Z',
+          status: 'ACTIVE',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Campaign not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid data or permission denied',
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+    }),
+  )
+  updateCampaign(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateCampaignDto: UpdateCampaignDto,
+    @UploadedFile() image?: Express.Multer.File,
+    @Request() req?: any,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.updateCampaign(
+      id,
+      updateCampaignDto,
+      image,
+      staffId,
+    );
   }
 
   @Get('examiners')
@@ -641,5 +1132,185 @@ export class StaffController {
     @Request() req: any,
   ) {
     return this.staffService.deleteSchedule(scheduleId);
+  }
+
+  @Post('paintings/:paintingId/award')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Assign award to a painting' })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'Painting ID (UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Award assigned successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Award assigned to painting successfully',
+        data: {
+          paintingId: '550e8400-e29b-41d4-a716-446655440000',
+          awardId: 1,
+          awardName: 'First Prize',
+          awardRank: 1,
+          awardPrize: 5000000,
+        },
+        meta: {
+          currentAssignedCount: 1,
+          maxQuantity: 3,
+          remainingSlots: 2,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Painting already has an award or award quantity limit reached',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Painting or Award not found',
+  })
+  assignAwardToPainting(
+    @Param('paintingId') paintingId: string,
+    @Body() assignAwardDto: AssignAwardToPaintingDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.assignAwardToPainting(
+      paintingId,
+      assignAwardDto.awardId,
+    );
+  }
+
+  @Delete('paintings/:paintingId/award')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Remove award from a painting' })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'Painting ID (UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Award removed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Award unassigned from painting successfully',
+        data: {
+          paintingId: '550e8400-e29b-41d4-a716-446655440000',
+          previousAwardId: 1,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Painting does not have any award assigned',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Painting not found',
+  })
+  unassignAwardFromPainting(
+    @Param('paintingId') paintingId: string,
+    @Request() req: any,
+  ) {
+    return this.staffService.unassignAwardFromPainting(paintingId);
+  }
+
+  @Post('paintings/:paintingId/upload-round2-image')
+  @ApiOperation({
+    summary: 'Upload ảnh gốc cho painting vòng 2 và cập nhật thông tin',
+    description:
+      'Staff upload ảnh gốc (original image) cho paintings trong ROUND_2 và có thể cập nhật title, description. Tất cả các field đều optional, chỉ cập nhật field nào được gửi lên.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'File ảnh gốc của painting (optional - JPG, PNG, etc.)',
+        },
+        title: {
+          type: 'string',
+          description: 'Tiêu đề mới cho painting (optional)',
+          example: 'Bức tranh phong cảnh mùa thu',
+        },
+        description: {
+          type: 'string',
+          description: 'Mô tả mới cho painting (optional)',
+          example: 'Bức tranh miêu tả khung cảnh mùa thu tuyệt đẹp...',
+        },
+      },
+    },
+  })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'ID của painting cần upload ảnh',
+    example: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Upload ảnh và cập nhật thông tin thành công',
+    schema: {
+      example: {
+        success: true,
+        message: 'Round 2 painting updated successfully',
+        data: {
+          paintingId: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+          imageUrl:
+            'https://storage.googleapis.com/bucket-name/paintings/round2/1234567890-image.jpg',
+          title: 'Bức tranh phong cảnh mùa thu',
+          description: 'Bức tranh miêu tả khung cảnh mùa thu tuyệt đẹp...',
+          round: 'ROUND_2',
+          table: 'A',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Painting không thuộc ROUND_2 hoặc upload thất bại hoặc không có field nào để cập nhật',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Painting không tồn tại',
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+    }),
+  )
+  uploadRound2PaintingImage(
+    @Param('paintingId') paintingId: string,
+    @UploadedFile() image?: Express.Multer.File,
+    @Body('title') title?: string,
+    @Body('description') description?: string,
+  ) {
+    return this.staffService.uploadRound2PaintingImage(
+      paintingId,
+      image,
+      title,
+      description,
+    );
   }
 }

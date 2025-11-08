@@ -21,6 +21,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
@@ -28,6 +29,8 @@ import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
+import { Award } from '../awards/entities/award.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 
 @Injectable()
 export class StaffService {
@@ -50,24 +53,30 @@ export class StaffService {
     private schedulesRepository: Repository<Schedule>,
     @InjectRepository(Competitor)
     private competitorsRepository: Repository<Competitor>,
+    @InjectRepository(Award)
+    private awardsRepository: Repository<Award>,
+    @InjectRepository(Evaluation)
+    private evaluationsRepository: Repository<Evaluation>,
     private firebaseService: FirebaseService,
   ) {}
 
   async createContest(
     createContestDto: CreateContestDto,
-    file?: Express.Multer.File,
+    bannerFile?: Express.Multer.File,
+    ruleFile?: Express.Multer.File,
   ) {
     try {
       let bannerUrl: string | undefined = createContestDto.bannerUrl;
+      let ruleUrl: string | undefined = createContestDto.ruleUrl;
 
-      // Upload file to Firebase if provided
-      if (file) {
+      // Upload banner file to Firebase if provided
+      if (bannerFile) {
         const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `contests/banners/${Date.now()}-${file.originalname}`;
+        const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
         const fileUpload = bucket.file(fileName);
 
-        await fileUpload.save(file.buffer, {
-          metadata: { contentType: file.mimetype },
+        await fileUpload.save(bannerFile.buffer, {
+          metadata: { contentType: bannerFile.mimetype },
         });
 
         const [url] = await fileUpload.getSignedUrl({
@@ -78,11 +87,30 @@ export class StaffService {
         bannerUrl = url;
       }
 
+      if (ruleFile) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/rules/${Date.now()}-${ruleFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(ruleFile.buffer, {
+          metadata: { contentType: ruleFile.mimetype },
+        });
+
+        const [url] = await fileUpload.getSignedUrl({
+          action: 'read',
+          expires: '03-09-2491',
+        });
+
+        ruleUrl = url;
+      }
+
       const contest = this.contestsRepository.create({
         title: createContestDto.title,
         description: createContestDto.description,
         bannerUrl,
+        ruleUrl,
         numOfAward: createContestDto.numOfAward,
+        round2Quantity: createContestDto.round2Quantity,
         startDate: createContestDto.startDate,
         endDate: createContestDto.endDate,
         status: createContestDto.status || ContestStatus.DRAFT,
@@ -124,7 +152,12 @@ export class StaffService {
     }
   }
 
-  async updateContest(id: number, updateContestDto: UpdateContestDto) {
+  async updateContest(
+    id: number,
+    updateContestDto: UpdateContestDto,
+    bannerFile?: Express.Multer.File,
+    ruleFile?: Express.Multer.File,
+  ) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId: id },
     });
@@ -133,17 +166,105 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
-    const updatedContest = this.contestsRepository.merge(
-      contest,
-      updateContestDto,
-    );
-    const savedContest = await this.contestsRepository.save(updatedContest);
+    // Check if contest is already published
+    if (contest.status !== 'DRAFT') {
+      throw new BadRequestException(
+        `Cannot update contest. Contest has been published (status: ${contest.status}). Only DRAFT contests can be updated.`,
+      );
+    }
 
-    return {
-      success: true,
-      message: 'Contest updated successfully',
-      data: savedContest,
-    };
+    try {
+      let bannerUrl: string | undefined = updateContestDto.bannerUrl;
+      let ruleUrl: string | undefined = updateContestDto.ruleUrl;
+
+      // Upload new banner file to Firebase if provided
+      if (bannerFile) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(bannerFile.buffer, {
+          metadata: { contentType: bannerFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        bannerUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      }
+
+      // Upload new rule file to Firebase if provided
+      if (ruleFile) {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `contests/rules/${Date.now()}-${ruleFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(ruleFile.buffer, {
+          metadata: { contentType: ruleFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        ruleUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      }
+
+      // Update Round 1 if round data is provided
+      if (updateContestDto.rounds && updateContestDto.rounds.length > 0) {
+        const roundData = updateContestDto.rounds[0];
+
+        // Find existing Round 1
+        const existingRound = await this.roundsRepository.findOne({
+          where: { contestId: id, name: 'ROUND_1' },
+        });
+
+        if (existingRound) {
+          // Update existing Round 1
+          const updatedRound = this.roundsRepository.merge(
+            existingRound,
+            roundData,
+          );
+          await this.roundsRepository.save(updatedRound);
+        } else {
+          // Create new Round 1 if it doesn't exist
+          const newRound = this.roundsRepository.create({
+            ...roundData,
+            contestId: id,
+            name: roundData.name || 'ROUND_1',
+          });
+          await this.roundsRepository.save(newRound);
+        }
+      }
+
+      // Merge updated data with contest (excluding rounds)
+      const { rounds: roundsData, ...contestData } = updateContestDto;
+      const updatedData = {
+        ...contestData,
+        ...(bannerUrl && { bannerUrl }),
+        ...(ruleUrl && { ruleUrl }),
+      };
+
+      const updatedContest = this.contestsRepository.merge(
+        contest,
+        updatedData,
+      );
+      const savedContest = await this.contestsRepository.save(updatedContest);
+
+      // Fetch rounds separately
+      const rounds = await this.roundsRepository.find({
+        where: { contestId: id },
+        order: { roundId: 'ASC' },
+      });
+
+      return {
+        success: true,
+        message: 'Contest updated successfully',
+        data: {
+          ...savedContest,
+          rounds,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to update contest: ${error.message}`,
+      );
+    }
   }
 
   async publishContest(id: number) {
@@ -162,25 +283,24 @@ export class StaffService {
       };
     }
 
-    const now = new Date();
-    const startDate = new Date(contest.startDate);
-    const endDate = new Date(contest.endDate);
-
-    let newStatus: ContestStatus;
-    if (now < startDate) {
-      newStatus = ContestStatus.UPCOMING;
-    } else if (now >= startDate && now <= endDate) {
-      newStatus = ContestStatus.ACTIVE;
-    } else {
-      newStatus = ContestStatus.ENDED;
+    // Validate numberOfTablesRound2 before publishing
+    if (contest.numberOfTablesRound2) {
+      if (
+        contest.numberOfTablesRound2 < 2 ||
+        contest.numberOfTablesRound2 > 26
+      ) {
+        throw new BadRequestException(
+          `Invalid numberOfTablesRound2: ${contest.numberOfTablesRound2}. Must be between 2 and 26 before publishing.`,
+        );
+      }
     }
 
-    contest.status = newStatus;
+    contest.status = ContestStatus.ACTIVE;
     const publishedContest = await this.contestsRepository.save(contest);
 
     return {
       success: true,
-      message: `Contest published successfully with status: ${newStatus}`,
+      message: `Contest published successfully with status: ${contest.status}. Contest configuration is now locked and cannot be updated.`,
       data: publishedContest,
     };
   }
@@ -513,7 +633,6 @@ export class StaffService {
                   paintingId: p.paintingId,
                   title: p.title,
                   imageUrl: p.imageUrl,
-                  isPassed: p.isPassed,
                   status: p.status,
                 })),
               };
@@ -899,6 +1018,7 @@ export class StaffService {
   async createCampaign(data: {
     createCampaignDto: CreateCampaignDto;
     staffId: string;
+    imageFile?: Express.Multer.File;
   }) {
     const user = await this.usersRepository.findOne({
       where: { userId: data.staffId },
@@ -909,15 +1029,113 @@ export class StaffService {
         'Only staff or admin users can create campaigns',
       );
     }
-    const campaign = this.campaignsRepository.create({
+
+    let imageUrl: string | undefined = undefined;
+
+    // Upload image to Firebase Storage if provided
+    if (data.imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `campaigns/${Date.now()}-${data.imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(data.imageFile.buffer, {
+          metadata: { contentType: data.imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to upload image: ${error.message}`,
+        );
+      }
+    }
+
+    const campaignData: any = {
       ...data.createCampaignDto,
       staffId: data.staffId,
-    });
+    };
+
+    if (imageUrl) {
+      campaignData.image = imageUrl;
+    }
+
+    const campaign = this.campaignsRepository.create(campaignData);
     await this.campaignsRepository.save(campaign);
     return {
       success: true,
       message: 'Campaign created successfully',
       data: campaign,
+    };
+  }
+
+  async updateCampaign(
+    campaignId: number,
+    updateCampaignDto: any,
+    imageFile?: Express.Multer.File,
+    staffId?: string,
+  ) {
+    // Find existing campaign
+    const campaign = await this.campaignsRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+
+    // Verify staff permission
+    if (staffId) {
+      const user = await this.usersRepository.findOne({
+        where: { userId: staffId },
+      });
+      const role = user?.role;
+      if (role !== 'STAFF' && role !== 'ADMIN') {
+        throw new BadRequestException(
+          'Only staff or admin users can update campaigns',
+        );
+      }
+    }
+
+    let imageUrl: string | undefined = undefined;
+
+    // Upload new image to Firebase Storage if provided
+    if (imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `campaigns/${Date.now()}-${imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(imageFile.buffer, {
+          metadata: { contentType: imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to upload image: ${error.message}`,
+        );
+      }
+    }
+
+    // Merge update data
+    const updateData: any = { ...updateCampaignDto };
+    if (imageUrl) {
+      updateData.image = imageUrl;
+    }
+
+    const updatedCampaign = this.campaignsRepository.merge(
+      campaign,
+      updateData,
+    );
+    await this.campaignsRepository.save(updatedCampaign);
+
+    return {
+      success: true,
+      message: 'Campaign updated successfully',
+      data: updatedCampaign,
     };
   }
 
@@ -1105,7 +1323,11 @@ export class StaffService {
     };
   }
 
-  async createRound2WithTables(contestId: number, date: string) {
+  async createRound2WithTables(
+    contestId: number,
+    date: string,
+    numberOfTables?: number,
+  ) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
     });
@@ -1116,6 +1338,16 @@ export class StaffService {
 
     if (!date) {
       throw new BadRequestException('Date is required for ROUND_2');
+    }
+
+    // Use numberOfTables from parameter, or from contest config, or default to 4
+    const tablesToCreate = numberOfTables || contest.numberOfTablesRound2 || 4;
+
+    // Validate numberOfTables
+    if (tablesToCreate < 2 || tablesToCreate > 26) {
+      throw new BadRequestException(
+        'Number of tables must be between 2 and 26 (A-Z)',
+      );
     }
 
     const round2Date = new Date(date);
@@ -1139,7 +1371,7 @@ export class StaffService {
     const passedPaintings = await this.paintingsRepository.find({
       where: {
         contestId,
-        isPassed: true,
+        status: 'ACCEPTED',
       },
     });
 
@@ -1153,33 +1385,85 @@ export class StaffService {
       ...new Set(passedPaintings.map((p) => p.competitorId)),
     ];
 
-    if (uniqueCompetitorIds.length < 4) {
+    if (uniqueCompetitorIds.length < tablesToCreate) {
       throw new BadRequestException(
-        `Need at least 4 competitors to create 4 tables. Found only ${uniqueCompetitorIds.length} competitors`,
+        `Need at least ${tablesToCreate} competitors to create ${tablesToCreate} tables. Found only ${uniqueCompetitorIds.length} competitors`,
       );
     }
 
-    // Shuffle competitors randomly
-    const shuffledCompetitors = uniqueCompetitorIds.sort(
-      () => Math.random() - 0.5,
+    const round2Limit = contest.round2Quantity || uniqueCompetitorIds.length;
+
+    if (uniqueCompetitorIds.length < round2Limit) {
+      throw new BadRequestException(
+        `Contest configured for ${round2Limit} competitors in ROUND_2, but only ${uniqueCompetitorIds.length} competitors passed ROUND_1`,
+      );
+    }
+
+    const competitorScores = await Promise.all(
+      uniqueCompetitorIds.map(async (competitorId) => {
+        const competitorPaintings = passedPaintings.filter(
+          (p) => p.competitorId === competitorId && p.contestId === contestId,
+        );
+
+        const paintingIds = competitorPaintings.map((p) => p.paintingId);
+        const evaluations = await this.evaluationsRepository.find({
+          where: paintingIds.map((paintingId) => ({ paintingId })),
+        });
+
+        let avgScore = 0;
+        if (evaluations.length > 0) {
+          const totalScore = evaluations.reduce(
+            (sum, evaluation) => sum + (evaluation.scoreRound1 || 0),
+            0,
+          );
+          avgScore = totalScore / evaluations.length;
+        }
+
+        return {
+          competitorId,
+          avgScore,
+          evaluationCount: evaluations.length,
+        };
+      }),
     );
 
-    // Divide into 4 tables
-    const tableSize = Math.ceil(shuffledCompetitors.length / 4);
-    const tables = [
-      shuffledCompetitors.slice(0, tableSize),
-      shuffledCompetitors.slice(tableSize, tableSize * 2),
-      shuffledCompetitors.slice(tableSize * 2, tableSize * 3),
-      shuffledCompetitors.slice(tableSize * 3),
-    ];
+    competitorScores.sort((a, b) => b.avgScore - a.avgScore);
 
-    const tableNames = ['A', 'B', 'C', 'D'];
+    const topCompetitors = competitorScores.slice(0, round2Limit);
+
+    // Generate table names: A, B, C, D, ... up to tablesToCreate
+    const tableNames: string[] = [];
+    for (let i = 0; i < tablesToCreate; i++) {
+      tableNames.push(String.fromCharCode(65 + i)); // 65 is 'A' in ASCII
+    }
+
+    // Distribute competitors using seeding method:
+    // Seeds 1-n go to tables in order
+    // Seeds (n+1)-2n go to tables in reverse order
+    // Seeds (2n+1)-3n go to tables in order
+    // And so on...
+    const tables: string[][] = Array(tablesToCreate)
+      .fill(null)
+      .map(() => []);
+
+    for (let i = 0; i < topCompetitors.length; i++) {
+      const group = Math.floor(i / tablesToCreate); // Which group
+      const positionInGroup = i % tablesToCreate; // Position within the group
+
+      let tableIndex;
+      if (group % 2 === 0) {
+        tableIndex = positionInGroup;
+      } else {
+        tableIndex = tablesToCreate - 1 - positionInGroup;
+      }
+
+      tables[tableIndex].push(topCompetitors[i].competitorId);
+    }
+
     const createdRounds: Round[] = [];
     const createdPaintings: Painting[] = [];
 
-    // Create 4 rounds and paintings for each competitor
-    for (let i = 0; i < 4; i++) {
-      // Create round for table
+    for (let i = 0; i < tablesToCreate; i++) {
       const round = this.roundsRepository.create({
         contestId,
         name: 'ROUND_2',
@@ -1192,7 +1476,6 @@ export class StaffService {
       const savedRound = await this.roundsRepository.save(round);
       createdRounds.push(savedRound);
 
-      // Create painting records for each competitor in this table
       for (const competitorId of tables[i]) {
         const painting = this.paintingsRepository.create({
           competitorId,
@@ -1200,8 +1483,7 @@ export class StaffService {
           roundId: savedRound.roundId.toString(),
           title: `ROUND_2 - Table ${tableNames[i]} - Pending Upload`,
           description: `Painting for ROUND_2, Table ${tableNames[i]}. Waiting for examiner to upload.`,
-          status: 'PENDING',
-          // isPassed, submissionDate, imageUrl sẽ là null theo default
+          status: 'ACCEPTED',
         });
 
         const savedPainting = await this.paintingsRepository.save(painting);
@@ -1209,73 +1491,219 @@ export class StaffService {
       }
     }
 
-    // Group paintings by table for response
-    const paintingsByTable = {
-      'Table A': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[0].roundId.toString(),
-      ),
-      'Table B': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[1].roundId.toString(),
-      ),
-      'Table C': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[2].roundId.toString(),
-      ),
-      'Table D': createdPaintings.filter(
-        (p) => p.roundId === createdRounds[3].roundId.toString(),
-      ),
-    };
+    // Build dynamic table distribution object
+    const paintingsByTable: { [key: string]: Painting[] } = {};
+    const tableDistribution: any = {};
+
+    for (let i = 0; i < tablesToCreate; i++) {
+      const tableName = `Table ${tableNames[i]}`;
+      paintingsByTable[tableName] = createdPaintings.filter(
+        (p) => p.roundId === createdRounds[i].roundId.toString(),
+      );
+
+      tableDistribution[tableName] = {
+        roundId: createdRounds[i].roundId,
+        competitors: tables[i],
+        count: tables[i].length,
+        paintings: paintingsByTable[tableName].map((p) => ({
+          paintingId: p.paintingId,
+          competitorId: p.competitorId,
+          status: p.status,
+        })),
+      };
+    }
 
     return {
       success: true,
-      message:
-        'ROUND_2 created successfully with 4 tables and painting records',
+      message: `ROUND_2 created successfully with ${tablesToCreate} tables using seeding based on average scores`,
       data: {
         rounds: createdRounds,
-        tableDistribution: {
-          'Table A': {
-            roundId: createdRounds[0].roundId,
-            competitors: tables[0],
-            count: tables[0].length,
-            paintings: paintingsByTable['Table A'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-          'Table B': {
-            roundId: createdRounds[1].roundId,
-            competitors: tables[1],
-            count: tables[1].length,
-            paintings: paintingsByTable['Table B'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-          'Table C': {
-            roundId: createdRounds[2].roundId,
-            competitors: tables[2],
-            count: tables[2].length,
-            paintings: paintingsByTable['Table C'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-          'Table D': {
-            roundId: createdRounds[3].roundId,
-            competitors: tables[3],
-            count: tables[3].length,
-            paintings: paintingsByTable['Table D'].map((p) => ({
-              paintingId: p.paintingId,
-              competitorId: p.competitorId,
-              status: p.status,
-            })),
-          },
-        },
-        totalCompetitors: uniqueCompetitorIds.length,
+        seedingInfo: topCompetitors.map((comp, index) => ({
+          seed: index + 1,
+          competitorId: comp.competitorId,
+          avgScore: comp.avgScore,
+          evaluationCount: comp.evaluationCount,
+        })),
+        tableDistribution,
+        numberOfTables: tablesToCreate,
+        totalCompetitors: topCompetitors.length,
         passedPaintingsCount: passedPaintings.length,
         totalPaintingsCreated: createdPaintings.length,
+      },
+    };
+  }
+
+  async assignAwardToPainting(paintingId: string, awardId: number) {
+    // Check if painting exists
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+      relations: ['award'],
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    // Check if painting already has an award
+    if (painting.awardId) {
+      throw new BadRequestException(
+        `Painting already has an award assigned (Award ID: ${painting.awardId})`,
+      );
+    }
+
+    // Check if award exists
+    const award = await this.awardsRepository.findOne({
+      where: { awardId },
+      relations: ['paintings'],
+    });
+
+    if (!award) {
+      throw new NotFoundException(`Award with ID ${awardId} not found`);
+    }
+
+    if (award.quantity) {
+      const paintingsWithAward = await this.paintingsRepository.count({
+        where: { awardId },
+      });
+
+      if (paintingsWithAward >= award.quantity) {
+        throw new BadRequestException(
+          `Award "${award.name}" has reached its maximum quantity (${award.quantity}). Cannot assign more paintings.`,
+        );
+      }
+    }
+
+    painting.awardId = awardId;
+    const updatedPainting = await this.paintingsRepository.save(painting);
+
+    const currentCount = await this.paintingsRepository.count({
+      where: { awardId },
+    });
+
+    return {
+      success: true,
+      message: 'Award assigned to painting successfully',
+      data: {
+        paintingId: updatedPainting.paintingId,
+        awardId: updatedPainting.awardId,
+        awardName: award.name,
+        awardRank: award.rank,
+        awardPrize: award.prize,
+      },
+      meta: {
+        currentAssignedCount: currentCount,
+        maxQuantity: award.quantity,
+        remainingSlots: award.quantity ? award.quantity - currentCount : null,
+      },
+    };
+  }
+
+  async unassignAwardFromPainting(paintingId: string) {
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    if (!painting.awardId) {
+      throw new BadRequestException(
+        'Painting does not have any award assigned',
+      );
+    }
+
+    const previousAwardId = painting.awardId;
+
+    painting.awardId = null;
+    await this.paintingsRepository.save(painting);
+
+    return {
+      success: true,
+      message: 'Award unassigned from painting successfully',
+      data: {
+        paintingId: painting.paintingId,
+        previousAwardId,
+      },
+    };
+  }
+
+  async uploadRound2PaintingImage(
+    paintingId: string,
+    imageFile?: Express.Multer.File,
+    title?: string,
+    description?: string,
+  ) {
+    // Validate painting exists
+    const painting = await this.paintingsRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    // Validate painting is in ROUND_2
+    const round = await this.roundsRepository.findOne({
+      where: { roundId: parseInt(painting.roundId) },
+    });
+
+    if (!round || round.name !== 'ROUND_2') {
+      throw new BadRequestException(
+        'This painting is not in ROUND_2. Can only update ROUND_2 paintings.',
+      );
+    }
+
+    // Check if at least one field is provided
+    if (!imageFile && !title && !description) {
+      throw new BadRequestException(
+        'At least one field (image, title, or description) must be provided',
+      );
+    }
+
+    let imageUrl = painting.imageUrl;
+
+    // Upload image to Firebase Storage if provided
+    if (imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `paintings/round2/${Date.now()}-${imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(imageFile.buffer, {
+          metadata: { contentType: imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        painting.imageUrl = imageUrl;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to upload image: ${error.message}`,
+        );
+      }
+    }
+
+    // Update optional fields only if provided
+    if (title) {
+      painting.title = title;
+    }
+    if (description) {
+      painting.description = description;
+    }
+
+    await this.paintingsRepository.save(painting);
+
+    return {
+      success: true,
+      message: 'Round 2 painting updated successfully',
+      data: {
+        paintingId: painting.paintingId,
+        imageUrl: painting.imageUrl,
+        title: painting.title,
+        description: painting.description,
+        round: round.name,
+        table: round.table,
       },
     };
   }

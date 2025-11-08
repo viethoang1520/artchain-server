@@ -19,6 +19,9 @@ export class Campaign {
   @Column({ name: 'description', type: 'text', nullable: true })
   description: string;
 
+  @Column({ name: 'image', nullable: true })
+  image: string;
+
   @Column({
     name: 'goal_amount',
     type: 'decimal',

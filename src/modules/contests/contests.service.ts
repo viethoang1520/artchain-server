@@ -26,13 +26,39 @@ export class ContestsService {
   ) {}
 
   async findAll(query: GetContestDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
     const queryBuilder = this.contestsRepository.createQueryBuilder('contest');
 
     if (query.status) {
       queryBuilder.where('contest.status = :status', { status: query.status });
     }
 
-    return await queryBuilder.getMany();
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    queryBuilder.skip(skip).take(limit);
+
+    // Order by latest first
+    queryBuilder.orderBy('contest.contestId', 'DESC');
+
+    const contests = await queryBuilder.getMany();
+
+    return {
+      success: true,
+      data: contests,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async findOne(id: number) {
@@ -66,7 +92,6 @@ export class ContestsService {
         };
       }),
     );
-
 
     return {
       success: true,

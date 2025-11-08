@@ -15,6 +15,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { memoryStorage } from 'multer';
 import { UploadPaintingDto } from './dto/upload-painting.dto';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
+import { EvaluateRound2Dto } from './dto/evaluate-round2.dto';
 import {
   ApiBody,
   ApiConsumes,
@@ -47,14 +48,6 @@ export class PaintingsController {
     required: false,
   })
   @ApiQuery({
-    name: 'is_passed',
-    description:
-      'Lọc theo trạng thái đỗ/rớt (tùy chọn). true = đỗ, false = rớt, null = chưa chấm',
-    example: true,
-    required: false,
-    enum: ['true', 'false', 'null'],
-  })
-  @ApiQuery({
     name: 'status',
     description:
       'Lọc theo trạng thái painting (tùy chọn). Ví dụ: PENDING, ACCEPTED, REJECTED',
@@ -62,31 +55,24 @@ export class PaintingsController {
     required: false,
     enum: ['PENDING', 'ACCEPTED', 'REJECTED'],
   })
+  @ApiQuery({
+    name: 'examinerId',
+    description: 'ID của giám khảo (tùy chọn)',
+    example: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+    required: false,
+  })
   async getPaintingsByContestId(
     @Query('contestId') contestId: number,
     @Query('roundName') roundName?: string,
-    @Query('is_passed') isPassed?: string,
     @Query('status') status?: string,
+    @Query('examinerId') examinerId?: string,
   ) {
-
-    let isPassedValue: boolean | null = null;
-
-    if (isPassed !== undefined) {
-      if (isPassed === 'null') {
-        isPassedValue = null;
-      } else if (isPassed === 'true') {
-        isPassedValue = true;
-      } else if (isPassed === 'false') {
-        isPassedValue = false;
-      }
-    }
-
     try {
       return await this.paintingsService.getPaintingsByContestId(
         contestId,
         roundName,
-        isPassedValue,
         status,
+        examinerId,
       );
     } catch (error) {
       throw new BadRequestException(error.message || 'Failed to get paintings');
@@ -147,17 +133,39 @@ export class PaintingsController {
   }
 
   @Post('evaluate')
-  @ApiOperation({ summary: 'Đánh giá tranh' })
+  @ApiOperation({
+    summary: 'Đánh giá tranh (Vòng 1 hoặc chung)',
+    description: `
+Đánh giá tranh với kiểm tra lịch chấm của examiner.
+- Hệ thống sẽ kiểm tra xem hôm nay có phải là ngày được phân công chấm bài của examiner không
+- Nếu không đúng ngày, sẽ thông báo lỗi
+    `,
+  })
   @ApiBody({ type: EvaluatePaintingDto })
   async evaluatePainting(@Body() evaluateDto: EvaluatePaintingDto) {
     return this.paintingsService.evaluatePainting(evaluateDto);
   }
 
-  @Post('evaluate/preliminary')
-  @ApiOperation({ summary: 'Đánh giá tranh vòng sơ khảo' })
-  @ApiBody({ type: PreliminaryEvaluationDto })
-  async evaluatePreliminary(@Body() evaluateDto: PreliminaryEvaluationDto) {
-    return this.paintingsService.evaluatePreliminary(evaluateDto);
+  @Post('evaluate/round2')
+  @ApiOperation({
+    summary: 'Đánh giá tranh VÒNG 2',
+    description: `
+Chấm điểm tranh cho VÒNG 2 theo 5 tiêu chí:
+- Creativity & Originality: 0-30 điểm
+- Composition: 0-20 điểm  
+- Color & Technique: 0-20 điểm
+- Relevance to Theme: 0-20 điểm
+- Overall Aesthetic: 0-10 điểm
+Tổng điểm tối đa: 100 điểm (tự động tính)
+
+**Kiểm tra lịch chấm:**
+- Hệ thống sẽ kiểm tra xem hôm nay có phải là ngày được phân công chấm bài của examiner không
+- Nếu không đúng ngày, sẽ thông báo lỗi
+    `,
+  })
+  @ApiBody({ type: EvaluateRound2Dto })
+  async evaluateRound2Painting(@Body() evaluateDto: EvaluateRound2Dto) {
+    return this.paintingsService.evaluateRound2Painting(evaluateDto);
   }
 
   @Get(':paintingId/evaluations')
@@ -170,13 +178,19 @@ export class PaintingsController {
     return this.paintingsService.getPaintingEvaluations(paintingId);
   }
 
-  @Post('batch/preliminary-review')
+  @Get('round2/rankings')
   @ApiOperation({
-    summary: 'Chấm hàng loạt các bài sau vòng sơ khảo',
-    description: 'Cập nhật isPassed và status cho nhiều paintings cùng lúc',
+    summary: 'Lấy top 1 của mỗi bảng trong vòng 2',
+    description:
+      'Lấy top 1 tranh có điểm trung bình score_round_2 cao nhất của mỗi bảng trong ROUND_2',
   })
-  @ApiBody({ type: PreliminaryReviewDto })
-  async batchPreliminaryReview(@Body() reviewDto: PreliminaryReviewDto) {
-    return this.paintingsService.batchPreliminaryReview(reviewDto);
+  @ApiQuery({
+    name: 'contestId',
+    description: 'ID của cuộc thi',
+    example: 1,
+    required: true,
+  })
+  async getRound2PaintingsWithAvgScore(@Query('contestId') contestId: number) {
+    return this.paintingsService.getRound2PaintingsWithAvgScore(contestId);
   }
 }
