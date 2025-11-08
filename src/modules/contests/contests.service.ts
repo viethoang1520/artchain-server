@@ -39,13 +39,10 @@ export class ContestsService {
       queryBuilder.where('contest.status = :status', { status: query.status });
     }
 
-    // Get total count
     const total = await queryBuilder.getCount();
 
-    // Apply pagination
     queryBuilder.skip(skip).take(limit);
 
-    // Order by latest first
     queryBuilder.orderBy('contest.contestId', 'DESC');
 
     const contests = await queryBuilder.getMany();
@@ -53,7 +50,7 @@ export class ContestsService {
     return {
       success: true,
       data: contests,
-      pagination: {
+      meta: {
         page,
         limit,
         total,
