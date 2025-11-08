@@ -5,8 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Evaluation } from './evaluation.entity';
+import { Award } from '../../awards/entities/award.entity';
 
 @Entity('paintings')
 export class Painting {
@@ -15,9 +18,6 @@ export class Painting {
 
   @Column({ nullable: true, name: 'round_id' })
   roundId: string;
-
-  @Column({ nullable: true, name: 'award_id' })
-  awardId: number;
 
   @Column({ nullable: true, name: 'contest_id' })
   contestId: number;
@@ -37,8 +37,14 @@ export class Painting {
   @Column({ type: 'timestamp', nullable: true, name: 'submission_date' })
   submissionDate: Date;
 
+  @Column({ type: 'boolean', default: null, name: 'is_passed' })
+  isPassed: boolean;
+
   @Column({ type: 'varchar', length: 50, default: 'PENDING', name: 'status' })
   status: string;
+
+  @Column({ nullable: true, name: 'award_id' })
+  awardId: number | null;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
@@ -48,4 +54,8 @@ export class Painting {
 
   @OneToMany(() => Evaluation, (evaluation) => evaluation.painting)
   evaluations: Evaluation[];
+
+  @ManyToOne(() => Award, (award) => award.paintings)
+  @JoinColumn({ name: 'award_id' })
+  award: Award;
 }

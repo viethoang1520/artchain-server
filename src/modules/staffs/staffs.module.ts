@@ -9,6 +9,13 @@ import { Examiner } from '../examiners/entities/examiners.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { AuthModule } from '../auth/auth.module';
 import { PostsModule } from '../posts/posts.module';
+import { Campaign } from '../campaigns/entities/campaign.entity';
+import { User } from '../users/entities/user.entity';
+import { Schedule } from '../schedules/entities/schedule.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { FirebaseModule } from '../firebase/firebase.module';
+import { Award } from '../awards/entities/award.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 
 @Module({
   imports: [
@@ -18,12 +25,19 @@ import { PostsModule } from '../posts/posts.module';
       ContestExaminer,
       Examiner,
       Painting,
+      Campaign,
+      User,
+      Schedule,
+      Competitor,
+      Award,
+      Evaluation
     ]),
     AuthModule,
     PostsModule,
+    FirebaseModule,
   ],
   controllers: [StaffController],
   providers: [StaffService],
   exports: [StaffService],
 })
-export class StaffModule { }
+export class StaffModule {}

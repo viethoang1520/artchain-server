@@ -31,14 +31,6 @@ export class CreatePostDto {
   content: string;
 
   @ApiPropertyOptional({
-    description: 'Image URL for the post',
-    example: 'https://example.com/image.jpg',
-  })
-  @IsOptional()
-  @IsString()
-  image_url?: string;
-
-  @ApiPropertyOptional({
     description: 'Status of the post',
     enum: PostStatus,
     default: PostStatus.DRAFT,
@@ -53,7 +45,5 @@ export class CreatePostDto {
     example: [1, 2, 3],
   })
   @IsOptional()
-  @IsArray()
-  @IsInt({ each: true })
-  tag_ids?: number[];
+  tag_ids?: number[] | string;
 }

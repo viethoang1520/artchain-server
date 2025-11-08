@@ -7,10 +7,11 @@ import { AuthModule } from '../auth/auth.module';
 import { Round } from './entities/round.entity';
 import { ContestExaminer } from './entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Contest, Round, ContestExaminer, Examiner]),
+    TypeOrmModule.forFeature([Contest, Round, ContestExaminer, Examiner, User]),
     AuthModule,
   ],
   controllers: [ContestsController],

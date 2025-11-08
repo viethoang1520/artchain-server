@@ -12,6 +12,11 @@ import { AdminModule } from './modules/admin/admin.module';
 import { StaffModule } from './modules/staffs/staffs.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { GuardiansModule } from './modules/guardians/guardians.module';
+import { SponsorsModule } from './modules/sponsors/sponsors.module';
+import { ExaminersModule } from './modules/examiners/examiners.module';
+import { CampaignsModule } from './modules/campaigns/campaigns.module';
+import { AwardsModule } from './modules/awards/awards.module';
+import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
 
 @Module({
   imports: [
@@ -26,6 +31,11 @@ import { GuardiansModule } from './modules/guardians/guardians.module';
     StaffModule,
     PostsModule,
     GuardiansModule,
+    SponsorsModule,
+    ExaminersModule,
+    CampaignsModule,
+    AwardsModule,
+    ExhibitionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

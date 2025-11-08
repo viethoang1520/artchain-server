@@ -21,8 +21,33 @@ export class Evaluation {
   @Column({ name: 'examiner_id' })
   examinerId: string;
 
-  @Column({ type: 'int', name: 'score' })
-  score: number;
+  // Round 1 score - Simple scoring
+  @Column({ type: 'int', nullable: true, name: 'score' })
+  scoreRound1: number;
+
+  // Round 2 score - Detailed scoring with criteria
+  @Column({ type: 'int', nullable: true, name: 'score_round_2' })
+  scoreRound2: number;
+
+  // Creativity & Originality - Max 30 points (Round 2 only)
+  @Column({ type: 'int', nullable: true, name: 'creativity_score' })
+  creativityScore: number;
+
+  // Composition - Max 20 points (Round 2 only)
+  @Column({ type: 'int', nullable: true, name: 'composition_score' })
+  compositionScore: number;
+
+  // Color & Technique - Max 20 points (Round 2 only)
+  @Column({ type: 'int', nullable: true, name: 'color_score' })
+  colorScore: number;
+
+  // Relevance to Theme - Max 20 points (Round 2 only)
+  @Column({ type: 'int', nullable: true, name: 'technical_score' })
+  technicalScore: number;
+
+  // Overall Aesthetic - Max 10 points (Round 2 only)
+  @Column({ type: 'int', nullable: true, name: 'aesthetic_score' })
+  aestheticScore: number;
 
   @Column({ type: 'text', nullable: true, name: 'feedback' })
   feedback: string;
