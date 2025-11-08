@@ -26,7 +26,6 @@ import {
 } from '@nestjs/swagger';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { PreliminaryReviewDto } from './dto/preliminary-review.dto';
-import { UUID } from 'crypto';
 
 @Controller('api/paintings')
 @ApiTags('Paintings')
@@ -48,14 +47,6 @@ export class PaintingsController {
     example: 'ROUND_1',
     required: false,
   })
-  // @ApiQuery({
-  //   name: 'is_passed',
-  //   description:
-  //     'Lọc theo trạng thái đỗ/rớt (tùy chọn). true = đỗ, false = rớt, null = chưa chấm',
-  //   example: true,
-  //   required: false,
-  //   enum: ['true', 'false', 'null'],
-  // })
   @ApiQuery({
     name: 'status',
     description:
@@ -73,27 +64,13 @@ export class PaintingsController {
   async getPaintingsByContestId(
     @Query('contestId') contestId: number,
     @Query('roundName') roundName?: string,
-    // @Query('is_passed') isPassed?: string,
     @Query('status') status?: string,
     @Query('examinerId') examinerId?: string,
   ) {
-    // let isPassedValue: boolean | null = null;
-
-    // if (isPassed !== undefined) {
-    //   if (isPassed === 'null') {
-    //     isPassedValue = null;
-    //   } else if (isPassed === 'true') {
-    //     isPassedValue = true;
-    //   } else if (isPassed === 'false') {
-    //     isPassedValue = false;
-    //   }
-    // }
-
     try {
       return await this.paintingsService.getPaintingsByContestId(
         contestId,
         roundName,
-        // isPassedValue,
         status,
         examinerId,
       );
@@ -156,7 +133,14 @@ export class PaintingsController {
   }
 
   @Post('evaluate')
-  @ApiOperation({ summary: 'Đánh giá tranh (Vòng 1 hoặc chung)' })
+  @ApiOperation({
+    summary: 'Đánh giá tranh (Vòng 1 hoặc chung)',
+    description: `
+Đánh giá tranh với kiểm tra lịch chấm của examiner.
+- Hệ thống sẽ kiểm tra xem hôm nay có phải là ngày được phân công chấm bài của examiner không
+- Nếu không đúng ngày, sẽ thông báo lỗi
+    `,
+  })
   @ApiBody({ type: EvaluatePaintingDto })
   async evaluatePainting(@Body() evaluateDto: EvaluatePaintingDto) {
     return this.paintingsService.evaluatePainting(evaluateDto);
@@ -173,18 +157,15 @@ Chấm điểm tranh cho VÒNG 2 theo 5 tiêu chí:
 - Relevance to Theme: 0-20 điểm
 - Overall Aesthetic: 0-10 điểm
 Tổng điểm tối đa: 100 điểm (tự động tính)
+
+**Kiểm tra lịch chấm:**
+- Hệ thống sẽ kiểm tra xem hôm nay có phải là ngày được phân công chấm bài của examiner không
+- Nếu không đúng ngày, sẽ thông báo lỗi
     `,
   })
   @ApiBody({ type: EvaluateRound2Dto })
   async evaluateRound2Painting(@Body() evaluateDto: EvaluateRound2Dto) {
     return this.paintingsService.evaluateRound2Painting(evaluateDto);
-  }
-
-  @Post('evaluate/preliminary')
-  @ApiOperation({ summary: 'Đánh giá tranh vòng sơ khảo' })
-  @ApiBody({ type: PreliminaryEvaluationDto })
-  async evaluatePreliminary(@Body() evaluateDto: PreliminaryEvaluationDto) {
-    return this.paintingsService.evaluatePreliminary(evaluateDto);
   }
 
   @Get(':paintingId/evaluations')
@@ -197,21 +178,11 @@ Tổng điểm tối đa: 100 điểm (tự động tính)
     return this.paintingsService.getPaintingEvaluations(paintingId);
   }
 
-  @Post('batch/preliminary-review')
-  @ApiOperation({
-    summary: 'Chấm hàng loạt các bài sau vòng sơ khảo',
-    description: 'Cập nhật isPassed và status cho nhiều paintings cùng lúc',
-  })
-  @ApiBody({ type: PreliminaryReviewDto })
-  async batchPreliminaryReview(@Body() reviewDto: PreliminaryReviewDto) {
-    return this.paintingsService.batchPreliminaryReview(reviewDto);
-  }
-
   @Get('round2/rankings')
   @ApiOperation({
     summary: 'Lấy top 1 của mỗi bảng trong vòng 2',
     description:
-      'Lấy top 1 tranh có điểm trung bình score_round_2 cao nhất của mỗi bảng (A, B, C, D) trong ROUND_2',
+      'Lấy top 1 tranh có điểm trung bình score_round_2 cao nhất của mỗi bảng trong ROUND_2',
   })
   @ApiQuery({
     name: 'contestId',

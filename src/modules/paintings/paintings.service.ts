@@ -21,6 +21,7 @@ import {
   PaintingReviewItem,
 } from './dto/preliminary-review.dto';
 import { Award } from '../awards/entities/award.entity';
+import { Schedule } from '../schedules/entities/schedule.entity';
 
 @Injectable()
 export class PaintingsService {
@@ -40,6 +41,8 @@ export class PaintingsService {
     private readonly competitorRepository: Repository<Competitor>,
     @InjectRepository(Award)
     private readonly awardRepository: Repository<Award>,
+    @InjectRepository(Schedule)
+    private readonly scheduleRepository: Repository<Schedule>,
   ) {}
 
   async getPaintingsByContestId(
@@ -293,7 +296,7 @@ export class PaintingsService {
 
   async evaluatePainting(
     evaluateDto: EvaluatePaintingDto,
-  ): Promise<Evaluation> {
+  ): Promise<{ canEvaluate: boolean; data?: Evaluation; message?: string }> {
     const { paintingId, examinerId, score, feedback } = evaluateDto;
 
     const painting = await this.paintingRepository.findOne({
@@ -317,6 +320,35 @@ export class PaintingsService {
       );
     }
 
+    // Check schedule of examiner
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
+    const schedule = await this.scheduleRepository.findOne({
+      where: {
+        examinerId: examinerId,
+        contestId: painting.contestId,
+        status: 'ACTIVE',
+      },
+    });
+
+    if (!schedule) {
+      return {
+        canEvaluate: false,
+        message: 'Examiner does not have a schedule assigned for this contest',
+      };
+    }
+
+    const scheduleDate = new Date(schedule.date);
+    scheduleDate.setHours(0, 0, 0, 0);
+
+    if (scheduleDate.getTime() !== today.getTime()) {
+      return {
+        canEvaluate: false,
+        message: `You can only evaluate on your scheduled date: ${schedule.date.toISOString().split('T')[0]}`,
+      };
+    }
+    
     const existingEvaluation = await this.evaluationRepository.findOne({
       where: { paintingId, examinerId },
     });
@@ -327,7 +359,13 @@ export class PaintingsService {
       existingEvaluation.evaluationDate = new Date();
       existingEvaluation.status = 'COMPLETED';
 
-      return await this.evaluationRepository.save(existingEvaluation);
+      const savedEvaluation =
+        await this.evaluationRepository.save(existingEvaluation);
+      return {
+        canEvaluate: true,
+        data: savedEvaluation,
+        message: 'Evaluation updated successfully',
+      };
     }
 
     const newEvaluation = this.evaluationRepository.create({
@@ -340,12 +378,16 @@ export class PaintingsService {
     });
 
     const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
-    return savedEvaluation;
+    return {
+      canEvaluate: true,
+      data: savedEvaluation,
+      message: 'Evaluation created successfully',
+    };
   }
 
   async evaluateRound2Painting(
     evaluateDto: EvaluateRound2Dto,
-  ): Promise<Evaluation> {
+  ): Promise<{ canEvaluate: boolean; data?: Evaluation; message?: string }> {
     const {
       paintingId,
       examinerId,
@@ -390,6 +432,36 @@ export class PaintingsService {
       );
     }
 
+    // Kiểm tra lịch chấm bài của examiner
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
+
+    const schedule = await this.scheduleRepository.findOne({
+      where: {
+        examinerId: examinerId,
+        contestId: painting.contestId,
+        status: 'ACTIVE',
+      },
+    });
+
+    if (!schedule) {
+      return {
+        canEvaluate: false,
+        message: 'Examiner does not have a schedule assigned for this contest',
+      };
+    }
+
+    const scheduleDate = new Date(schedule.date);
+    scheduleDate.setHours(0, 0, 0, 0);
+
+    if (scheduleDate.getTime() !== today.getTime()) {
+      return {
+        canEvaluate: false,
+        message: `You can only evaluate on your scheduled date: ${schedule.date.toISOString().split('T')[0]}`,
+      };
+    }
+
+    // Nếu đúng ngày, tiếp tục đánh giá
     const totalScore =
       creativityScore +
       compositionScore +
@@ -416,9 +488,10 @@ export class PaintingsService {
         await this.evaluationRepository.save(existingEvaluation);
 
       return {
-        ...updatedEvaluation,
+        canEvaluate: true,
+        data: updatedEvaluation,
         message: 'Evaluation updated successfully',
-      } as any;
+      };
     }
 
     const newEvaluation = this.evaluationRepository.create({
@@ -438,40 +511,10 @@ export class PaintingsService {
     const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
 
     return {
-      ...savedEvaluation,
+      canEvaluate: true,
+      data: savedEvaluation,
       message: 'Evaluation created successfully',
-    } as any;
-  }
-
-  async evaluatePreliminary(
-    evaluateDto: PreliminaryEvaluationDto,
-  ): Promise<any> {
-    const { paintingId, examinerId, isPassed } = evaluateDto;
-
-    const existingPainting = await this.paintingRepository.findOne({
-      where: { paintingId },
-    });
-    if (!existingPainting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    const contestExaminer = await this.contestExaminerRepository.findOne({
-      where: {
-        contestId: existingPainting.contestId,
-        examinerId: examinerId,
-        status: 'ACTIVE',
-      },
-    });
-
-    if (!contestExaminer) {
-      throw new BadRequestException(
-        `Examiner ${examinerId} is not assigned to contest ${existingPainting.contestId} or is not active`,
-      );
-    }
-    const painting = new Painting();
-    painting.paintingId = paintingId;
-    painting.isPassed = isPassed;
-    await this.paintingRepository.save(painting);
+    };
   }
 
   async getPaintingEvaluations(paintingId: string): Promise<any[]> {
@@ -502,61 +545,6 @@ export class PaintingsService {
     );
 
     return evaluationsWithNames;
-  }
-
-  async batchPreliminaryReview(reviewDto: PreliminaryReviewDto): Promise<any> {
-    const { paintings } = reviewDto;
-
-    if (!paintings || paintings.length === 0) {
-      throw new BadRequestException('Paintings array cannot be empty');
-    }
-
-    const results: {
-      success: Array<{ paintingId: string; isPassed: boolean; status: string }>;
-      failed: Array<{ paintingId: string; reason: string }>;
-      total: number;
-    } = {
-      success: [],
-      failed: [],
-      total: paintings.length,
-    };
-
-    for (const item of paintings) {
-      try {
-        const painting = await this.paintingRepository.findOne({
-          where: { paintingId: item.paintingId },
-        });
-
-        if (!painting) {
-          results.failed.push({
-            paintingId: item.paintingId,
-            reason: `Painting not found`,
-          });
-          continue;
-        }
-
-        painting.isPassed = item.isPassed;
-
-        await this.paintingRepository.save(painting);
-
-        results.success.push({
-          paintingId: item.paintingId,
-          isPassed: item.isPassed,
-          status: painting.status,
-        });
-      } catch (error) {
-        results.failed.push({
-          paintingId: item.paintingId,
-          reason: error.message || 'Unknown error',
-        });
-      }
-    }
-
-    return {
-      success: true,
-      message: `Processed ${results.total} paintings: ${results.success.length} successful, ${results.failed.length} failed`,
-      data: results,
-    };
   }
 
   async getRound2PaintingsWithAvgScore(contestId: number) {
