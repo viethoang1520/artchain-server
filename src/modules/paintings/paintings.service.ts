@@ -251,7 +251,6 @@ export class PaintingsService {
         competitorId: data.competitorId,
         contestId: data.contestId,
         roundId: data.roundId,
-        status: 'PENDING',
       },
     });
     if (existingSubmission) {

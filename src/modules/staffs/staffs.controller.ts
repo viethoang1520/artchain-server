@@ -50,6 +50,7 @@ import { GetAllPostsDto } from '../posts/dto/get-all-posts.dto';
 import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
@@ -972,6 +973,113 @@ export class StaffController {
       staffId,
       imageFile: image,
     });
+  }
+
+  @Put('campaign/:id')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Cập nhật campaign',
+    description:
+      'Staff cập nhật thông tin campaign và có thể upload ảnh mới. Tất cả fields đều optional, chỉ cập nhật field nào được gửi lên.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Campaign image file (optional - JPG, PNG, etc.)',
+        },
+        title: {
+          type: 'string',
+          description: 'Campaign title',
+          example: 'Updated Art Contest Fundraising 2025',
+        },
+        description: {
+          type: 'string',
+          description: 'Campaign description and goals',
+          example: 'Updated fundraising campaign description',
+        },
+        goalAmount: {
+          type: 'number',
+          description: 'Target amount to raise',
+          example: 60000,
+        },
+        deadline: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Campaign deadline',
+          example: '2025-12-31T23:59:59.000Z',
+        },
+        status: {
+          type: 'string',
+          enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
+          description: 'Campaign status',
+          example: 'ACTIVE',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Campaign updated successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Campaign updated successfully',
+        data: {
+          campaignId: 1,
+          title: 'Updated Art Contest Fundraising 2025',
+          description: 'Updated description...',
+          image: 'https://storage.googleapis.com/.../campaigns/...',
+          goalAmount: 60000,
+          currentAmount: 0,
+          deadline: '2025-12-31T23:59:59.000Z',
+          status: 'ACTIVE',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Campaign not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid data or permission denied',
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
+      },
+    }),
+  )
+  updateCampaign(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateCampaignDto: UpdateCampaignDto,
+    @UploadedFile() image?: Express.Multer.File,
+    @Request() req?: any,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.updateCampaign(
+      id,
+      updateCampaignDto,
+      image,
+      staffId,
+    );
   }
 
   @Get('examiners')

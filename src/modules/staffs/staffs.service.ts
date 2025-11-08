@@ -21,6 +21,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
+import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
@@ -294,25 +295,12 @@ export class StaffService {
       }
     }
 
-    const now = new Date();
-    const startDate = new Date(contest.startDate);
-    const endDate = new Date(contest.endDate);
-
-    let newStatus: ContestStatus;
-    if (now < startDate) {
-      newStatus = ContestStatus.UPCOMING;
-    } else if (now >= startDate && now <= endDate) {
-      newStatus = ContestStatus.ACTIVE;
-    } else {
-      newStatus = ContestStatus.ENDED;
-    }
-
-    contest.status = newStatus;
+    contest.status = ContestStatus.ACTIVE;
     const publishedContest = await this.contestsRepository.save(contest);
 
     return {
       success: true,
-      message: `Contest published successfully with status: ${newStatus}. Contest configuration is now locked and cannot be updated.`,
+      message: `Contest published successfully with status: ${contest.status}. Contest configuration is now locked and cannot be updated.`,
       data: publishedContest,
     };
   }
@@ -1079,6 +1067,75 @@ export class StaffService {
       success: true,
       message: 'Campaign created successfully',
       data: campaign,
+    };
+  }
+
+  async updateCampaign(
+    campaignId: number,
+    updateCampaignDto: any,
+    imageFile?: Express.Multer.File,
+    staffId?: string,
+  ) {
+    // Find existing campaign
+    const campaign = await this.campaignsRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+
+    // Verify staff permission
+    if (staffId) {
+      const user = await this.usersRepository.findOne({
+        where: { userId: staffId },
+      });
+      const role = user?.role;
+      if (role !== 'STAFF' && role !== 'ADMIN') {
+        throw new BadRequestException(
+          'Only staff or admin users can update campaigns',
+        );
+      }
+    }
+
+    let imageUrl: string | undefined = undefined;
+
+    // Upload new image to Firebase Storage if provided
+    if (imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `campaigns/${Date.now()}-${imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(imageFile.buffer, {
+          metadata: { contentType: imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to upload image: ${error.message}`,
+        );
+      }
+    }
+
+    // Merge update data
+    const updateData: any = { ...updateCampaignDto };
+    if (imageUrl) {
+      updateData.image = imageUrl;
+    }
+
+    const updatedCampaign = this.campaignsRepository.merge(
+      campaign,
+      updateData,
+    );
+    await this.campaignsRepository.save(updatedCampaign);
+
+    return {
+      success: true,
+      message: 'Campaign updated successfully',
+      data: updatedCampaign,
     };
   }
 
