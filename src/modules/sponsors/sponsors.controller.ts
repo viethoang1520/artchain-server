@@ -119,7 +119,7 @@ export class SponsorsController {
 
   @Post('')
   @ApiOperation({
-    summary: 'Create a new sponsor with logo upload',
+    summary: 'Create a new sponsor with logo upload and payment',
     description:
       'Create a new sponsor with optional logo file upload to Firebase Storage',
   })
