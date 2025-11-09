@@ -17,6 +17,7 @@ import { ExaminersModule } from './modules/examiners/examiners.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { AwardsModule } from './modules/awards/awards.module';
 import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
+import { EmailsModule } from './modules/emails/emails.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
     CampaignsModule,
     AwardsModule,
     ExhibitionsModule,
+    EmailsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
