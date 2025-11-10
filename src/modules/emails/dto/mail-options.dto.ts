@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MailOptionsDto {
@@ -12,13 +12,15 @@ export class MailOptionsDto {
   from?: string;
 
   @ApiProperty({
-    description: 'Recipient email address',
-    example: 'user@example.com',
+    description: 'Array of recipient email addresses',
+    example: ['user1@example.com', 'user2@example.com'],
+    type: [String],
     format: 'email'
   })
-  @IsEmail()
+  @IsArray()
+  @IsEmail({}, { each: true })
   @IsNotEmpty()
-  to: string;
+  to: string[];
 
   @ApiProperty({
     description: 'Email subject',
