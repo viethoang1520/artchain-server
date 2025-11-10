@@ -58,7 +58,7 @@ export class ContestsController {
             endDate: '2025-11-15T00:00:00.000Z',
           },
         ],
-        pagination: {
+        meta: {
           page: 1,
           limit: 10,
           total: 25,
@@ -74,6 +74,36 @@ export class ContestsController {
   }
 
   @Get('examiner/:examinerId')
+  @ApiOperation({
+    summary: 'Lấy danh sách contests được phân công cho examiner',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy danh sách contests thành công',
+    schema: {
+      example: {
+        success: true,
+        data: [
+          {
+            contestId: 1,
+            title: 'Art Competition 2025',
+            status: 'ACTIVE',
+            startDate: '2025-10-15',
+            endDate: '2025-11-15',
+            roundId: 1,
+            assignmentStatus: 'ACTIVE',
+            assignmentDate: '2025-10-01',
+            examinerRole: 'PRIMARY',
+            canEvaluate: true,
+            isScheduleEnforced: false,
+          },
+        ],
+        meta: {
+          total: 1,
+        },
+      },
+    },
+  })
   findAllForExaminer(@Param('examinerId', ParseUUIDPipe) examinerId: string) {
     return this.contestsService.findAllForExaminer(examinerId);
   }

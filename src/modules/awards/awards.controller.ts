@@ -29,20 +29,6 @@ import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 export class AwardsController {
   constructor(private readonly awardsService: AwardsService) {}
 
-//   @Post()
-//   @ApiOperation({ summary: 'Create a new award' })
-//   @ApiResponse({
-//     status: 201,
-//     description: 'Award created successfully',
-//   })
-//   @ApiResponse({
-//     status: 404,
-//     description: 'Contest not found',
-//   })
-//   create(@Body() createAwardDto: CreateAwardDto) {
-//     return this.awardsService.create(createAwardDto);
-//   }
-
   @Post('batch')
   @ApiOperation({ summary: 'Create multiple awards at once' })
   @ApiResponse({

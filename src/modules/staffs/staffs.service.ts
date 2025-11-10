@@ -305,6 +305,34 @@ export class StaffService {
     };
   }
 
+  async toggleScheduleEnforcement(contestId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    // Toggle the value
+    contest.isScheduleEnforced = !contest.isScheduleEnforced;
+
+    const updatedContest = await this.contestsRepository.save(contest);
+
+    const message = contest.isScheduleEnforced
+      ? 'Schedule enforcement has been enabled. Examiners can only evaluate on their scheduled dates.'
+      : 'Schedule enforcement has been disabled. Examiners can evaluate at any time (useful for demo).';
+
+    return {
+      success: true,
+      message,
+      data: {
+        contestId: updatedContest.contestId,
+        isScheduleEnforced: updatedContest.isScheduleEnforced,
+      },
+    };
+  }
+
   async getAllContests(queryDto: GetAllContestsDto) {
     const {
       page = 1,
@@ -1240,9 +1268,39 @@ export class StaffService {
       order: { date: 'ASC' },
     });
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const schedulesWithCanEvaluate = await Promise.all(
+      schedules.map(async (schedule) => {
+        const contest = await this.contestsRepository.findOne({
+          where: { contestId: schedule.contestId },
+        });
+
+        let canEvaluate = false;
+
+        if (!contest || !contest.isScheduleEnforced) {
+          canEvaluate = schedule.status === 'ACTIVE';
+        } else {
+          const scheduleDate = new Date(schedule.date);
+          scheduleDate.setHours(0, 0, 0, 0);
+
+          canEvaluate =
+            schedule.status === 'ACTIVE' &&
+            scheduleDate.getTime() === today.getTime();
+        }
+
+        return {
+          ...schedule,
+          canEvaluate,
+          isScheduleEnforced: contest?.isScheduleEnforced || false,
+        };
+      }),
+    );
+
     return {
       success: true,
-      data: schedules,
+      data: schedulesWithCanEvaluate,
       meta: {
         total: schedules.length,
       },

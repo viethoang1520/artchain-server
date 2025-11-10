@@ -9,6 +9,7 @@ import { Examiner } from '../examiners/entities/examiners.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Contest } from '../contests/entities/contests.entity';
+import { Award } from '../awards/entities/award.entity';
 
 @Injectable()
 export class UsersService {
@@ -23,8 +24,9 @@ export class UsersService {
     private paintingsRepository: Repository<Painting>,
     @InjectRepository(Contest)
     private contestsRepository: Repository<Contest>,
-  ) { }
-
+    @InjectRepository(Award)
+    private awardsRepository: Repository<Award>,
+  ) {}
 
   async submissions(userId: string) {
     const mySubmissions = await this.paintingsRepository.find({
@@ -35,20 +37,22 @@ export class UsersService {
       return [];
     }
 
-    const contestIds = [...new Set(mySubmissions.map(submission => submission.contestId))];
+    const contestIds = [
+      ...new Set(mySubmissions.map((submission) => submission.contestId)),
+    ];
 
     const contests = await this.contestsRepository.find({
       where: { contestId: In(contestIds) },
     });
 
     const contestMap = new Map();
-    contests.forEach(contest => {
+    contests.forEach((contest) => {
       contestMap.set(contest.contestId, contest);
     });
 
-    const submissionsWithContests = mySubmissions.map(submission => ({
+    const submissionsWithContests = mySubmissions.map((submission) => ({
       ...submission,
-      contest: contestMap.get(submission.contestId) || 'Unknown Contest'
+      contest: contestMap.get(submission.contestId) || 'Unknown Contest',
     }));
 
     return submissionsWithContests;
@@ -97,7 +101,11 @@ export class UsersService {
         role: user.role,
       };
       return examinerProfile;
-    } else if (userRole === UserRole.GUARDIAN || userRole === UserRole.STAFF || userRole === UserRole.ADMIN) {
+    } else if (
+      userRole === UserRole.GUARDIAN ||
+      userRole === UserRole.STAFF ||
+      userRole === UserRole.ADMIN
+    ) {
       const guardianProfile: ProfileDto = {
         userId: user.userId,
         fullName: user.fullName,
@@ -144,5 +152,89 @@ export class UsersService {
       },
     };
   }
+
+  async getAchievements(userId: string) {
+    const user = await this.usersRepository.findOne({
+      where: { userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const paintingsWithAwards = await this.paintingsRepository.find({
+      where: { competitorId: userId },
+      relations: ['award'],
+    });
+
+    const achievedPaintings = paintingsWithAwards.filter(
+      (painting) => painting.awardId !== null && painting.award,
+    );
+
+    if (achievedPaintings.length === 0) {
+      return {
+        success: true,
+        data: {
+          user: {
+            userId: user.userId,
+            fullName: user.fullName,
+          },
+          achievements: [],
+          totalAchievements: 0,
+        },
+      };
+    }
+
+    const contestIds = [...new Set(achievedPaintings.map((p) => p.contestId))];
+    const contests = await this.contestsRepository.find({
+      where: { contestId: In(contestIds) },
+    });
+
+    const contestMap = new Map();
+    contests.forEach((contest) => {
+      contestMap.set(contest.contestId, contest);
+    });
+
+    const achievements = achievedPaintings.map((painting) => {
+      const contest = contestMap.get(painting.contestId);
+      return {
+        paintingId: painting.paintingId,
+        paintingTitle: painting.title,
+        paintingImage: painting.imageUrl,
+        award: {
+          awardId: painting.award.awardId,
+          name: painting.award.name,
+          description: painting.award.description,
+          rank: painting.award.rank,
+          prize: painting.award.prize,
+        },
+        contest: {
+          contestId: contest?.contestId,
+          title: contest?.title,
+          startDate: contest?.startDate,
+          endDate: contest?.endDate,
+        },
+        achievedDate: painting.updatedAt || painting.createdAt,
+      };
+    });
+
+    achievements.sort((a, b) => {
+      if (a.award.rank && b.award.rank) {
+        return a.award.rank - b.award.rank;
+      }
+      return 0;
+    });
+
+    return {
+      success: true,
+      data: {
+        user: {
+          userId: user.userId,
+          fullName: user.fullName,
+        },
+        achievements,
+        totalAchievements: achievements.length,
+      },
+    };
+  }
 }
-  
