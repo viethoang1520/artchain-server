@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Award } from './entities/award.entity';
 import { Contest } from '../contests/entities/contests.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateAwardDto } from './dto/create-award.dto';
 import { UpdateAwardDto } from './dto/update-award.dto';
 import { CreateAwardsBatchDto } from './dto/create-awards-batch.dto';
@@ -14,7 +16,49 @@ export class AwardsService {
     private readonly awardRepository: Repository<Award>,
     @InjectRepository(Contest)
     private readonly contestRepository: Repository<Contest>,
+    @InjectRepository(Evaluation)
+    private readonly evaluationRepository: Repository<Evaluation>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
+
+  /**
+   * Helper: Tính điểm trung bình của một painting từ các đánh giá
+   * Ưu tiên scoreRound2, nếu không có thì dùng scoreRound1
+   */
+  private async calculateAverageScore(
+    paintingId: string,
+  ): Promise<number | null> {
+    const evaluations = await this.evaluationRepository.find({
+      where: { paintingId },
+    });
+
+    if (evaluations.length === 0) {
+      return null;
+    }
+
+    let totalScore = 0;
+    let count = 0;
+
+    evaluations.forEach((evaluation) => {
+      // Ưu tiên scoreRound2, nếu không có thì dùng scoreRound1
+      const score =
+        evaluation.scoreRound2 !== null && evaluation.scoreRound2 !== undefined
+          ? evaluation.scoreRound2
+          : evaluation.scoreRound1;
+
+      if (score !== null && score !== undefined) {
+        totalScore += score;
+        count++;
+      }
+    });
+
+    if (count === 0) {
+      return null;
+    }
+
+    return parseFloat((totalScore / count).toFixed(2));
+  }
 
   async create(createAwardDto: CreateAwardDto) {
     const contest = await this.contestRepository.findOne({
@@ -144,9 +188,49 @@ export class AwardsService {
       relations: ['paintings'],
     });
 
+    const awardsWithCompetitorInfo = await Promise.all(
+      awards.map(async (award) => {
+        if (award.paintings && award.paintings.length > 0) {
+          const paintingsWithCompetitor = await Promise.all(
+            award.paintings.map(async (painting) => {
+              let competitorName;
+              let competitorEmail;
+
+              // Lấy thông tin competitor
+              if (painting.competitorId) {
+                const competitor = await this.usersRepository.findOne({
+                  where: { userId: painting.competitorId },
+                });
+                competitorName = competitor?.fullName || null;
+                competitorEmail = competitor?.email || null;
+              }
+
+              // Tính điểm trung bình sử dụng helper
+              const averageScore = await this.calculateAverageScore(
+                painting.paintingId,
+              );
+
+              return {
+                ...painting,
+                competitorName,
+                competitorEmail,
+                averageScore: averageScore || 0,
+              };
+            }),
+          );
+
+          return {
+            ...award,
+            paintings: paintingsWithCompetitor,
+          };
+        }
+        return award;
+      }),
+    );
+
     return {
       success: true,
-      data: awards,
+      data: awardsWithCompetitorInfo,
       meta: {
         contestId,
         total: awards.length,

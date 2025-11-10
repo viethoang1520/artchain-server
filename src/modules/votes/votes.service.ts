@@ -9,6 +9,7 @@ import { Repository, In, Not } from 'typeorm';
 import { Vote } from './entities/vote.entity';
 import { CreateVoteDto } from './dto/create-vote.dto';
 import { Painting } from '../paintings/entities/paintings.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 import { Contest } from '../contests/entities/contests.entity';
 import { Award } from '../awards/entities/award.entity';
 import { Round } from '../contests/entities/round.entity';
@@ -21,6 +22,8 @@ export class VotesService {
     private readonly votesRepository: Repository<Vote>,
     @InjectRepository(Painting)
     private readonly paintingsRepository: Repository<Painting>,
+    @InjectRepository(Evaluation)
+    private readonly evaluationRepository: Repository<Evaluation>,
     @InjectRepository(Contest)
     private readonly contestsRepository: Repository<Contest>,
     @InjectRepository(Award)
@@ -30,6 +33,42 @@ export class VotesService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
   ) {}
+
+  /**
+   * Helper: Tính điểm trung bình của một painting từ các đánh giá
+   */
+  private async calculateAverageScore(
+    paintingId: string,
+  ): Promise<number | null> {
+    const evaluations = await this.evaluationRepository.find({
+      where: { paintingId },
+    });
+
+    if (evaluations.length === 0) {
+      return null;
+    }
+
+    let totalScore = 0;
+    let count = 0;
+
+    evaluations.forEach((evaluation) => {
+      const score =
+        evaluation.scoreRound2 !== null && evaluation.scoreRound2 !== undefined
+          ? evaluation.scoreRound2
+          : 0;
+
+      if (score !== null && score !== undefined) {
+        totalScore += score;
+        count++;
+      }
+    });
+
+    if (count === 0) {
+      return null;
+    }
+
+    return parseFloat((totalScore / count).toFixed(2));
+  }
 
   /**
    * Lấy danh sách các giải có thể vote trong contest (không bao gồm giải 1, 2, 3)
@@ -191,7 +230,7 @@ export class VotesService {
         }
 
         let competitorName;
-        let email
+        let email;
         if (painting.competitorId) {
           const competitor = await this.usersRepository.findOne({
             where: { userId: painting.competitorId },
@@ -199,6 +238,10 @@ export class VotesService {
           competitorName = competitor?.fullName || null;
           email = competitor?.email || null;
         }
+
+        const averageScore = await this.calculateAverageScore(
+          painting.paintingId,
+        );
 
         return {
           paintingId: painting.paintingId,
@@ -208,6 +251,7 @@ export class VotesService {
           competitorId: painting.competitorId,
           competitorName,
           email,
+          averageScore: averageScore || 0,
           submissionDate: painting.submissionDate,
           voteCount,
           hasVoted,
@@ -215,7 +259,7 @@ export class VotesService {
       }),
     );
 
-    // Sort theo số votes giảm dần
+
     paintingsWithVotes.sort((a, b) => b.voteCount - a.voteCount);
 
     return {
