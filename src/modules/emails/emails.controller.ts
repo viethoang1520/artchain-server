@@ -2,7 +2,6 @@ import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { EmailsService } from './emails.service';
 import { MailOptionsDto } from './dto/mail-options.dto';
-import { ContestNotificationDto } from './dto/contest-notification.dto';
 import { WinnerAnnouncementDto } from './dto/winner-announcement.dto';
 
 @ApiTags('Emails')
@@ -12,10 +11,10 @@ export class EmailsController {
 
   @Post('')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send a custom email', description: 'Send a custom email with specified options' })
+  @ApiOperation({ summary: 'Send a custom email', description: 'Send a custom email to multiple recipients' })
   @ApiBody({ type: MailOptionsDto })
-  @ApiResponse({ status: 200, description: 'Email sent successfully', schema: { example: { message: 'Email sent successfully' } } })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 200, description: 'Emails sent successfully to all recipients', schema: { example: { message: 'Email sent successfully' } } })
+  @ApiResponse({ status: 400, description: 'Invalid input data or email addresses' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async sendEmail(@Body() mailOptionsDto: MailOptionsDto): Promise<{ message: string }> {
     await this.emailsService.sendMail(mailOptionsDto);
@@ -24,11 +23,12 @@ export class EmailsController {
 
   @Post('notify-contest')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send contest notification', description: 'Send notification email about new active contest to a recipient' })
-  @ApiBody({ type: ContestNotificationDto })
-  @ApiResponse({ status: 200, description: 'Contest notification sent successfully', schema: { example: { message: 'Contest notification sent successfully' } } })
-  @ApiResponse({ status: 400, description: 'Invalid email address' })
-  @ApiResponse({ status: 404, description: 'No active contest found' })
+  @ApiOperation({
+    summary: 'Send contest notification to all competitors',
+    description: 'Send notification email about the latest active contest to all users with COMPETITOR role. No request body required.'
+  })
+  @ApiResponse({ status: 200, description: 'Contest notifications sent successfully to all competitors', schema: { example: { message: 'Contest notification sent successfully' } } })
+  @ApiResponse({ status: 404, description: 'No active contest found or no competitors found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async notifyContest(): Promise<{ message: string }> {
     await this.emailsService.sendNotificationForNewContest();
