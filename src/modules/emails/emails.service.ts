@@ -16,9 +16,11 @@ export class EmailsService {
     private readonly userRepository: Repository<User>,
   ) { }
 
-  async   sendMail(mailOptions: MailOptionsDto): Promise<void> {
+  async sendMail(mailOptions: MailOptionsDto): Promise<void> {
     const { from, to, subject, text } = mailOptions;
-    await this.mailService.sendMail({ from, to, subject, text });
+    for(const recipient of to) {
+      await this.mailService.sendMail({ from, to: recipient, subject, text });
+    }
   }
 
 
