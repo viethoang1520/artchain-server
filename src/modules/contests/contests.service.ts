@@ -9,6 +9,7 @@ import { Round } from './entities/round.entity';
 import { ContestExaminer } from './entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { User } from '../users/entities/user.entity';
+import { Schedule } from '../schedules/entities/schedule.entity';
 
 @Injectable()
 export class ContestsService {
@@ -23,6 +24,8 @@ export class ContestsService {
     private examinerRepository: Repository<Examiner>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Schedule)
+    private scheduleRepository: Repository<Schedule>,
   ) {}
 
   async findAll(query: GetContestDto) {
@@ -36,13 +39,10 @@ export class ContestsService {
       queryBuilder.where('contest.status = :status', { status: query.status });
     }
 
-    // Get total count
     const total = await queryBuilder.getCount();
 
-    // Apply pagination
     queryBuilder.skip(skip).take(limit);
 
-    // Order by latest first
     queryBuilder.orderBy('contest.contestId', 'DESC');
 
     const contests = await queryBuilder.getMany();
@@ -50,7 +50,7 @@ export class ContestsService {
     return {
       success: true,
       data: contests,
-      pagination: {
+      meta: {
         page,
         limit,
         total,
@@ -127,6 +127,10 @@ export class ContestsService {
 
     const contests = contestExaminers.map((ce) => ce.contest);
 
+    // Lấy ngày hiện tại để kiểm tra canEvaluate
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     for (const contest of contests) {
       const round = await this.roundsRepository.find({
         where: { contestId: contest.contestId, name: 'ROUND1' },
@@ -141,6 +145,32 @@ export class ContestsService {
         (contest as any).assignmentDate = examinerRelation.assignmentDate;
         (contest as any).examinerRole = examinerRelation.role;
       }
+
+      // Kiểm tra canEvaluate dựa trên schedule và isScheduleEnforced
+      const schedule = await this.scheduleRepository.findOne({
+        where: {
+          examinerId: examinerId,
+          contestId: contest.contestId,
+          status: 'ACTIVE',
+        },
+      });
+
+      let canEvaluate = false;
+
+      if (schedule) {
+        if (!contest.isScheduleEnforced) {
+          // Nếu không bật ràng buộc lịch → Examiner có thể chấm bất cứ lúc nào
+          canEvaluate = true;
+        } else {
+          // Nếu bật ràng buộc lịch → Phải đúng ngày mới được chấm
+          const scheduleDate = new Date(schedule.date);
+          scheduleDate.setHours(0, 0, 0, 0);
+          canEvaluate = scheduleDate.getTime() === today.getTime();
+        }
+      }
+
+      (contest as any).canEvaluate = canEvaluate;
+      (contest as any).isScheduleEnforced = contest.isScheduleEnforced || false;
     }
 
     return {

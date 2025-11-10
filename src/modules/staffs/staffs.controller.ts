@@ -410,6 +410,41 @@ export class StaffController {
     return this.staffService.publishContest(id);
   }
 
+  @Patch('contests/:id/schedule-enforcement')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Bật/tắt ràng buộc lịch chấm của contest',
+    description: `
+- **true**: Examiner chỉ có thể chấm bài vào đúng ngày được phân công trong schedule
+- **false**: Examiner có thể chấm bài bất cứ lúc nào (dùng cho demo hoặc testing)
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cập nhật thành công',
+    schema: {
+      example: {
+        success: true,
+        message:
+          'Schedule enforcement has been enabled. Examiners can only evaluate on their scheduled dates.',
+        data: {
+          contestId: 1,
+          isScheduleEnforced: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  toggleScheduleEnforcement(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.toggleScheduleEnforcement(id);
+  }
+
   @Post('contests/:id/create-round2')
   @UseGuards(AuthGuard)
   @ApiOperation({
@@ -958,7 +993,7 @@ export class StaffController {
         callback(null, true);
       },
       limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB max file size
+        fileSize: 10 * 1024 * 1024, 
       },
     }),
   )
@@ -1099,6 +1134,44 @@ export class StaffController {
 
   @Get('schedules/examiner/:examinerId')
   @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Lấy lịch chấm bài của examiner',
+    description: `
+Lấy danh sách lịch chấm bài của examiner với thông tin canEvaluate.
+
+**Field canEvaluate (boolean):**
+- Kiểm tra xem examiner có thể chấm bài không
+- Phụ thuộc vào **isScheduleEnforced** của contest:
+  - Nếu **isScheduleEnforced = false**: canEvaluate = true (miễn là schedule ACTIVE) → Dùng cho demo
+  - Nếu **isScheduleEnforced = true**: canEvaluate = true chỉ khi hôm nay là ngày được phân công → Vận hành thực tế
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy lịch thành công',
+    schema: {
+      example: {
+        success: true,
+        data: [
+          {
+            scheduleId: 1,
+            contestId: 1,
+            examinerId: 'uuid-123',
+            task: 'Chấm vòng 1',
+            date: '2025-11-08',
+            status: 'ACTIVE',
+            createdAt: '2025-11-01T00:00:00Z',
+            updatedAt: '2025-11-01T00:00:00Z',
+            canEvaluate: true,
+            isScheduleEnforced: false,
+          },
+        ],
+        meta: {
+          total: 1,
+        },
+      },
+    },
+  })
   getSchedulesByExaminer(
     @Param('examinerId') examinerId: string,
     @Request() req: any,

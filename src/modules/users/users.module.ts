@@ -8,10 +8,18 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Contest } from '../contests/entities/contests.entity';
+import { Award } from '../awards/entities/award.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Competitor, Examiner, Painting, Contest]),
+    TypeOrmModule.forFeature([
+      User,
+      Competitor,
+      Examiner,
+      Painting,
+      Contest,
+      Award,
+    ]),
     AuthModule,
   ],
   controllers: [UsersController],

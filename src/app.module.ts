@@ -18,6 +18,7 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { AwardsModule } from './modules/awards/awards.module';
 import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
 import { EmailsModule } from './modules/emails/emails.module';
+import { VotesModule } from './modules/votes/votes.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { EmailsModule } from './modules/emails/emails.module';
     AwardsModule,
     ExhibitionsModule,
     EmailsModule,
+    VotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

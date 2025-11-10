@@ -32,6 +32,15 @@ export class Contest {
   @Column({ name: 'number_of_tables_round_2', nullable: true, default: 4 })
   numberOfTablesRound2: number;
 
+  @Column({
+    name: 'is_schedule_enforced',
+    nullable: true,
+    default: false,
+    comment:
+      'Bật/tắt ràng buộc lịch chấm. true = examiner chỉ chấm đúng ngày, false = examiner chấm bất cứ lúc nào',
+  })
+  isScheduleEnforced: boolean;
+
   @Column({ name: 'rule', nullable: true })
   ruleUrl: string;
 
