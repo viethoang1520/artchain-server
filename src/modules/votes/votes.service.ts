@@ -12,6 +12,7 @@ import { Painting } from '../paintings/entities/paintings.entity';
 import { Contest } from '../contests/entities/contests.entity';
 import { Award } from '../awards/entities/award.entity';
 import { Round } from '../contests/entities/round.entity';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class VotesService {
@@ -26,6 +27,8 @@ export class VotesService {
     private readonly awardsRepository: Repository<Award>,
     @InjectRepository(Round)
     private readonly roundsRepository: Repository<Round>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   /**
@@ -187,12 +190,24 @@ export class VotesService {
           hasVoted = !!userVote;
         }
 
+        let competitorName;
+        let email
+        if (painting.competitorId) {
+          const competitor = await this.usersRepository.findOne({
+            where: { userId: painting.competitorId },
+          });
+          competitorName = competitor?.fullName || null;
+          email = competitor?.email || null;
+        }
+
         return {
           paintingId: painting.paintingId,
           title: painting.title,
           description: painting.description,
           imageUrl: painting.imageUrl,
           competitorId: painting.competitorId,
+          competitorName,
+          email,
           submissionDate: painting.submissionDate,
           voteCount,
           hasVoted,

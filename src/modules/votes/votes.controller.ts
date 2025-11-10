@@ -25,16 +25,13 @@ import { VoteForAwardDto } from './dto/vote-for-award.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Votes')
-@Controller('votes')
+@Controller('api/votes')
 export class VotesController {
   constructor(private readonly votesService: VotesService) {}
 
   @Get('contest/:contestId/awards')
   @ApiOperation({
     summary: 'Lấy danh sách các giải có thể vote trong contest',
-    description:
-      'Hiển thị danh sách các giải thưởng (không bao gồm giải Nhất, Nhì, Ba) mà user có thể vote. ' +
-      'Khi user click vào một giải, sẽ gọi API khác để xem danh sách tranh Round 2 cho giải đó.',
   })
   @ApiParam({
     name: 'contestId',
