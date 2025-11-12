@@ -845,13 +845,39 @@ export class StaffService {
 
     const [paintings, total] = await queryBuilder.getManyAndCount();
 
+    const paintingsWithCompetitor = await Promise.all(
+      paintings.map(async (painting) => {
+        let competitorInfo: any = null;
+        if (painting.competitorId) {
+          const competitor = await this.usersRepository.findOne({
+            where: { userId: painting.competitorId },
+          });
+
+          if (competitor) {
+            competitorInfo = {
+              competitorId: competitor.userId,
+              fullName: competitor.fullName || null,
+              email: competitor.email || null,
+              phone: competitor.phone || null,
+              username: competitor.username || null,
+            };
+          }
+        }
+
+        return {
+          ...painting,
+          competitor: competitorInfo,
+        };
+      }),
+    );
+
     const totalPages = Math.ceil(total / limit);
     const hasNextPage = page < totalPages;
     const hasPreviousPage = page > 1;
 
     return {
       success: true,
-      data: paintings,
+      data: paintingsWithCompetitor,
       meta: {
         total,
         page,
