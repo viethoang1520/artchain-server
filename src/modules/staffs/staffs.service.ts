@@ -875,9 +875,29 @@ export class StaffService {
       throw new NotFoundException(`Submission with ID ${paintingId} not found`);
     }
 
+    let competitorInfo;
+    if (painting.competitorId) {
+      const competitor = await this.usersRepository.findOne({
+        where: { userId: painting.competitorId },
+      });
+
+      if (competitor) {
+        competitorInfo = {
+          competitorId: competitor.userId,
+          fullName: competitor.fullName,
+          email: competitor.email,
+          phone: competitor.phone,
+          username: competitor.username,
+        };
+      }
+    }
+
     return {
       success: true,
-      data: painting,
+      data: {
+        ...painting,
+        competitor: competitorInfo,
+      },
     };
   }
 
