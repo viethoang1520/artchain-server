@@ -1,8 +1,14 @@
 import { UUID } from 'crypto';
 import { Competitor } from 'src/modules/competitors/entities/competitors.entity';
 import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne } from 'typeorm';
-
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToOne,
+  OneToMany,
+} from 'typeorm';
+import { PushToken } from '../../notification/entities/push-token.entity';
 
 export enum UserRole {
   COMPETITOR = 'COMPETITOR',
@@ -53,4 +59,6 @@ export class User {
   @Column({ name: 'position_level', nullable: true })
   positionLevel: string;
 
+  @OneToMany(() => PushToken, (token) => token.user)
+  pushTokens: PushToken[];
 }
