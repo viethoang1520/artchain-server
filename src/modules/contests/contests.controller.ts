@@ -56,6 +56,26 @@ export class ContestsController {
             status: 'ACTIVE',
             startDate: '2025-10-15T00:00:00.000Z',
             endDate: '2025-11-15T00:00:00.000Z',
+            rounds: [
+              {
+                roundId: 1,
+                contestId: 1,
+                name: 'ROUND_1',
+                table: 'A',
+                startDate: '2025-10-15T00:00:00.000Z',
+                endDate: '2025-10-25T00:00:00.000Z',
+                status: 'ACTIVE',
+              },
+              {
+                roundId: 2,
+                contestId: 1,
+                name: 'ROUND_2',
+                table: 'B',
+                startDate: '2025-10-26T00:00:00.000Z',
+                endDate: '2025-11-15T00:00:00.000Z',
+                status: 'PENDING',
+              },
+            ],
           },
         ],
         meta: {

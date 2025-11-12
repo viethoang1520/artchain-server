@@ -47,9 +47,24 @@ export class ContestsService {
 
     const contests = await queryBuilder.getMany();
 
+    // Lấy thông tin rounds cho từng contest
+    const contestsWithRounds = await Promise.all(
+      contests.map(async (contest) => {
+        const rounds = await this.roundsRepository.find({
+          where: { contestId: contest.contestId },
+          order: { roundId: 'ASC' },
+        });
+
+        return {
+          ...contest,
+          rounds,
+        };
+      }),
+    );
+
     return {
       success: true,
-      data: contests,
+      data: contestsWithRounds,
       meta: {
         page,
         limit,

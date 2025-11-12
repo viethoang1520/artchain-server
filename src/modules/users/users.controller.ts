@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Body,
   Param,
   Delete,
@@ -10,9 +11,11 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { GetSubmissionsDto } from './dto/get-submissions.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiParam,
   ApiResponse,

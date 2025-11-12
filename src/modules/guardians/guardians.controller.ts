@@ -1,17 +1,29 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { GuardiansService } from './guardians.service';
 import { RegisterDTO } from '../auth/dto/register.dto';
+import { GetSubmissionsDto } from './dto/get-submissions.dto';
 
 @ApiTags('Guardians')
 @Controller('api/guardians')
 export class GuardiansController {
-  constructor(private readonly guardiansService: GuardiansService) { }
+  constructor(private readonly guardiansService: GuardiansService) {}
 
-  @Post("assign-competitors")
+  @Post('assign-competitors')
   @ApiOperation({
     summary: 'Register competitors and assign to guardian',
-    description: 'Register multiple new competitors and assign them to a specific guardian. This creates user accounts for competitors and links them to the guardian.'
+    description:
+      'Register multiple new competitors and assign them to a specific guardian. This creates user accounts for competitors and links them to the guardian.',
   })
   @ApiBody({
     description: 'Student registration data and guardian assignment',
@@ -26,26 +38,49 @@ export class GuardiansController {
               username: { type: 'string', example: 'student123' },
               password: { type: 'string', example: 'password123' },
               fullName: { type: 'string', example: 'John Doe' },
-              email: { type: 'string', format: 'email', example: 'student@example.com' },
-              role: { type: 'string', enum: ['COMPETITOR'], example: 'COMPETITOR' },
-              birthday: { type: 'string', format: 'date', example: '2010-05-15' },
+              email: {
+                type: 'string',
+                format: 'email',
+                example: 'student@example.com',
+              },
+              role: {
+                type: 'string',
+                enum: ['COMPETITOR'],
+                example: 'COMPETITOR',
+              },
+              birthday: {
+                type: 'string',
+                format: 'date',
+                example: '2010-05-15',
+              },
               schoolName: { type: 'string', example: 'ABC Elementary School' },
               ward: { type: 'string', example: 'Ward 1' },
-              grade: { type: 'string', example: 'Grade 5' }
+              grade: { type: 'string', example: 'Grade 5' },
             },
-            required: ['username', 'password', 'fullName', 'email', 'role', 'birthday', 'schoolName', 'ward', 'grade']
+            required: [
+              'username',
+              'password',
+              'fullName',
+              'email',
+              'role',
+              'birthday',
+              'schoolName',
+              'ward',
+              'grade',
+            ],
           },
-          description: 'Array of student registration data (RegisterDTO objects)',
-          minItems: 1
+          description:
+            'Array of student registration data (RegisterDTO objects)',
+          minItems: 1,
         },
         guardianId: {
           type: 'string',
           description: 'Guardian ID to assign the registered students to',
-          example: 'uuid-guardian-id-here'
-        }
+          example: 'uuid-guardian-id-here',
+        },
       },
-      required: ['studentData', 'guardianId']
-    }
+      required: ['studentData', 'guardianId'],
+    },
   })
   @ApiResponse({
     status: 201,
@@ -55,41 +90,46 @@ export class GuardiansController {
       properties: {
         success: {
           type: 'boolean',
-          example: true
+          example: true,
         },
         message: {
           type: 'string',
-          example: 'Students assigned to guardian successfully'
-        }
-      }
-    }
+          example: 'Students assigned to guardian successfully',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - Invalid registration data or guardian ID not found'
+    description:
+      'Bad request - Invalid registration data or guardian ID not found',
   })
   @ApiResponse({
     status: 409,
-    description: 'Conflict - Username or email already exists'
+    description: 'Conflict - Username or email already exists',
   })
   @ApiResponse({
     status: 500,
-    description: 'Internal server error'
+    description: 'Internal server error',
   })
-  assignStudentToGuardian(@Body() body: { studentData: Array<RegisterDTO>; guardianId: string }) {
+  assignStudentToGuardian(
+    @Body() body: { studentData: Array<RegisterDTO>; guardianId: string },
+  ) {
     try {
-      return this.guardiansService.assignStudentToGuardian(body.studentData, body.guardianId);
-
+      return this.guardiansService.assignStudentToGuardian(
+        body.studentData,
+        body.guardianId,
+      );
     } catch (error) {
       throw new BadRequestException(error.message);
     }
   }
 
-
   @Get('competitors/:guardianId')
   @ApiOperation({
     summary: 'Get all competitors assigned to a guardian',
-    description: 'Retrieve a list of all competitors who are assigned to a specific guardian.'
+    description:
+      'Retrieve a list of all competitors who are assigned to a specific guardian.',
   })
   @ApiResponse({
     status: 200,
@@ -99,7 +139,7 @@ export class GuardiansController {
       properties: {
         success: {
           type: 'boolean',
-          example: true
+          example: true,
         },
         data: {
           type: 'array',
@@ -110,86 +150,139 @@ export class GuardiansController {
               userId: {
                 type: 'string',
                 description: 'User ID (same as competitor ID)',
-                example: 'uuid-user-id-here'
+                example: 'uuid-user-id-here',
               },
               username: {
                 type: 'string',
                 description: 'Username',
-                example: 'student123'
+                example: 'student123',
               },
               fullName: {
                 type: 'string',
                 description: 'Full name',
-                example: 'John Doe'
+                example: 'John Doe',
               },
               email: {
                 type: 'string',
                 format: 'email',
                 description: 'Email address',
-                example: 'student@example.com'
+                example: 'student@example.com',
               },
               phone: {
                 type: 'string',
                 description: 'Phone number',
-                example: '+1234567890'
+                example: '+1234567890',
               },
               status: {
                 type: 'number',
                 description: 'User status (1=active, 0=inactive)',
-                example: 1
+                example: 1,
               },
               createdAt: {
                 type: 'string',
                 format: 'date-time',
                 description: 'Account creation date',
-                example: '2024-01-15T10:30:00Z'
+                example: '2024-01-15T10:30:00Z',
               },
               // Competitor fields
               birthday: {
                 type: 'string',
                 format: 'date',
                 description: 'Student birthday',
-                example: '2010-05-15'
+                example: '2010-05-15',
               },
               schoolName: {
                 type: 'string',
                 description: 'Name of the school',
-                example: 'ABC Elementary School'
+                example: 'ABC Elementary School',
               },
               ward: {
                 type: 'string',
                 description: 'Ward/district information',
-                example: 'Ward 1'
+                example: 'Ward 1',
               },
               grade: {
                 type: 'string',
                 description: 'Student grade level',
-                example: 'Grade 5'
+                example: 'Grade 5',
               },
               guardianId: {
                 type: 'string',
                 description: 'Guardian ID assigned to this student',
-                example: 'uuid-guardian-id-here'
-              }
-            }
-          }
-        }
-      }
-    }
+                example: 'uuid-guardian-id-here',
+              },
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
-    description: 'Not found - Guardian ID not found'
+    description: 'Not found - Guardian ID not found',
   })
   @ApiResponse({
     status: 500,
-    description: 'Internal server error'
+    description: 'Internal server error',
   })
   getStudentsByGuardian(@Param('guardianId') guardianId: string) {
     try {
       return this.guardiansService.getStudentsByGuardian(guardianId);
     } catch (error) {
       throw new NotFoundException('Guardian not found');
+    }
+  }
+
+  @Get('competitor/:competitorId/submissions')
+  @ApiOperation({
+    summary: 'Lấy danh sách submissions của competitor theo competitorId',
+    description:
+      'API này cho phép guardian lấy danh sách submissions của một competitor cụ thể',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách submissions của competitor',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          userId: 'ba9b73f4-bdfd-4374-b289-5c1fcff701fe',
+          fullName: 'Nguyễn Văn A',
+          submissions: [
+            {
+              paintingId: '123e4567-e89b-12d3-a456-426614174000',
+              title: 'Beautiful Sunset',
+              contestId: 1,
+              contestTitle: 'Summer Art Contest 2025',
+              roundId: '1',
+              submissionDate: '2025-01-10T10:00:00.000Z',
+              status: 'APPROVED',
+              averageScore: 85.5,
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid competitorId format',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Competitor not found',
+  })
+  async getCompetitorSubmissions(
+    @Param('competitorId') competitorId: string,
+  ): Promise<any> {
+    try {
+      return this.guardiansService.getCompetitorSubmissions(competitorId);
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error occurred while fetching competitor submissions',
+        error: error.message,
+      };
     }
   }
 }
