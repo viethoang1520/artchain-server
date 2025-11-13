@@ -19,7 +19,7 @@ import { AwardsModule } from './modules/awards/awards.module';
 import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
 import { EmailsModule } from './modules/emails/emails.module';
 import { VotesModule } from './modules/votes/votes.module';
-import { NotificationModule } from './modules/notification/notification.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -41,7 +41,7 @@ import { NotificationModule } from './modules/notification/notification.module';
     ExhibitionsModule,
     EmailsModule,
     VotesModule,
-    NotificationModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

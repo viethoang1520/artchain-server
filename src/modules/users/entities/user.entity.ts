@@ -1,14 +1,5 @@
-import { UUID } from 'crypto';
-import { Competitor } from 'src/modules/competitors/entities/competitors.entity';
-import { Examiner } from 'src/modules/examiners/entities/examiners.entity';
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  OneToOne,
-  OneToMany,
-} from 'typeorm';
-import { PushToken } from '../../notification/entities/push-token.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { PushToken } from '../../notifications/entities';
 
 export enum UserRole {
   COMPETITOR = 'COMPETITOR',
