@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './database/database.module';
@@ -19,6 +19,7 @@ import { AwardsModule } from './modules/awards/awards.module';
 import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
 import { EmailsModule } from './modules/emails/emails.module';
 import { VotesModule } from './modules/votes/votes.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { VotesModule } from './modules/votes/votes.module';
     ExhibitionsModule,
     EmailsModule,
     VotesModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
