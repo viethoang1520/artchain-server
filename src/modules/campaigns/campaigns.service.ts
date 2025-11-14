@@ -42,8 +42,28 @@ export class CampaignsService {
       take: limit,
     });
 
+    // Tính currentAmount cho từng campaign
+    const campaignsWithAmount = await Promise.all(
+      campaigns.map(async (campaign) => {
+        const transactions = await this.transactionRepository.find({
+          where: {
+            campaignId: campaign.campaignId,
+            status: TransactionStatus.SUCCESS,
+          },
+        });
+        const currentAmount = transactions.reduce(
+          (sum, transaction) => sum + transaction.amount,
+          0,
+        );
+        return {
+          ...campaign,
+          currentAmount,
+        };
+      }),
+    );
+
     return {
-      data: campaigns,
+      data: campaignsWithAmount,
       meta: {
         total,
         page,
