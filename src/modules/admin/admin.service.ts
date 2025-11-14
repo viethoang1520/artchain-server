@@ -276,8 +276,8 @@ export class AdminService {
     const activeExhibitions = await this.exhibitionsRepository.count({
       where: { status: 'ACTIVE' },
     });
-    const completedExhibitions = await this.exhibitionsRepository.count({
-      where: { status: 'COMPLETED' },
+    const draftExhibitions = await this.exhibitionsRepository.count({
+      where: { status: 'DRAFT' },
     });
 
     // Tổng số campaign
@@ -285,8 +285,8 @@ export class AdminService {
     const activeCampaigns = await this.campaignsRepository.count({
       where: { status: CampaignStatus.ACTIVE },
     });
-    const completedCampaigns = await this.campaignsRepository.count({
-      where: { status: CampaignStatus.COMPLETED },
+    const draftCampaigns = await this.campaignsRepository.count({
+      where: { status: CampaignStatus.DRAFT },
     });
 
     return {
@@ -330,12 +330,12 @@ export class AdminService {
         exhibitions: {
           total: totalExhibitions,
           active: activeExhibitions,
-          completed: completedExhibitions,
+          draft: draftExhibitions,
         },
         campaigns: {
           total: totalCampaigns,
           active: activeCampaigns,
-          completed: completedCampaigns,
+          draft: draftCampaigns,
         },
       },
     };
