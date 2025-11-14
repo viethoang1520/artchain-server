@@ -959,6 +959,47 @@ export class StaffService {
     return this.reviewSubmission(paintingId, { status: 'ACCEPTED' });
   }
 
+  async acceptMultipleSubmissions(paintingIds: string[]) {
+    const results: {
+      successful: Array<{ paintingId: string; status: string }>;
+      failed: Array<{ paintingId: string; error: string }>;
+    } = {
+      successful: [],
+      failed: [],
+    };
+
+    // Process each painting
+    for (const paintingId of paintingIds) {
+      try {
+        await this.reviewSubmission(paintingId, { status: 'ACCEPTED' });
+        results.successful.push({
+          paintingId,
+          status: 'ACCEPTED',
+        });
+      } catch (error) {
+        results.failed.push({
+          paintingId,
+          error: error.message || 'Unknown error occurred',
+        });
+      }
+    }
+
+    const successCount = results.successful.length;
+    const failureCount = results.failed.length;
+    const total = paintingIds.length;
+
+    return {
+      success: true,
+      message: `Processed ${total} submissions: ${successCount} accepted, ${failureCount} failed`,
+      data: results,
+      meta: {
+        total,
+        successCount,
+        failureCount,
+      },
+    };
+  }
+
   async rejectSubmission(paintingId: string, reason: string) {
     if (!reason) {
       throw new BadRequestException(

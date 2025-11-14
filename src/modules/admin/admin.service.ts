@@ -246,6 +246,9 @@ export class AdminService {
     const completedContests = await this.contestsRepository.count({
       where: { status: ContestStatus.COMPLETED },
     });
+        const draftContests = await this.contestsRepository.count({
+      where: { status: ContestStatus.DRAFT },
+    });
 
     // Tổng số bài dự thi
     const totalPaintings = await this.paintingsRepository.count();
@@ -307,6 +310,7 @@ export class AdminService {
           upcoming: upcomingContests,
           ended: endedContests,
           completed: completedContests,
+          draft: draftContests,
         },
         paintings: {
           total: totalPaintings,
@@ -349,7 +353,6 @@ export class AdminService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    // Số lượng bài dự thi theo trạng thái
     const totalSubmissions = await this.paintingsRepository.count({
       where: { contestId },
     });
