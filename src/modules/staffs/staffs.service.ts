@@ -633,15 +633,14 @@ export class StaffService {
 
           const competitors = await Promise.all(
             competitorIds.map(async (competitorId) => {
-              // Get competitor info from competitors table
               const competitor = await this.competitorsRepository.findOne({
                 where: { competitorId },
               });
 
               // Get user info for additional details
-              // const user = await this.usersRepository.findOne({
-              //   where: { userId: competitorId },
-              // });
+              const user = await this.usersRepository.findOne({
+                where: { userId: competitorId },
+              });
 
               const competitorPaintings = paintings.filter(
                 (p) => p.competitorId === competitorId,
@@ -654,9 +653,9 @@ export class StaffService {
                 ward: competitor?.ward,
                 grade: competitor?.grade,
                 guardianId: competitor?.guardianId,
-                // username: user?.username,
-                // email: user?.email,
-                // fullName: user?.fullName,
+                username: user?.username,
+                email: user?.email,
+                fullName: user?.fullName,
                 paintings: competitorPaintings.map((p) => ({
                   paintingId: p.paintingId,
                   title: p.title,
