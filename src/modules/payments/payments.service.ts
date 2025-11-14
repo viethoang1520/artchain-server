@@ -45,9 +45,9 @@ export class PaymentsService {
       });
       const savedTransaction = await queryRunner.manager.save(newTransaction);
 
-      // update tiền cho campaign
-      campaign.currentAmount += Number(totalAmount);
-      await queryRunner.manager.save(campaign);
+      // // update tiền cho campaign
+      // campaign.currentAmount += Number(totalAmount);
+      // await queryRunner.manager.save(campaign);
       // tạo order object truyền vào PayOS
       const order = {
         orderCode: orderCode,

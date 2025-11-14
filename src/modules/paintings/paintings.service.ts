@@ -233,7 +233,7 @@ export class PaintingsService {
     };
   }
 
-  async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
+  async   uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
     const existingSubmission = await this.paintingRepository.findOne({
       where: {
