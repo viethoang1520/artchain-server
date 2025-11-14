@@ -5,6 +5,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Campaign } from './entities/campaign.entity';
 import { Sponsor } from '../sponsors/entities/sponsor.entity';
+import {
+  Transaction,
+  TransactionStatus,
+} from '../payments/entities/transaction.entity';
 
 @Injectable()
 export class CampaignsService {
@@ -13,6 +17,8 @@ export class CampaignsService {
     private readonly campaignRepository: Repository<Campaign>,
     @InjectRepository(Sponsor)
     private readonly sponsorRepository: Repository<Sponsor>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
   ) {}
 
   create(createCampaignDto: CreateCampaignDto) {
@@ -97,9 +103,20 @@ export class CampaignsService {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
 
+    const transactions = await this.transactionRepository.find({
+      where: { campaignId, status: TransactionStatus.SUCCESS },
+    });
+    const currentAmount = transactions.reduce(
+      (sum, transaction) => sum + transaction.amount,
+      0,
+    );
+
     return {
       success: true,
-      data: campaign,
+      data: {
+        ...campaign,
+        currentAmount,
+      },
     };
   }
 
