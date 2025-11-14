@@ -5,6 +5,7 @@ import { Contest, ContestStatus } from '../contests/entities/contests.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User, UserRole } from '../users/entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class EmailsService {
@@ -15,13 +16,25 @@ export class EmailsService {
     private readonly contestRepository: Repository<Contest>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly notificationService: NotificationsService,
   ) {}
 
   async sendMail(mailOptions: MailOptionsDto): Promise<void> {
     this.logger.log(`Sending email to: ${mailOptions.to.join(', ')}`);
     const { from, to, subject, text } = mailOptions;
     for (const recipient of to) {
-      await this.mailService.sendMail({ from, to: recipient, subject, text });
+      this.mailService.sendMail({ from, to: recipient, subject, text });
+      const user = await this.userRepository.findOne({
+        where: { email: recipient },
+        relations: { pushTokens: true },
+      });
+      if (!user) continue;
+      if (user.pushTokens.length === 0) continue;
+      const tokens = user.pushTokens.map((token) => token.tokenValue);
+      this.notificationService.pushNotificationByTokens(tokens, {
+        title: subject,
+        body: text,
+      });
     }
     this.logger.log(`Email sent successfully to: ${mailOptions.to.join(', ')}`);
   }
@@ -34,17 +47,26 @@ export class EmailsService {
     const competitorEmails = await this.userRepository.find({
       where: { role: UserRole.COMPETITOR },
       select: ['email'],
+      relations: { pushTokens: true },
     });
     const subject = `Cuộc thi mới: ${latestContest?.title} đã bắt đầu!`;
     const text = `Các em thí sinh thân mến,\n\nChúng tôi rất vui thông báo về cuộc thi mới: ${latestContest?.title}.\n\nHãy chuẩn bị tinh thần và tham gia nhé!\n\nTrân trọng,\nĐội ngũ ArtChain`;
     for (const user of competitorEmails) {
-      await this.mailService.sendMail({
+      this.mailService.sendMail({
         to: user.email,
         subject,
         text,
       });
+      if (user.pushTokens.length === 0) continue;
+      const tokens = user.pushTokens.map((token) => token.tokenValue);
+      this.notificationService.pushNotificationByTokens(tokens, {
+        title: subject,
+        body: text,
+        url: latestContest?.bannerUrl,
+      });
     }
   }
+
   async sendWinnerAnnouncement(
     contestName: string,
     winnerEmails: string[],
@@ -52,10 +74,21 @@ export class EmailsService {
     const subject = `Chúc mừng bạn đã đạt giải thưởng trong cuộc thi: ${contestName}`;
     const text = `Xin chúc mừng!\n\nBạn đã xuất sắc đạt giải thưởng trong cuộc thi: ${contestName}.\n\nChúng tôi sẽ liên hệ với bạn để trao giải thưởng.\n\nTrân trọng,\nĐội ngũ ArtChain`;
     for (const email of winnerEmails) {
-      await this.mailService.sendMail({
+      this.mailService.sendMail({
         to: email,
         subject,
         text,
+      });
+      const user = await this.userRepository.findOne({
+        where: { email: email },
+        relations: { pushTokens: true },
+      });
+      if (!user) continue;
+      if (user.pushTokens.length === 0) continue;
+      const tokens = user.pushTokens.map((token) => token.tokenValue);
+      this.notificationService.pushNotificationByTokens(tokens, {
+        title: subject,
+        body: text,
       });
     }
   }
