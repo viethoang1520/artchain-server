@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { PaintingsService } from './paintings.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FirebaseService } from '../firebase/firebase.service';
 import { memoryStorage } from 'multer';
 import { UploadPaintingDto } from './dto/upload-painting.dto';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
@@ -24,9 +23,6 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
-import { PreliminaryReviewDto } from './dto/preliminary-review.dto';
-
 @Controller('api/paintings')
 @ApiTags('Paintings')
 export class PaintingsController {

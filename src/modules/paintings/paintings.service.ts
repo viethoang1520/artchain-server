@@ -15,6 +15,7 @@ import { EvaluateRound2Dto } from './dto/evaluate-round2.dto';
 import { User } from '../users/entities/user.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Round } from '../contests/entities/round.entity';
+import { Contest } from '../contests/entities/contests.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import {
   PreliminaryReviewDto,
@@ -43,12 +44,13 @@ export class PaintingsService {
     private readonly awardRepository: Repository<Award>,
     @InjectRepository(Schedule)
     private readonly scheduleRepository: Repository<Schedule>,
+    @InjectRepository(Contest)
+    private readonly contestRepository: Repository<Contest>,
   ) {}
 
   async getPaintingsByContestId(
     contestId: number,
     roundName?: string,
-    // isPassed?: boolean | null,
     status?: string,
     examinerId?: string,
   ) {
@@ -102,14 +104,6 @@ export class PaintingsService {
       } else {
         const paintingsPromises = roundIds.map((roundId) => {
           const condition = { ...whereCondition, roundId };
-
-          // if (isPassed !== undefined) {
-          //   if (isPassed === null) {
-          //     condition.isPassed = IsNull();
-          //   } else {
-          //     condition.isPassed = isPassed;
-          //   }
-          // }
 
           if (status) {
             condition.status = status;
@@ -175,14 +169,6 @@ export class PaintingsService {
         };
       }
     }
-
-    // if (isPassed !== undefined) {
-    //   if (isPassed === null) {
-    //     whereCondition.isPassed = IsNull();
-    //   } else {
-    //     whereCondition.isPassed = isPassed;
-    //   }
-    // }
 
     if (status) {
       whereCondition.status = status;
@@ -322,7 +308,7 @@ export class PaintingsService {
 
     // Check schedule of examiner
     const today = new Date();
-    today.setHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
 
     const schedule = await this.scheduleRepository.findOne({
       where: {
@@ -342,13 +328,21 @@ export class PaintingsService {
     const scheduleDate = new Date(schedule.date);
     scheduleDate.setHours(0, 0, 0, 0);
 
-    if (scheduleDate.getTime() !== today.getTime()) {
+    // Check if schedule enforcement is enabled for this contest
+    const contest = await this.contestRepository.findOne({
+      where: { contestId: painting.contestId },
+    });
+
+    if (
+      contest?.isScheduleEnforced &&
+      scheduleDate.getTime() !== today.getTime()
+    ) {
       return {
         canEvaluate: false,
-        message: `You can only evaluate on your scheduled date: ${schedule.date.toISOString().split('T')[0]}`,
+        message: `You can only evaluate on your scheduled date: ${scheduleDate.toISOString().split('T')[0]}`,
       };
     }
-    
+
     const existingEvaluation = await this.evaluationRepository.findOne({
       where: { paintingId, examinerId },
     });
@@ -376,6 +370,8 @@ export class PaintingsService {
       evaluationDate: new Date(),
       status: 'COMPLETED',
     });
+
+    console.log('newEvaluation: ', newEvaluation);
 
     const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
     return {
@@ -454,14 +450,21 @@ export class PaintingsService {
     const scheduleDate = new Date(schedule.date);
     scheduleDate.setHours(0, 0, 0, 0);
 
-    if (scheduleDate.getTime() !== today.getTime()) {
+    // Check if schedule enforcement is enabled for this contest
+    const contest = await this.contestRepository.findOne({
+      where: { contestId: painting.contestId },
+    });
+
+    if (
+      contest?.isScheduleEnforced &&
+      scheduleDate.getTime() !== today.getTime()
+    ) {
       return {
         canEvaluate: false,
-        message: `You can only evaluate on your scheduled date: ${schedule.date.toISOString().split('T')[0]}`,
+        message: `You can only evaluate on your scheduled date: ${scheduleDate.toISOString().split('T')[0]}`,
       };
     }
 
-    // Nếu đúng ngày, tiếp tục đánh giá
     const totalScore =
       creativityScore +
       compositionScore +
@@ -482,7 +485,7 @@ export class PaintingsService {
       existingEvaluation.scoreRound2 = totalScore;
       existingEvaluation.feedback = feedback || '';
       existingEvaluation.evaluationDate = new Date();
-      existingEvaluation.status = 'ACCEPTED';
+      existingEvaluation.status = 'COMPLETED';
 
       const updatedEvaluation =
         await this.evaluationRepository.save(existingEvaluation);
@@ -505,7 +508,7 @@ export class PaintingsService {
       scoreRound2: totalScore,
       feedback: feedback || '',
       evaluationDate: new Date(),
-      status: 'ACTIVE',
+      status: 'COMPLETED',
     });
 
     const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
@@ -576,6 +579,7 @@ export class PaintingsService {
             });
 
             let avgScoreRound2 = 0;
+            let avgCreativityScore = 0;
             let evaluationCount = 0;
 
             if (evaluations.length > 0) {
@@ -588,7 +592,12 @@ export class PaintingsService {
                   (sum, evaluation) => sum + evaluation.scoreRound2,
                   0,
                 );
+                const totalCreativity = validScores.reduce(
+                  (sum, evaluation) => sum + (evaluation.creativityScore || 0),
+                  0,
+                );
                 avgScoreRound2 = totalScore / validScores.length;
+                avgCreativityScore = totalCreativity / validScores.length;
                 evaluationCount = validScores.length;
               }
             }
@@ -631,6 +640,7 @@ export class PaintingsService {
               competitorId: painting.competitorId,
               competitorName,
               avgScoreRound2: Math.round(avgScoreRound2 * 100) / 100,
+              avgCreativityScore: Math.round(avgCreativityScore * 100) / 100,
               evaluationCount,
               status: painting.status,
               table: round.table || 'Unknown',
@@ -641,9 +651,13 @@ export class PaintingsService {
           }),
         );
 
-        paintingsWithAvgScore.sort(
-          (a, b) => b.avgScoreRound2 - a.avgScoreRound2,
-        );
+        // Sắp xếp: Ưu tiên avgScoreRound2, nếu bằng nhau thì so sánh avgCreativityScore
+        paintingsWithAvgScore.sort((a, b) => {
+          if (b.avgScoreRound2 !== a.avgScoreRound2) {
+            return b.avgScoreRound2 - a.avgScoreRound2;
+          }
+          return b.avgCreativityScore - a.avgCreativityScore;
+        });
 
         return paintingsWithAvgScore[0];
       }),
@@ -653,7 +667,13 @@ export class PaintingsService {
       (painting) => painting !== null,
     );
 
-    topPaintings.sort((a, b) => b.avgScoreRound2 - a.avgScoreRound2);
+    // Sắp xếp các top paintings: Ưu tiên avgScoreRound2, nếu bằng nhau thì so sánh avgCreativityScore
+    topPaintings.sort((a, b) => {
+      if (b.avgScoreRound2 !== a.avgScoreRound2) {
+        return b.avgScoreRound2 - a.avgScoreRound2;
+      }
+      return b.avgCreativityScore - a.avgCreativityScore;
+    });
 
     return {
       success: true,
