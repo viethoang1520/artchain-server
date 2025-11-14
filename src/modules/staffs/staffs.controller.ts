@@ -55,6 +55,7 @@ import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
 import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
+import { AcceptMultipleSubmissionsDto } from './dto/accept-multiple-submissions.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -592,13 +593,63 @@ export class StaffController {
     return this.staffService.reviewSubmission(paintingId, reviewDto);
   }
 
-  @Patch('contests/submissions/:paintingId/accept')
+  // @Patch('contests/submissions/:paintingId/accept')
+  // @UseGuards(AuthGuard)
+  // @ApiOperation({
+  //   summary: 'Accept single submission (deprecated - use batch endpoint)',
+  //   description:
+  //     'Accept a single painting submission. Consider using the batch endpoint for better performance.',
+  // })
+  // acceptSubmission(
+  //   @Param('paintingId') paintingId: string,
+  //   @Request() req: any,
+  // ) {
+  //   return this.staffService.acceptSubmission(paintingId);
+  // }
+
+  @Patch('contests/submissions/accept')
   @UseGuards(AuthGuard)
-  acceptSubmission(
-    @Param('paintingId') paintingId: string,
+  @ApiOperation({
+    summary: 'Accept multiple submissions at once',
+    description:
+      'Accept multiple painting submissions in a single request. Returns summary of successful and failed operations.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Submissions processed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Processed 5 submissions: 4 accepted, 1 failed',
+        data: {
+          successful: [
+            {
+              paintingId: '550e8400-e29b-41d4-a716-446655440000',
+              status: 'ACCEPTED',
+            },
+          ],
+          failed: [
+            {
+              paintingId: '550e8400-e29b-41d4-a716-446655440001',
+              error: 'Painting not found',
+            },
+          ],
+        },
+        meta: {
+          total: 5,
+          successCount: 4,
+          failureCount: 1,
+        },
+      },
+    },
+  })
+  acceptMultipleSubmissions(
+    @Body() acceptMultipleDto: AcceptMultipleSubmissionsDto,
     @Request() req: any,
   ) {
-    return this.staffService.acceptSubmission(paintingId);
+    return this.staffService.acceptMultipleSubmissions(
+      acceptMultipleDto.paintingIds,
+    );
   }
 
   @Patch('contests/submissions/:paintingId/reject')
@@ -993,7 +1044,7 @@ export class StaffController {
         callback(null, true);
       },
       limits: {
-        fileSize: 10 * 1024 * 1024, 
+        fileSize: 10 * 1024 * 1024,
       },
     }),
   )

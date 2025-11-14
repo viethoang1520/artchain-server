@@ -633,15 +633,14 @@ export class StaffService {
 
           const competitors = await Promise.all(
             competitorIds.map(async (competitorId) => {
-              // Get competitor info from competitors table
               const competitor = await this.competitorsRepository.findOne({
                 where: { competitorId },
               });
 
               // Get user info for additional details
-              // const user = await this.usersRepository.findOne({
-              //   where: { userId: competitorId },
-              // });
+              const user = await this.usersRepository.findOne({
+                where: { userId: competitorId },
+              });
 
               const competitorPaintings = paintings.filter(
                 (p) => p.competitorId === competitorId,
@@ -654,9 +653,9 @@ export class StaffService {
                 ward: competitor?.ward,
                 grade: competitor?.grade,
                 guardianId: competitor?.guardianId,
-                // username: user?.username,
-                // email: user?.email,
-                // fullName: user?.fullName,
+                username: user?.username,
+                email: user?.email,
+                fullName: user?.fullName,
                 paintings: competitorPaintings.map((p) => ({
                   paintingId: p.paintingId,
                   title: p.title,
@@ -957,6 +956,47 @@ export class StaffService {
 
   async acceptSubmission(paintingId: string) {
     return this.reviewSubmission(paintingId, { status: 'ACCEPTED' });
+  }
+
+  async acceptMultipleSubmissions(paintingIds: string[]) {
+    const results: {
+      successful: Array<{ paintingId: string; status: string }>;
+      failed: Array<{ paintingId: string; error: string }>;
+    } = {
+      successful: [],
+      failed: [],
+    };
+
+    // Process each painting
+    for (const paintingId of paintingIds) {
+      try {
+        await this.reviewSubmission(paintingId, { status: 'ACCEPTED' });
+        results.successful.push({
+          paintingId,
+          status: 'ACCEPTED',
+        });
+      } catch (error) {
+        results.failed.push({
+          paintingId,
+          error: error.message || 'Unknown error occurred',
+        });
+      }
+    }
+
+    const successCount = results.successful.length;
+    const failureCount = results.failed.length;
+    const total = paintingIds.length;
+
+    return {
+      success: true,
+      message: `Processed ${total} submissions: ${successCount} accepted, ${failureCount} failed`,
+      data: results,
+      meta: {
+        total,
+        successCount,
+        failureCount,
+      },
+    };
   }
 
   async rejectSubmission(paintingId: string, reason: string) {
@@ -1448,9 +1488,9 @@ export class StaffService {
     const tablesToCreate = numberOfTables || contest.numberOfTablesRound2 || 4;
 
     // Validate numberOfTables
-    if (tablesToCreate < 2 || tablesToCreate > 26) {
+    if (tablesToCreate < 3 || tablesToCreate > 6) {
       throw new BadRequestException(
-        'Number of tables must be between 2 and 26 (A-Z)',
+        'Number of tables must be between 3 and 6 (A-Z)',
       );
     }
 
