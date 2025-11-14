@@ -76,6 +76,23 @@ export class NotificationsService {
     });
   }
 
+  async pushNotificationByTokens(
+    tokens: string[],
+    pushNotificationRequestDto: PushNotificationRequestDto,
+  ) {
+    if (tokens.length === 0) return;
+
+    this.logger.log('Notify user to mobile device...');
+    return this.firebaseService.pushNotification({
+      tokens: tokens,
+      notification: {
+        title: pushNotificationRequestDto.title,
+        body: pushNotificationRequestDto.body,
+        imageUrl: pushNotificationRequestDto.url,
+      },
+    });
+  }
+
   async getNotificationsByUserId(
     userId: string,
     notificationQueryDto: NotificationQueryDto,
