@@ -1448,9 +1448,9 @@ export class StaffService {
     const tablesToCreate = numberOfTables || contest.numberOfTablesRound2 || 4;
 
     // Validate numberOfTables
-    if (tablesToCreate < 2 || tablesToCreate > 26) {
+    if (tablesToCreate < 3 || tablesToCreate > 6) {
       throw new BadRequestException(
-        'Number of tables must be between 2 and 26 (A-Z)',
+        'Number of tables must be between 3 and 6 (A-Z)',
       );
     }
 

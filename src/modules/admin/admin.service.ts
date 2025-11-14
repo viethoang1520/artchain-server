@@ -250,7 +250,7 @@ export class AdminService {
     // Tổng số bài dự thi
     const totalPaintings = await this.paintingsRepository.count();
     const approvedPaintings = await this.paintingsRepository.count({
-      where: { status: 'APPROVED' },
+      where: { status: 'ACCEPTED' },
     });
     const pendingPaintings = await this.paintingsRepository.count({
       where: { status: 'PENDING' },
@@ -310,7 +310,7 @@ export class AdminService {
         },
         paintings: {
           total: totalPaintings,
-          approved: approvedPaintings,
+          accepted: approvedPaintings,
           pending: pendingPaintings,
           rejected: rejectedPaintings,
         },
@@ -353,8 +353,8 @@ export class AdminService {
     const totalSubmissions = await this.paintingsRepository.count({
       where: { contestId },
     });
-    const approvedSubmissions = await this.paintingsRepository.count({
-      where: { contestId, status: 'APPROVED' },
+    const acceptedSubmissions = await this.paintingsRepository.count({
+      where: { contestId, status: 'ACCEPTED' },
     });
     const pendingSubmissions = await this.paintingsRepository.count({
       where: { contestId, status: 'PENDING' },
@@ -407,7 +407,7 @@ export class AdminService {
         },
         submissions: {
           total: totalSubmissions,
-          approved: approvedSubmissions,
+          accepted: acceptedSubmissions,
           pending: pendingSubmissions,
           rejected: rejectedSubmissions,
           byRound: {

@@ -32,20 +32,48 @@ export class ExhibitionsService {
     private awardRepository: Repository<Award>,
   ) {}
 
+  /**
+   * Sanitize string to remove invalid UTF-8 characters
+   */
+  private sanitizeString(str: string | null | undefined): string | null {
+    if (!str) return null;
+
+    // Remove invalid UTF-8 sequences and emoji characters that PostgreSQL might reject
+    // This regex removes characters outside the Basic Multilingual Plane (BMP)
+    return str.replace(/[\uD800-\uDFFF]/g, '').trim();
+  }
+
   async create(createExhibitionDto: CreateExhibitionDto) {
+    const sanitizedName =
+      this.sanitizeString(createExhibitionDto.name) || createExhibitionDto.name;
+    const sanitizedDescription =
+      this.sanitizeString(createExhibitionDto.description) || undefined;
+
     const exhibition = this.exhibitionRepository.create({
-      ...createExhibitionDto,
+      name: sanitizedName,
+      description: sanitizedDescription,
+      startDate: createExhibitionDto.startDate,
+      endDate: createExhibitionDto.endDate,
       numberOfPaintings: 0,
       status: createExhibitionDto.status || 'DRAFT',
     });
 
-    const savedExhibition = await this.exhibitionRepository.save(exhibition);
+    try {
+      const savedExhibition = await this.exhibitionRepository.save(exhibition);
 
-    return {
-      success: true,
-      message: 'Exhibition created successfully',
-      data: savedExhibition,
-    };
+      return {
+        success: true,
+        message: 'Exhibition created successfully',
+        data: savedExhibition,
+      };
+    } catch (error) {
+      if (error.code === '22021') {
+        throw new BadRequestException(
+          'Invalid characters detected in input. Please remove special characters or emojis.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(status?: string) {
