@@ -6,11 +6,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailsController } from './emails.controller';
 import { EmailsService } from './emails.service';
 import { User } from '../users/entities/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Contest, User]),
     MailerModule.forRootAsync({
-      imports: [ConfigModule],  
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         transport: {
@@ -26,11 +27,10 @@ import { User } from '../users/entities/user.entity';
           from: `"ArtChain" <${configService.get<string>('EMAIL_USERNAME')}>`,
         },
       }),
-      
     }),
-
+    NotificationsModule,
   ],
   controllers: [EmailsController],
   providers: [EmailsService],
 })
-export class EmailsModule { }
+export class EmailsModule {}
