@@ -87,7 +87,7 @@ export class ContestCronService {
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Set to start of today
 
-      // Tìm các contests có startDate <= hôm nay <= endDate và status là DRAFT hoặc UPCOMING
+      // Tìm các contests có startDate <= hôm nay <= endDate và status là UPCOMING
       const contestsToActivate = await this.contestsRepository
         .createQueryBuilder('contest')
         .where('contest.start_date <= :now', { now })
