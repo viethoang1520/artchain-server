@@ -4,6 +4,7 @@ import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { PaginationDto, PaginatedResponse } from './dto/pagination.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
+import { Round } from '../contests/entities/round.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
 import { Vote } from '../votes/entities/vote.entity';
@@ -23,6 +24,8 @@ export class AdminService {
     private usersRepository: Repository<User>,
     @InjectRepository(Contest)
     private contestsRepository: Repository<Contest>,
+    @InjectRepository(Round)
+    private roundsRepository: Repository<Round>,
     @InjectRepository(Painting)
     private paintingsRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
@@ -126,9 +129,7 @@ export class AdminService {
     };
   }
 
-  async banUser(
-    id: string,
-  ): Promise<{
+  async banUser(id: string): Promise<{
     success: boolean;
     message: string;
     data: { userId: string; status: number };
@@ -164,9 +165,7 @@ export class AdminService {
     };
   }
 
-  async activateUser(
-    id: string,
-  ): Promise<{
+  async activateUser(id: string): Promise<{
     success: boolean;
     message: string;
     data: { userId: string; status: number };
@@ -246,7 +245,7 @@ export class AdminService {
     const completedContests = await this.contestsRepository.count({
       where: { status: ContestStatus.COMPLETED },
     });
-        const draftContests = await this.contestsRepository.count({
+    const draftContests = await this.contestsRepository.count({
       where: { status: ContestStatus.DRAFT },
     });
 
@@ -370,8 +369,35 @@ export class AdminService {
     const paintings = await this.paintingsRepository.find({
       where: { contestId },
     });
-    const round1Submissions = paintings.filter((p) => p.roundId === '1').length;
-    const round2Submissions = paintings.filter((p) => p.roundId === '2').length;
+
+    // Lấy round IDs từ bảng rounds dựa trên name
+    const round1 = await this.roundsRepository.findOne({
+      where: { contestId, name: 'ROUND_1' },
+    });
+
+    // ROUND_2 có thể có nhiều tables (A, B, C, ...) dựa vào numberOfTablesRound2
+    const round2Rounds = await this.roundsRepository.find({
+      where: { contestId, name: 'ROUND_2' },
+    });
+
+    const round1Submissions = round1
+      ? paintings.filter((p) => p.roundId === String(round1.roundId)).length
+      : 0;
+
+    // Đếm tất cả submissions trong ROUND_2 (tất cả các tables)
+    const round2RoundIds = round2Rounds.map((r) => String(r.roundId));
+    const round2Submissions = paintings.filter((p) =>
+      round2RoundIds.includes(p.roundId),
+    ).length;
+
+    // Chi tiết submissions theo từng table trong ROUND_2
+    const round2ByTable: Record<string, number> = {};
+    round2Rounds.forEach((round) => {
+      const tableSubmissions = paintings.filter(
+        (p) => p.roundId === String(round.roundId),
+      ).length;
+      round2ByTable[round.table || 'Unknown'] = tableSubmissions;
+    });
 
     // Số lượng competitors tham gia
     const uniqueCompetitors = [
@@ -415,7 +441,10 @@ export class AdminService {
           rejected: rejectedSubmissions,
           byRound: {
             round1: round1Submissions,
-            round2: round2Submissions,
+            round2: {
+              total: round2Submissions,
+              byTable: round2ByTable,
+            },
           },
         },
         participants: {
