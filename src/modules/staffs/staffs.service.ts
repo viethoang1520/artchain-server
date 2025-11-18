@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
 import { Round } from '../contests/entities/round.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
@@ -166,11 +166,20 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
-    // Check if contest is already published
     if (contest.status !== 'DRAFT') {
-      throw new BadRequestException(
-        `Cannot update contest. Contest has been published (status: ${contest.status}). Only DRAFT contests can be updated.`,
+      const allowedFields = ['round2Quantity', 'numberOfTablesRound2'];
+      const updateFields = Object.keys(updateContestDto).filter(
+        (key) => key !== 'rounds' && updateContestDto[key] !== undefined,
       );
+      const hasDisallowedUpdates = updateFields.some(
+        (field) => !allowedFields.includes(field),
+      );
+
+      if (hasDisallowedUpdates || bannerFile || ruleFile) {
+        throw new BadRequestException(
+          `Cannot update contest. Contest has been published (status: ${contest.status}). Only round2Quantity and numberOfTablesRound2 can be updated for published contests.`,
+        );
+      }
     }
 
     try {
@@ -1512,10 +1521,9 @@ export class StaffService {
       );
     }
 
-    // Lấy danh sách qualified paintings từ API logic
+    // Lấy danh sách qualified competitors từ API logic
     const qualifiedData = await this.getRound2QualifiedPaintings(contestId);
 
-    // Chỉ lấy competitors đã nộp bản gốc (status = ORIGINAL_SUBMITTED)
     const qualifiedCompetitors = qualifiedData.data.qualified.filter(
       (p) => p.status === 'ORIGINAL_SUBMITTED',
     );
@@ -1532,11 +1540,10 @@ export class StaffService {
       );
     }
 
-    // Map to competitor scores format
     const topCompetitors = qualifiedCompetitors.map((p) => ({
       competitorId: p.competitorId,
       avgScore: p.avgScore,
-      evaluationCount: 1, // Already calculated in qualified data
+      evaluationCount: 1, 
     }));
 
     // Generate table names: A, B, C, D, ... up to tablesToCreate
@@ -1884,7 +1891,7 @@ export class StaffService {
       where: {
         contestId,
         roundId: String(round1.roundId),
-        status: 'ACCEPTED',
+        status: In(['ACCEPTED', 'ORIGINAL_SUBMITTED']),
       },
     });
 
@@ -1964,7 +1971,7 @@ export class StaffService {
     return {
       success: true,
       message:
-        'Qualified list shows top competitors who passed ROUND_1. Reserve list contains backup competitors who can replace qualified ones if they fail to submit original paintings.',
+        'Qualified list shows top competitors who passed ROUND_1.',
       data: {
         contestId,
         contestTitle: contest.title,
@@ -1979,7 +1986,6 @@ export class StaffService {
       },
     };
   }
-
 
   async updateOriginalSubmissionStatus(
     contestId: number,

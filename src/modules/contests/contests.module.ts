@@ -10,6 +10,8 @@ import { ContestExaminer } from './entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { User } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
+import { Award } from '../awards/entities/award.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { Schedule } from '../schedules/entities/schedule.entity';
       Examiner,
       User,
       Schedule,
+      Award,
+      Painting
     ]),
     AuthModule,
   ],

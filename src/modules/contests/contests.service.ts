@@ -10,6 +10,8 @@ import { ContestExaminer } from './entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { User } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
+import { Award } from '../awards/entities/award.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
 
 @Injectable()
 export class ContestsService {
@@ -26,6 +28,10 @@ export class ContestsService {
     private userRepository: Repository<User>,
     @InjectRepository(Schedule)
     private scheduleRepository: Repository<Schedule>,
+    @InjectRepository(Award)
+    private awardRepository: Repository<Award>,
+    @InjectRepository(Painting)
+    private paintingRepository: Repository<Painting>,
   ) {}
 
   async findAll(query: GetContestDto) {
@@ -108,12 +114,47 @@ export class ContestsService {
       }),
     );
 
+    const awards = await this.awardRepository.find({
+      where: { contestId: id },
+      order: { rank: 'ASC' },
+    });
+
+    const winnerPaintings = await this.paintingRepository.find({
+      where: { contestId: id },
+      relations: ['award'],
+    });
+
+    const winners = await Promise.all(
+      winnerPaintings
+        .filter((p) => p.awardId !== null)
+        .map(async (painting) => {
+          const competitor = await this.userRepository.findOne({
+            where: { userId: painting.competitorId },
+          });
+
+          return {
+            paintingId: painting.paintingId,
+            title: painting.title,
+            imageUrl: painting.imageUrl,
+            competitorId: painting.competitorId,
+            competitorName: competitor?.fullName || 'Unknown',
+            competitorEmail: competitor?.email || null,
+            awardId: painting.awardId,
+            awardName: painting.award?.name || null,
+            awardRank: painting.award?.rank || null,
+            awardPrize: painting.award?.prize || null,
+          };
+        }),
+    );
+
     return {
       success: true,
       data: {
         ...contest,
         rounds: rounds,
         examiners: examinersWithNames,
+        awards,
+        winners,
       },
     };
   }
