@@ -132,4 +132,43 @@ export class ContestsController {
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.contestsService.findOne(id);
   }
+
+  @Get(':id/check-uploaded')
+  @ApiOperation({
+    summary: 'Check if users have uploaded paintings for Round 1',
+    description:
+      'Check upload status of multiple users for Round 1 of a contest. Returns array with userId and isUploaded flag.',
+  })
+  @ApiQuery({
+    name: 'userIds',
+    required: true,
+    type: String,
+    example: 'user1-uuid,user2-uuid,user3-uuid',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Upload status checked successfully',
+    schema: {
+      example: {
+        success: true,
+        data: [
+          {
+            userId: 'user1-uuid',
+            isUploaded: true,
+          },
+          {
+            userId: 'user2-uuid',
+            isUploaded: false,
+          },
+        ],
+      },
+    },
+  })
+  checkUploadStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('userIds') userIds: string,
+  ) {
+    const userIdArray = userIds.split(',').map((id) => id.trim());
+    return this.contestsService.checkUsersUploadStatus(id, userIdArray);
+  }
 }

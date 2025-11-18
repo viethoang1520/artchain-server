@@ -372,4 +372,39 @@ export class ContestsService {
       data: publishedContest,
     };
   }
+
+  async checkUsersUploadStatus(contestId: number, userIds: string[]) {
+    const round1 = await this.roundsRepository.findOne({
+      where: {
+        contestId: contestId,
+        name: 'ROUND_1',
+      },
+    });
+
+    if (!round1) {
+      throw new NotFoundException(`ROUND_1 not found for contest ${contestId}`);
+    }
+
+    const uploadStatusResults = await Promise.all(
+      userIds.map(async (userId) => {
+        const painting = await this.paintingRepository.findOne({
+          where: {
+            competitorId: userId,
+            contestId: contestId,
+            roundId: round1.roundId.toString(),
+          },
+        });
+
+        return {
+          userId: userId,
+          isUploaded: !!painting,
+        };
+      }),
+    );
+
+    return {
+      success: true,
+      data: uploadStatusResults,
+    };
+  }
 }
