@@ -141,9 +141,10 @@ export class ContestsController {
   })
   @ApiQuery({
     name: 'userIds',
-    required: true,
-    type: String,
-    example: 'user1-uuid,user2-uuid,user3-uuid',
+    type: [String],
+    isArray: true,
+    description: 'A list of user IDs to check upload status',
+    required: false,
   })
   @ApiResponse({
     status: 200,
@@ -166,9 +167,8 @@ export class ContestsController {
   })
   checkUploadStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Query('userIds') userIds: string,
+    @Query('userIds') userIds?: string[],
   ) {
-    const userIdArray = userIds.split(',').map((id) => id.trim());
-    return this.contestsService.checkUsersUploadStatus(id, userIdArray);
+    return this.contestsService.checkUsersUploadStatus(id, userIds || []);
   }
 }

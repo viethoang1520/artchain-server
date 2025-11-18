@@ -373,7 +373,7 @@ export class ContestsService {
     };
   }
 
-  async checkUsersUploadStatus(contestId: number, userIds: string[]) {
+  async checkUsersUploadStatus(contestId: number, userIds: string | string[]) {
     const round1 = await this.roundsRepository.findOne({
       where: {
         contestId: contestId,
@@ -385,8 +385,10 @@ export class ContestsService {
       throw new NotFoundException(`ROUND_1 not found for contest ${contestId}`);
     }
 
+    const userIdArray = Array.isArray(userIds) ? userIds : [userIds];
+
     const uploadStatusResults = await Promise.all(
-      userIds.map(async (userId) => {
+      userIdArray.map(async (userId) => {
         const painting = await this.paintingRepository.findOne({
           where: {
             competitorId: userId,
