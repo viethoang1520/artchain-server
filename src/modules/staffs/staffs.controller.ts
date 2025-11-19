@@ -1472,15 +1472,6 @@ Lấy danh sách lịch chấm bài của examiner với thông tin canEvaluate.
               submissionDate: '2025-11-01T00:00:00Z',
             },
           ],
-          reserve: [
-            {
-              paintingId: 'uuid-789',
-              title: 'Ocean View',
-              competitorName: 'Tran Thi B',
-              avgScore: 7.5,
-              hasSubmittedOriginal: false,
-            },
-          ],
           summary: {
             totalQualified: 20,
             submitted: 18,

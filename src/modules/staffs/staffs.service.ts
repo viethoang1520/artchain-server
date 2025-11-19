@@ -423,11 +423,50 @@ export class StaffService {
   async getContest(id: number) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId: id },
+      relations: ['awards'],
     });
 
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
+
+    const contestWithAwards = await Promise.all(
+      contest.awards.map(async (award) => {
+
+        const paintings = await this.paintingsRepository.find({
+          where: { awardId: award.awardId, contestId: id },
+        });
+
+        const winners = await Promise.all(
+          paintings.map(async (painting) => {
+            const competitor = await this.competitorsRepository.findOne({
+              where: { competitorId: painting.competitorId },
+            });
+
+            const user = await this.usersRepository.findOne({
+              where: { userId: painting.competitorId },
+            });
+
+            return {
+              paintingId: painting.paintingId,
+              title: painting.title,
+              imageUrl: painting.imageUrl,
+              competitorId: painting.competitorId,
+              competitorName: user?.fullName || 'Unknown',
+              competitorEmail: user?.email || null,
+              competitorSchool: competitor?.schoolName || 'Unknown',
+              competitorGrade: competitor?.grade || 'Unknown',
+            };
+          }),
+        );
+
+        return {
+          ...award,
+          winners,
+          winnerCount: winners.length,
+        };
+      }),
+    );
 
     const rounds = await this.roundsRepository.find({
       where: { contestId: id },
@@ -456,6 +495,7 @@ export class StaffService {
       success: true,
       data: {
         ...contest,
+        awards: contestWithAwards,
         rounds,
         examiners: examinersWithNames,
       },
