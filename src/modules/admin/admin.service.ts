@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual, Not, In, IsNull } from 'typeorm';
+import {
+  Repository,
+  Between,
+  MoreThanOrEqual,
+  LessThanOrEqual,
+  Not,
+  In,
+  IsNull,
+} from 'typeorm';
 import { PaginationDto, PaginatedResponse } from './dto/pagination.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
@@ -295,21 +303,21 @@ export class AdminService {
     });
 
     const schoolAwardCounts = new Map<string, number>();
-    
+
     for (const painting of paintingsWithAwards) {
       if (!painting.competitorId) continue;
-      
+
       const competitor = await this.competitorsRepository.findOne({
         where: { competitorId: painting.competitorId },
       });
-      
+
       if (competitor?.schoolName) {
         // Chuẩn hóa tên trường: trim, lowercase, loại bỏ khoảng trắng thừa
         const normalizedSchoolName = competitor.schoolName
           .trim()
           .toLowerCase()
           .replace(/\s+/g, ' ');
-        
+
         const currentCount = schoolAwardCounts.get(normalizedSchoolName) || 0;
         schoolAwardCounts.set(normalizedSchoolName, currentCount + 1);
       }
@@ -336,14 +344,17 @@ export class AdminService {
       },
     });
 
-    const competitorAwardCounts = new Map<string, {
-      count: number;
-      competitorId: string;
-    }>();
+    const competitorAwardCounts = new Map<
+      string,
+      {
+        count: number;
+        competitorId: string;
+      }
+    >();
 
     for (const painting of recentAwardedPaintings) {
       if (!painting.competitorId) continue;
-      
+
       const current = competitorAwardCounts.get(painting.competitorId) || {
         count: 0,
         competitorId: painting.competitorId,
@@ -363,7 +374,7 @@ export class AdminService {
         const user = await this.usersRepository.findOne({
           where: { userId: item.competitorId },
         });
-        
+
         const competitor = await this.competitorsRepository.findOne({
           where: { competitorId: item.competitorId },
         });
