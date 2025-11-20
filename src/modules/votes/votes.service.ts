@@ -70,9 +70,88 @@ export class VotesService {
     return parseFloat((totalScore / count).toFixed(2));
   }
 
-  /**
-   * Lấy danh sách các giải có thể vote trong contest (không bao gồm giải 1, 2, 3)
-   */
+  private async calculateDetailedAverageScores(paintingId: string): Promise<{
+    avgScoreRound2: number;
+    avgCreativityScore: number;
+    avgCompositionScore: number;
+    avgColorScore: number;
+    avgTechnicalScore: number;
+    avgAestheticScore: number;
+    evaluationCount: number;
+  }> {
+    const evaluations = await this.evaluationRepository.find({
+      where: { paintingId },
+    });
+
+    if (evaluations.length === 0) {
+      return {
+        avgScoreRound2: 0,
+        avgCreativityScore: 0,
+        avgCompositionScore: 0,
+        avgColorScore: 0,
+        avgTechnicalScore: 0,
+        avgAestheticScore: 0,
+        evaluationCount: 0,
+      };
+    }
+
+    const validScores = evaluations.filter(
+      (e) => e.scoreRound2 !== null && e.scoreRound2 !== undefined,
+    );
+
+    if (validScores.length === 0) {
+      return {
+        avgScoreRound2: 0,
+        avgCreativityScore: 0,
+        avgCompositionScore: 0,
+        avgColorScore: 0,
+        avgTechnicalScore: 0,
+        avgAestheticScore: 0,
+        evaluationCount: 0,
+      };
+    }
+
+    const totalScore = validScores.reduce(
+      (sum, evaluation) => sum + evaluation.scoreRound2,
+      0,
+    );
+    const totalCreativity = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.creativityScore || 0),
+      0,
+    );
+    const totalComposition = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.compositionScore || 0),
+      0,
+    );
+    const totalColor = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.colorScore || 0),
+      0,
+    );
+    const totalTechnical = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.technicalScore || 0),
+      0,
+    );
+    const totalAesthetic = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.aestheticScore || 0),
+      0,
+    );
+
+    return {
+      avgScoreRound2: Math.round((totalScore / validScores.length) * 100) / 100,
+      avgCreativityScore:
+        Math.round((totalCreativity / validScores.length) * 100) / 100,
+      avgCompositionScore:
+        Math.round((totalComposition / validScores.length) * 100) / 100,
+      avgColorScore: Math.round((totalColor / validScores.length) * 100) / 100,
+      avgTechnicalScore:
+        Math.round((totalTechnical / validScores.length) * 100) / 100,
+      avgAestheticScore:
+        Math.round((totalAesthetic / validScores.length) * 100) / 100,
+      evaluationCount: validScores.length,
+    };
+  }
+
+
   async getVotableAwards(contestId: number) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
@@ -122,10 +201,6 @@ export class VotesService {
     };
   }
 
-  /**
-   * Lấy danh sách paintings Round 2 có thể vote cho một giải cụ thể
-   *
-   */
   async getPaintingsForAward(
     contestId: number,
     awardId: number,
@@ -138,7 +213,6 @@ export class VotesService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    // 2. lấy các award ngoài nhất nhì ba
     const award = await this.awardsRepository.findOne({
       where: { awardId, contestId },
     });
@@ -160,7 +234,6 @@ export class VotesService {
       },
     });
 
-    // Lọc các rounds có name chứa "ROUND_2"
     const round2Tables = round2Rounds.filter(
       (round) =>
         round.name &&
@@ -174,7 +247,6 @@ export class VotesService {
       );
     }
 
-    // Lấy tất cả roundIds của Round 2 (bảng A, B, C, D,...)
     const round2Ids = round2Tables.map((r) => r.roundId.toString());
 
     const topAwards = await this.awardsRepository.find({
@@ -190,7 +262,7 @@ export class VotesService {
     let paintingsQuery = this.paintingsRepository
       .createQueryBuilder('painting')
       .where('painting.contest_id = :contestId', { contestId })
-      .andWhere('painting.round_id IN (:...round2Ids)', { round2Ids }); // Lấy paintings của TẤT CẢ các bảng Round 2
+      .andWhere('painting.round_id IN (:...round2Ids)', { round2Ids });
 
     if (topAwardIds.length > 0) {
       paintingsQuery = paintingsQuery.andWhere(
@@ -239,7 +311,7 @@ export class VotesService {
           email = competitor?.email || null;
         }
 
-        const averageScore = await this.calculateAverageScore(
+        const detailedScores = await this.calculateDetailedAverageScores(
           painting.paintingId,
         );
 
@@ -251,14 +323,19 @@ export class VotesService {
           competitorId: painting.competitorId,
           competitorName,
           email,
-          averageScore: averageScore || 0,
+          avgScoreRound2: detailedScores.avgScoreRound2,
+          avgCreativityScore: detailedScores.avgCreativityScore,
+          avgCompositionScore: detailedScores.avgCompositionScore,
+          avgColorScore: detailedScores.avgColorScore,
+          avgTechnicalScore: detailedScores.avgTechnicalScore,
+          avgAestheticScore: detailedScores.avgAestheticScore,
+          evaluationCount: detailedScores.evaluationCount,
           submissionDate: painting.submissionDate,
           voteCount,
           hasVoted,
         };
       }),
     );
-
 
     paintingsWithVotes.sort((a, b) => b.voteCount - a.voteCount);
 

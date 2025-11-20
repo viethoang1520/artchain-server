@@ -145,19 +145,6 @@ export class PaintingsController {
   @Post('evaluate/round2')
   @ApiOperation({
     summary: 'Đánh giá tranh VÒNG 2',
-    description: `
-Chấm điểm tranh cho VÒNG 2 theo 5 tiêu chí:
-- Creativity & Originality: 0-30 điểm
-- Composition: 0-20 điểm  
-- Color & Technique: 0-20 điểm
-- Relevance to Theme: 0-20 điểm
-- Overall Aesthetic: 0-10 điểm
-Tổng điểm tối đa: 100 điểm (tự động tính)
-
-**Kiểm tra lịch chấm:**
-- Hệ thống sẽ kiểm tra xem hôm nay có phải là ngày được phân công chấm bài của examiner không
-- Nếu không đúng ngày, sẽ thông báo lỗi
-    `,
   })
   @ApiBody({ type: EvaluateRound2Dto })
   async evaluateRound2Painting(@Body() evaluateDto: EvaluateRound2Dto) {
