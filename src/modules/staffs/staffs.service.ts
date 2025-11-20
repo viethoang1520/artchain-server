@@ -985,11 +985,11 @@ export class StaffService {
       throw new NotFoundException(`Submission with ID ${paintingId} not found`);
     }
 
-    if (reviewDto.status === 'REJECTED' && !reviewDto.reason) {
-      throw new BadRequestException(
-        'Reason is required when rejecting a submission',
-      );
-    }
+    // if (reviewDto.status === 'REJECTED' && !reviewDto.reason) {
+    //   throw new BadRequestException(
+    //     'Reason is required when rejecting a submission',
+    //   );
+    // }
     painting.status = reviewDto.status;
 
     const updatedPainting = await this.paintingsRepository.save(painting);
@@ -999,7 +999,7 @@ export class StaffService {
       message: `Submission ${reviewDto.status.toLowerCase()} successfully`,
       data: {
         ...updatedPainting,
-        rejectionReason: reviewDto.reason,
+        // rejectionReason: reviewDto.reason,
       },
     };
   }
@@ -1050,12 +1050,12 @@ export class StaffService {
   }
 
   async rejectSubmission(paintingId: string, reason: string) {
-    if (!reason) {
-      throw new BadRequestException(
-        'Reason is required when rejecting a submission',
-      );
-    }
-    return this.reviewSubmission(paintingId, { status: 'REJECTED', reason });
+    // if (!reason) {
+    //   throw new BadRequestException(
+    //     'Reason is required when rejecting a submission',
+    //   );
+    // }
+    return this.reviewSubmission(paintingId, { status: 'REJECTED' });
   }
 
   async getPendingSubmissions(contestId?: number, roundId?: number) {
