@@ -371,8 +371,6 @@ export class PaintingsService {
       status: 'COMPLETED',
     });
 
-    console.log('newEvaluation: ', newEvaluation);
-
     const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
     return {
       canEvaluate: true,
