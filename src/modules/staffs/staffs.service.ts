@@ -612,7 +612,6 @@ export class StaffService {
 
           const round = paintingsRounds[0];
 
-
           const paintingCount = await this.paintingsRepository.count({
             where: {
               roundId: round.roundId.toString(),
@@ -1662,12 +1661,17 @@ export class StaffService {
       createdRounds.push(savedRound);
 
       for (const competitorId of tables[i]) {
+        const user = await this.usersRepository.findOne({
+          where: { userId: competitorId },
+        });
+        const competitorName = user?.fullName || competitorId;
+
         const painting = this.paintingsRepository.create({
           competitorId,
           contestId,
           roundId: savedRound.roundId.toString(),
-          title: `ROUND_2 - Table ${tableNames[i]} - Pending Upload`,
-          description: `Painting for ROUND_2, Table ${tableNames[i]}. Waiting for examiner to upload.`,
+          title: `Bảng ${tableNames[i]} - ${competitorName}`,
+          description: `Tranh cho Vòng 2, Bảng ${tableNames[i]}. Đang chờ giám khảo tải lên.`,
           status: 'ACCEPTED',
         });
 
