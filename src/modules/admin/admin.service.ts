@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import {
+  Repository,
+  Between,
+  MoreThanOrEqual,
+  LessThanOrEqual,
+  Not,
+  In,
+  IsNull,
+} from 'typeorm';
 import { PaginationDto, PaginatedResponse } from './dto/pagination.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
@@ -288,6 +296,99 @@ export class AdminService {
       where: { status: CampaignStatus.DRAFT },
     });
 
+    // Tìm trường có nhiều học sinh đạt giải nhất
+    const paintingsWithAwards = await this.paintingsRepository.find({
+      where: { awardId: Not(IsNull()) },
+      relations: ['award'],
+    });
+
+    const schoolAwardCounts = new Map<string, number>();
+
+    for (const painting of paintingsWithAwards) {
+      if (!painting.competitorId) continue;
+
+      const competitor = await this.competitorsRepository.findOne({
+        where: { competitorId: painting.competitorId },
+      });
+
+      if (competitor?.schoolName) {
+        // Chuẩn hóa tên trường: trim, lowercase, loại bỏ khoảng trắng thừa
+        const normalizedSchoolName = competitor.schoolName
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+
+        const currentCount = schoolAwardCounts.get(normalizedSchoolName) || 0;
+        schoolAwardCounts.set(normalizedSchoolName, currentCount + 1);
+      }
+    }
+
+    const topSchools = Array.from(schoolAwardCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([schoolName, awardCount]) => ({ schoolName, awardCount }));
+
+    // Tìm 3 contest gần nhất
+    const recentContests = await this.contestsRepository.find({
+      order: { contestId: 'DESC' },
+      take: 3,
+    });
+
+    const recentContestIds = recentContests.map((c) => c.contestId);
+
+    // Tìm học sinh đạt nhiều giải nhất trong 3 contest gần nhất
+    const recentAwardedPaintings = await this.paintingsRepository.find({
+      where: {
+        contestId: In(recentContestIds),
+        awardId: Not(IsNull()),
+      },
+    });
+
+    const competitorAwardCounts = new Map<
+      string,
+      {
+        count: number;
+        competitorId: string;
+      }
+    >();
+
+    for (const painting of recentAwardedPaintings) {
+      if (!painting.competitorId) continue;
+
+      const current = competitorAwardCounts.get(painting.competitorId) || {
+        count: 0,
+        competitorId: painting.competitorId,
+      };
+      competitorAwardCounts.set(painting.competitorId, {
+        ...current,
+        count: current.count + 1,
+      });
+    }
+
+    const topCompetitors = Array.from(competitorAwardCounts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const topCompetitorsWithDetails = await Promise.all(
+      topCompetitors.map(async (item) => {
+        const user = await this.usersRepository.findOne({
+          where: { userId: item.competitorId },
+        });
+
+        const competitor = await this.competitorsRepository.findOne({
+          where: { competitorId: item.competitorId },
+        });
+
+        return {
+          competitorId: item.competitorId,
+          competitorName: user?.fullName || 'Unknown',
+          email: user?.email || null,
+          schoolName: competitor?.schoolName || null,
+          awardCount: item.count,
+        };
+      }),
+    );
+
     return {
       success: true,
       data: {
@@ -335,6 +436,14 @@ export class AdminService {
           total: totalCampaigns,
           active: activeCampaigns,
           draft: draftCampaigns,
+        },
+        topSchools: topSchools,
+        topCompetitorsInRecentContests: {
+          contests: recentContests.map((c) => ({
+            contestId: c.contestId,
+            title: c.title,
+          })),
+          competitors: topCompetitorsWithDetails,
         },
       },
     };

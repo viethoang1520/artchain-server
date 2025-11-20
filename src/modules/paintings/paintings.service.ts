@@ -233,7 +233,7 @@ export class PaintingsService {
     };
   }
 
-  async   uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
     const existingSubmission = await this.paintingRepository.findOne({
       where: {
@@ -580,6 +580,10 @@ export class PaintingsService {
 
             let avgScoreRound2 = 0;
             let avgCreativityScore = 0;
+            let avgCompositionScore = 0;
+            let avgColorScore = 0;
+            let avgTechnicalScore = 0;
+            let avgAestheticScore = 0;
             let evaluationCount = 0;
 
             if (evaluations.length > 0) {
@@ -596,8 +600,28 @@ export class PaintingsService {
                   (sum, evaluation) => sum + (evaluation.creativityScore || 0),
                   0,
                 );
+                const totalComposition = validScores.reduce(
+                  (sum, evaluation) => sum + (evaluation.compositionScore || 0),
+                  0,
+                );
+                const totalColor = validScores.reduce(
+                  (sum, evaluation) => sum + (evaluation.colorScore || 0),
+                  0,
+                );
+                const totalTechnical = validScores.reduce(
+                  (sum, evaluation) => sum + (evaluation.technicalScore || 0),
+                  0,
+                );
+                const totalAesthetic = validScores.reduce(
+                  (sum, evaluation) => sum + (evaluation.aestheticScore || 0),
+                  0,
+                );
                 avgScoreRound2 = totalScore / validScores.length;
                 avgCreativityScore = totalCreativity / validScores.length;
+                avgCompositionScore = totalComposition / validScores.length;
+                avgColorScore = totalColor / validScores.length;
+                avgTechnicalScore = totalTechnical / validScores.length;
+                avgAestheticScore = totalAesthetic / validScores.length;
                 evaluationCount = validScores.length;
               }
             }
@@ -641,6 +665,10 @@ export class PaintingsService {
               competitorName,
               avgScoreRound2: Math.round(avgScoreRound2 * 100) / 100,
               avgCreativityScore: Math.round(avgCreativityScore * 100) / 100,
+              avgCompositionScore: Math.round(avgCompositionScore * 100) / 100,
+              avgColorScore: Math.round(avgColorScore * 100) / 100,
+              avgTechnicalScore: Math.round(avgTechnicalScore * 100) / 100,
+              avgAestheticScore: Math.round(avgAestheticScore * 100) / 100,
               evaluationCount,
               status: painting.status,
               table: round.table || 'Unknown',
@@ -651,35 +679,61 @@ export class PaintingsService {
           }),
         );
 
-        // Sắp xếp: Ưu tiên avgScoreRound2, nếu bằng nhau thì so sánh avgCreativityScore
+        // Sắp xếp: Ưu tiên avgScoreRound2, nếu bằng nhau thì so sánh lần lượt các tiêu chí khác
         paintingsWithAvgScore.sort((a, b) => {
           if (b.avgScoreRound2 !== a.avgScoreRound2) {
             return b.avgScoreRound2 - a.avgScoreRound2;
           }
-          return b.avgCreativityScore - a.avgCreativityScore;
+          if (b.avgCreativityScore !== a.avgCreativityScore) {
+            return b.avgCreativityScore - a.avgCreativityScore;
+          }
+          if (b.avgCompositionScore !== a.avgCompositionScore) {
+            return b.avgCompositionScore - a.avgCompositionScore;
+          }
+          if (b.avgColorScore !== a.avgColorScore) {
+            return b.avgColorScore - a.avgColorScore;
+          }
+          if (b.avgTechnicalScore !== a.avgTechnicalScore) {
+            return b.avgTechnicalScore - a.avgTechnicalScore;
+          }
+          return b.avgAestheticScore - a.avgAestheticScore;
         });
 
-        return paintingsWithAvgScore[0];
+        return {
+          table: round.table || 'Unknown',
+          roundId: round.roundId,
+          paintings: paintingsWithAvgScore,
+          topPainting: paintingsWithAvgScore[0],
+        };
       }),
     );
 
-    const topPaintings = topPaintingsPerTable.filter(
-      (painting) => painting !== null,
+    const tableResults = topPaintingsPerTable.filter(
+      (result) => result !== null,
     );
 
-    // Sắp xếp các top paintings: Ưu tiên avgScoreRound2, nếu bằng nhau thì so sánh avgCreativityScore
-    topPaintings.sort((a, b) => {
-      if (b.avgScoreRound2 !== a.avgScoreRound2) {
-        return b.avgScoreRound2 - a.avgScoreRound2;
+    tableResults.sort((a, b) => {
+      if (b.topPainting.avgScoreRound2 !== a.topPainting.avgScoreRound2) {
+        return b.topPainting.avgScoreRound2 - a.topPainting.avgScoreRound2;
       }
-      return b.avgCreativityScore - a.avgCreativityScore;
+      return (
+        b.topPainting.avgCreativityScore - a.topPainting.avgCreativityScore
+      );
     });
+
+    const totalPaintings = tableResults.reduce(
+      (sum, table) => sum + table.paintings.length,
+      0,
+    );
 
     return {
       success: true,
-      message: `Top 1 from each table retrieved successfully`,
-      data: topPaintings,
-      count: topPaintings.length,
+      message: `Paintings from all ROUND_2 tables retrieved successfully`,
+      data: tableResults,
+      summary: {
+        totalTables: tableResults.length,
+        totalPaintings: totalPaintings,
+      },
     };
   }
 }

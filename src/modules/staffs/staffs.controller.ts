@@ -56,6 +56,7 @@ import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
 import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
 import { AcceptMultipleSubmissionsDto } from './dto/accept-multiple-submissions.dto';
+import { UpdateOriginalSubmissionStatusDto } from './dto/update-original-submission-status.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -1435,6 +1436,128 @@ Lấy danh sách lịch chấm bài của examiner với thông tin canEvaluate.
       image,
       title,
       description,
+    );
+  }
+
+  @Get('contests/:contestId/round2-qualified')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Lấy danh sách paintings đủ điều kiện vào vòng 2',
+  })
+  @ApiParam({
+    name: 'contestId',
+    description: 'Contest ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách paintings qualified thành công',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          contestId: 1,
+          contestTitle: 'Art Competition 2025',
+          round2Quantity: 20,
+          qualified: [
+            {
+              paintingId: 'uuid-123',
+              title: 'Beautiful Landscape',
+              imageUrl: 'https://...',
+              competitorId: 'uuid-456',
+              competitorName: 'Nguyen Van A',
+              avgScore: 8.75,
+              status: 'ORIGINAL_SUBMITTED',
+              hasSubmittedOriginal: true,
+              submissionDate: '2025-11-01T00:00:00Z',
+            },
+          ],
+          summary: {
+            totalQualified: 20,
+            submitted: 18,
+            notSubmitted: 2,
+            availableReserve: 15,
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found hoặc ROUND_1 không tồn tại',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contest không có round_2_quantity configured',
+  })
+  getRound2QualifiedPaintings(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.getRound2QualifiedPaintings(contestId);
+  }
+
+  @Patch('contests/:contestId/paintings/:paintingId/original-submission')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Cập nhật trạng thái nộp bản gốc',
+  })
+  @ApiParam({
+    name: 'contestId',
+    description: 'Contest ID',
+    example: 1,
+  })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'Painting ID (UUID)',
+    example: 'b1a2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cập nhật thành công',
+    schema: {
+      example: {
+        success: true,
+        message:
+          'Painting marked as not submitted. Replacement process completed.',
+        data: {
+          paintingId: 'uuid-123',
+          hasSubmittedOriginal: false,
+          replacements: [
+            {
+              removed: {
+                paintingId: 'uuid-123',
+                title: 'Old Painting',
+                competitorId: 'uuid-456',
+                avgScore: 7.5,
+              },
+              added: {
+                paintingId: 'uuid-789',
+                title: 'New Painting',
+                competitorId: 'uuid-101',
+                competitorName: 'Nguyen Van B',
+                avgScore: 7.3,
+              },
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest hoặc Painting không tồn tại',
+  })
+  updateOriginalSubmissionStatus(
+    @Param('contestId', ParseIntPipe) contestId: number,
+    @Param('paintingId') paintingId: string,
+    @Body() updateDto: UpdateOriginalSubmissionStatusDto,
+    @Request() req: any,
+  ) {
+    return this.staffService.updateOriginalSubmissionStatus(
+      contestId,
+      paintingId,
+      updateDto.hasSubmittedOriginal,
     );
   }
 }

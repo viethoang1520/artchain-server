@@ -175,10 +175,6 @@ export class VotesController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Vote cho một bức tranh Round 2 trong một giải cụ thể',
-    description:
-      'User vote cho một bức tranh Round 2 trong một giải thưởng cụ thể. ' +
-      'Chỉ có thể vote cho paintings của Round 2 (đã được auto tạo record và upload ảnh). ' +
-      'Mỗi user chỉ có thể vote 1 lần cho mỗi bức tranh trong mỗi giải.',
   })
   @ApiBody({
     type: VoteForAwardDto,
