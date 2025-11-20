@@ -31,6 +31,7 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { Award } from '../awards/entities/award.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { create } from 'domain';
 
 @Injectable()
 export class StaffService {
@@ -69,7 +70,6 @@ export class StaffService {
       let bannerUrl: string | undefined = createContestDto.bannerUrl;
       let ruleUrl: string | undefined = createContestDto.ruleUrl;
 
-      // Upload banner file to Firebase if provided
       if (bannerFile) {
         const bucket = this.firebaseService.getStorage().bucket();
         const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
@@ -111,6 +111,7 @@ export class StaffService {
         ruleUrl,
         numOfAward: createContestDto.numOfAward,
         round2Quantity: createContestDto.round2Quantity,
+        numberOfTablesRound2: createContestDto.numberOfTablesRound2,
         startDate: createContestDto.startDate,
         endDate: createContestDto.endDate,
         status: createContestDto.status || ContestStatus.DRAFT,
