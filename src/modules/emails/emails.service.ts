@@ -23,7 +23,11 @@ export class EmailsService {
     this.logger.log(`Sending email to: ${mailOptions.to.join(', ')}`);
     const { from, to, subject, text } = mailOptions;
     for (const recipient of to) {
-      this.mailService.sendMail({ from, to: recipient, subject, text });
+      this.mailService.sendMail({ from, to: recipient, subject, text }).catch((error) => {
+        this.logger.error(
+          `Failed to send email to ${recipient}: ${error.message}`,
+        );
+      });
       const user = await this.userRepository.findOne({
         where: { email: recipient },
         relations: { pushTokens: true },
@@ -56,6 +60,10 @@ export class EmailsService {
         to: user.email,
         subject,
         text,
+      }).catch((error) => {
+        this.logger.error(
+          `Failed to send email to ${user.email}: ${error.message}`,
+        );
       });
       if (user.pushTokens.length === 0) continue;
       const tokens = user.pushTokens.map((token) => token.tokenValue);
@@ -78,6 +86,10 @@ export class EmailsService {
         to: email,
         subject,
         text,
+      }).catch((error) => {
+        this.logger.error(
+          `Failed to send email to ${email}: ${error.message}`,
+        );
       });
       const user = await this.userRepository.findOne({
         where: { email: email },
