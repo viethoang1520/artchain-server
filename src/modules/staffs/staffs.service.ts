@@ -433,7 +433,6 @@ export class StaffService {
 
     const contestWithAwards = await Promise.all(
       contest.awards.map(async (award) => {
-
         const paintings = await this.paintingsRepository.find({
           where: { awardId: award.awardId, contestId: id },
         });
@@ -542,7 +541,6 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    // Get all rounds for this contest without pagination
     const allRounds = await this.roundsRepository.find({
       where: { contestId },
       order: { name: 'ASC', table: 'ASC' },
@@ -565,19 +563,37 @@ export class StaffService {
     const formattedRounds = await Promise.all(
       Object.entries(groupedRounds).map(async ([roundName, rounds]) => {
         if (roundName === 'ROUND_2') {
-          // For ROUND_2, show all tables (A, B, C, D) with basic info
-          const tablesData = rounds
-            .filter((r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table))
-            .map((tableRound) => ({
-              roundId: tableRound.roundId,
-              table: tableRound.table,
-              startDate: tableRound.startDate,
-              endDate: tableRound.endDate,
-              submissionDeadline: tableRound.submissionDeadline,
-              resultAnnounceDate: tableRound.resultAnnounceDate,
-              sendOriginalDeadline: tableRound.sendOriginalDeadline,
-              status: tableRound.status,
-            }));
+          // For ROUND_2, show all tables with basic info
+          const tablesData = await Promise.all(
+            rounds
+              .filter((r) => r.table && /^[A-Z]$/.test(r.table))
+              .map(async (tableRound) => {
+                // Count paintings for this table
+                const paintingCount = await this.paintingsRepository.count({
+                  where: {
+                    roundId: tableRound.roundId.toString(),
+                    status: In([
+                      'PENDING',
+                      'ACCEPTED',
+                      'ORIGINAL_SUBMITTED',
+                      'NOT_SUBMITTED_ORIGINAL',
+                    ]),
+                  },
+                });
+
+                return {
+                  roundId: tableRound.roundId,
+                  table: tableRound.table,
+                  startDate: tableRound.startDate,
+                  endDate: tableRound.endDate,
+                  submissionDeadline: tableRound.submissionDeadline,
+                  resultAnnounceDate: tableRound.resultAnnounceDate,
+                  sendOriginalDeadline: tableRound.sendOriginalDeadline,
+                  status: tableRound.status,
+                  totalPaintings: paintingCount,
+                };
+              }),
+          );
 
           return {
             name: roundName,
@@ -594,7 +610,21 @@ export class StaffService {
             return null;
           }
 
-          const round = paintingsRounds[0]; // Usually only one round per name for non-ROUND_2
+          const round = paintingsRounds[0];
+
+
+          const paintingCount = await this.paintingsRepository.count({
+            where: {
+              roundId: round.roundId.toString(),
+              status: In([
+                'PENDING',
+                'ACCEPTED',
+                'ORIGINAL_SUBMITTED',
+                'NOT_SUBMITTED_ORIGINAL',
+              ]),
+            },
+          });
+
           return {
             roundId: round.roundId,
             name: roundName,
@@ -606,6 +636,7 @@ export class StaffService {
             sendOriginalDeadline: round.sendOriginalDeadline,
             status: round.status,
             table: round.table,
+            totalPaintings: paintingCount,
           };
         }
       }),
@@ -623,9 +654,7 @@ export class StaffService {
         roundTypes: Object.keys(groupedRounds).filter((roundName) => {
           const rounds = groupedRounds[roundName];
           if (roundName === 'ROUND_2') {
-            return rounds.some(
-              (r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table),
-            );
+            return rounds.some((r) => r.table && /^[A-Z]$/.test(r.table));
           }
           return rounds.some((r) => r.table === 'paintings');
         }),
@@ -1584,7 +1613,7 @@ export class StaffService {
     const topCompetitors = qualifiedCompetitors.map((p) => ({
       competitorId: p.competitorId,
       avgScore: p.avgScore,
-      evaluationCount: 1, 
+      evaluationCount: 1,
     }));
 
     // Generate table names: A, B, C, D, ... up to tablesToCreate
@@ -2011,8 +2040,7 @@ export class StaffService {
 
     return {
       success: true,
-      message:
-        'Qualified list shows top competitors who passed ROUND_1.',
+      message: 'Qualified list shows top competitors who passed ROUND_1.',
       data: {
         contestId,
         contestTitle: contest.title,
