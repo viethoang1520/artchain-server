@@ -312,7 +312,6 @@ export class AdminService {
       });
 
       if (competitor?.schoolName) {
-        // Chuẩn hóa tên trường: trim, lowercase, loại bỏ khoảng trắng thừa
         const normalizedSchoolName = competitor.schoolName
           .trim()
           .toLowerCase()
@@ -340,7 +339,6 @@ export class AdminService {
     const recentAwardedPaintings = await this.paintingsRepository.find({
       where: {
         contestId: In(recentContestIds),
-        awardId: Not(IsNull()),
       },
     });
 
