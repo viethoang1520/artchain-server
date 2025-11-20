@@ -2010,9 +2010,20 @@ export class StaffService {
         );
 
         const validPaintings = paintingsWithScores.filter((p) => p !== null);
-        const bestPainting = validPaintings.sort(
-          (a, b) => b.avgScore - a.avgScore,
-        )[0];
+        const bestPainting = validPaintings.sort((a, b) => {
+          // Sắp xếp theo điểm trung bình giảm dần
+          if (b.avgScore !== a.avgScore) {
+            return b.avgScore - a.avgScore;
+          }
+          // Nếu điểm bằng nhau, sắp xếp theo thời gian nộp tăng dần
+          const dateA = a.submissionDate
+            ? new Date(a.submissionDate).getTime()
+            : Infinity;
+          const dateB = b.submissionDate
+            ? new Date(b.submissionDate).getTime()
+            : Infinity;
+          return dateA - dateB;
+        })[0];
 
         const hasSubmittedOriginal = competitorPaintings.some(
           (p) => p.status === 'ORIGINAL_SUBMITTED',
