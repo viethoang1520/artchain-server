@@ -14,6 +14,7 @@ import { AddPaintingsToExhibitionDto } from './dto/add-paintings.dto';
 import { User } from '../users/entities/user.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Award } from '../awards/entities/award.entity';
+import { UpdatePaintingDto } from './dto/update-paintings.dto';
 
 @Injectable()
 export class ExhibitionsService {
@@ -153,6 +154,10 @@ export class ExhibitionsService {
             };
           }
         }
+
+        painting.position = ep.position ? JSON.parse(ep.position) : null;
+        painting.rotation = ep.rotation ? JSON.parse(ep.rotation) : null;
+        painting.scale = ep.scale ? JSON.parse(ep.scale) : null;
 
         return {
           ...painting,
@@ -334,6 +339,9 @@ export class ExhibitionsService {
     const paintings = exhibitionPaintings.map((ep) => ({
       ...ep.painting,
       addedAt: ep.createdAt,
+      position: ep.position ? JSON.parse(ep.position) : null,
+      rotation: ep.rotation ? JSON.parse(ep.rotation) : null,
+      scale: ep.scale ? JSON.parse(ep.scale) : null,
     }));
 
     return {
@@ -342,5 +350,70 @@ export class ExhibitionsService {
       data: paintings,
       count: paintings.length,
     };
+  }
+
+  async updatePaintings(
+    exhibitionId: number,
+    updatePaintingDto: UpdatePaintingDto,
+  ) {
+    const exhibition = await this.exhibitionRepository.findOne({
+      where: { exhibitionId },
+    });
+
+    if (!exhibition) {
+      throw new NotFoundException(
+        `Exhibition with ID ${exhibitionId} not found`,
+      );
+    }
+
+    if (updatePaintingDto.data.length === 0) {
+      await this.exhibitionPaintingRepository.update(
+        { exhibitionId },
+        { position: null, rotation: null, scale: null },
+      );
+      return {
+        success: true,
+        message: 'No paintings to update',
+      };
+    }
+
+    // Validate all paintings exist
+    const paintings = await this.paintingRepository.find({
+      where: {
+        paintingId: In(updatePaintingDto.data.map((item) => item.paintingId)),
+      },
+    });
+
+    if (paintings.length !== updatePaintingDto.data.length) {
+      throw new BadRequestException('Some paintings do not exist');
+    }
+
+    const results = await Promise.allSettled(
+      updatePaintingDto.data.map(async (item) => {
+        const exhibitionPainting =
+          await this.exhibitionPaintingRepository.findOne({
+            where: { exhibitionId, paintingId: item.paintingId },
+          });
+
+        if (!exhibitionPainting) {
+          throw new NotFoundException(
+            `Painting ${item.paintingId} not found in exhibition ${exhibitionId}`,
+          );
+        }
+
+        exhibitionPainting.position = item.position
+          ? JSON.stringify(item.position)
+          : item.position;
+        exhibitionPainting.rotation = item.rotation
+          ? JSON.stringify(item.rotation)
+          : item.rotation;
+        exhibitionPainting.scale = item.scale
+          ? JSON.stringify(item.scale)
+          : item.scale;
+        return await this.exhibitionPaintingRepository.save(exhibitionPainting);
+      }),
+    );
+
+    return results;
   }
 }
