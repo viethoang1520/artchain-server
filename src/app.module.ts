@@ -21,6 +21,7 @@ import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
 import { EmailsModule } from './modules/emails/emails.module';
 import { VotesModule } from './modules/votes/votes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { WebsocketModule } from './modules/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     EmailsModule,
     VotesModule,
     NotificationsModule,
+    WebsocketModule,
   ],
   controllers: [AppController],
   providers: [AppService],
