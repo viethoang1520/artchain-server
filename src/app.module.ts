@@ -22,6 +22,7 @@ import { EmailsModule } from './modules/emails/emails.module';
 import { VotesModule } from './modules/votes/votes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
+import { AuctionsModule } from './modules/auctions/auctions.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
     VotesModule,
     NotificationsModule,
     WebsocketModule,
+    AuctionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
