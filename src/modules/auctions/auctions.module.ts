@@ -6,6 +6,9 @@ import {
   AuctionParticipant,
   BidHistory,
 } from './entities';
+import { AuctionsService } from './auctions.service';
+import { AuctionsController } from './auctions.controller';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -15,9 +18,10 @@ import {
       AuctionParticipant,
       BidHistory,
     ]),
+    AuthModule,
   ],
-  controllers: [],
-  providers: [],
-  exports: [TypeOrmModule],
+  controllers: [AuctionsController],
+  providers: [AuctionsService],
+  exports: [AuctionsService, TypeOrmModule],
 })
 export class AuctionsModule {}
