@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { AuctionsService } from '../../auctions/auctions.service';
+import { AUCTION_EVENTS } from '../events/auction.event';
 
 @WebSocketGateway({ cors: true, namespace: 'auction' })
 export class AuctionGateway
@@ -28,7 +29,7 @@ export class AuctionGateway
     console.log(`Client disconnected: ${client.id}`);
   }
 
-  @SubscribeMessage('joinAuction')
+  @SubscribeMessage(AUCTION_EVENTS.JOIN_AUCTION)
   async handleJoinAuction(
     @MessageBody() data: { auctionId: number; userId: string },
     @ConnectedSocket() socket: Socket,
@@ -40,30 +41,31 @@ export class AuctionGateway
         auctionId,
         userId,
       );
+      console.log("participant: ", participant)
 
       socket.join(`auction_${auctionId}`);
 
-      socket.emit('joinedAuction', {
+      socket.emit(AUCTION_EVENTS.JOINED_AUCTION, {
         success: true,
         auctionId,
         message: 'Đã tham gia phiên đấu giá',
         participant,
       });
 
-      socket.to(`auction_${auctionId}`).emit('userJoined', {
+      socket.to(`auction_${auctionId}`).emit(AUCTION_EVENTS.USER_JOINED, {
         userId,
         auctionId,
         timestamp: new Date(),
       });
     } catch (error) {
-      socket.emit('error', {
+      socket.emit(AUCTION_EVENTS.ERROR, {
         success: false,
         message: error.message,
       });
     }
   }
 
-  @SubscribeMessage('placeBid')
+  @SubscribeMessage(AUCTION_EVENTS.PLACE_BID)
   async handlePlaceBid(
     @MessageBody()
     data: { auctionPaintingId: number; bidAmount: number; userId: string },
@@ -79,7 +81,7 @@ export class AuctionGateway
 
       const auctionId = result.auctionPainting.auctionId;
 
-      this.server.to(`auction_${auctionId}`).emit('newBid', {
+      this.server.to(`auction_${auctionId}`).emit(AUCTION_EVENTS.NEW_BID, {
         auctionPaintingId,
         paintingId: result.auctionPainting.paintingId,
         bidAmount,
@@ -89,14 +91,14 @@ export class AuctionGateway
         timestamp: result.bidHistory.bidTime,
       });
 
-      socket.emit('bidPlaced', {
+      socket.emit(AUCTION_EVENTS.BID_PLACED, {
         success: true,
         message: 'Đặt giá thành công',
         bidHistory: result.bidHistory,
         auctionPainting: result.auctionPainting,
       });
     } catch (error) {
-      socket.emit('bidError', {
+      socket.emit(AUCTION_EVENTS.BID_ERROR, {
         success: false,
         message: error.message,
       });

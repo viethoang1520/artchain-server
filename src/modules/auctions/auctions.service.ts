@@ -13,7 +13,7 @@ import {
   BidHistory,
 } from './entities';
 import { AuctionStatus } from './entities/auction.entity';
-import { PlaceBidDto } from './dto';
+import { CreateAuctionDto, PlaceBidDto } from './dto';
 
 @Injectable()
 export class AuctionsService {
@@ -27,6 +27,34 @@ export class AuctionsService {
     @InjectRepository(BidHistory)
     private readonly bidHistoryRepository: Repository<BidHistory>,
   ) {}
+
+  /**
+   * Tạo phiên đấu giá mới
+   */
+  async createAuction(
+    createAuctionDto: CreateAuctionDto,
+    userId: string,
+  ): Promise<Auction> {
+    const { title, startTime, endTime, auctioneerId } = createAuctionDto;
+
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    if (end <= start) {
+      throw new BadRequestException(
+        'Thời gian kết thúc phải sau thời gian bắt đầu',
+      );
+    }
+
+    const auction = this.auctionRepository.create({
+      title,
+      startTime: start,
+      endTime: end,
+      auctioneerId: auctioneerId || userId,
+      status: AuctionStatus.PENDING,
+    });
+
+    return await this.auctionRepository.save(auction);
+  }
 
   /**
    * Tham gia phiên đấu giá
@@ -46,6 +74,7 @@ export class AuctionsService {
     const existingParticipant = await this.auctionParticipantRepository.findOne(
       {
         where: { auctionId, userId },
+        relations: ['user', 'auction'],
       },
     );
     if (existingParticipant) {
@@ -57,7 +86,20 @@ export class AuctionsService {
       userId,
     });
 
-    return await this.auctionParticipantRepository.save(participant);
+    const savedParticipant =
+      await this.auctionParticipantRepository.save(participant);
+
+    const participantWithRelations =
+      await this.auctionParticipantRepository.findOne({
+        where: { participantId: savedParticipant.participantId },
+        relations: ['user', 'auction'],
+      });
+
+    if (!participantWithRelations) {
+      throw new NotFoundException('Không thể tải thông tin người tham gia');
+    }
+
+    return participantWithRelations;
   }
 
   /**
