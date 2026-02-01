@@ -13,7 +13,7 @@ import {
   BidHistory,
 } from './entities';
 import { AuctionStatus } from './entities/auction.entity';
-import { CreateAuctionDto, PlaceBidDto } from './dto';
+import { CreateAuctionDto, PlaceBidDto, AddPaintingToAuctionDto } from './dto';
 
 @Injectable()
 export class AuctionsService {
@@ -54,6 +54,72 @@ export class AuctionsService {
     });
 
     return await this.auctionRepository.save(auction);
+  }
+
+  /**
+   * Thêm tranh vào phiên đấu giá
+   */
+  async addPaintingToAuction(
+    auctionId: number,
+    addPaintingDto: AddPaintingToAuctionDto,
+  ): Promise<AuctionPainting> {
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+    });
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    // Kiểm tra trạng thái phiên đấu giá
+    if (auction.status !== AuctionStatus.PENDING) {
+      throw new BadRequestException(
+        'Chỉ có thể thêm tranh vào phiên đấu giá đang chờ',
+      );
+    }
+
+    // Validate giá
+    if (
+      addPaintingDto.ceilPrice &&
+      addPaintingDto.ceilPrice <= addPaintingDto.basePrice
+    ) {
+      throw new BadRequestException('Giá trần phải lớn hơn giá khởi điểm');
+    }
+
+    // Kiểm tra tranh đã được thêm vào phiên này chưa
+    const existingPainting = await this.auctionPaintingRepository.findOne({
+      where: {
+        auctionId,
+        paintingId: addPaintingDto.paintingId,
+      },
+    });
+    if (existingPainting) {
+      throw new BadRequestException('Tranh đã được thêm vào phiên đấu giá này');
+    }
+
+    const auctionPainting = this.auctionPaintingRepository.create({
+      auctionId,
+      paintingId: addPaintingDto.paintingId,
+      basePrice: addPaintingDto.basePrice,
+      ceilPrice: addPaintingDto.ceilPrice,
+      bidStep: addPaintingDto.bidStep,
+      currentBid: addPaintingDto.basePrice,
+      isSold: false,
+      revoked: 0,
+    });
+
+    const saved = await this.auctionPaintingRepository.save(auctionPainting);
+
+    // Load lại với relations
+    const paintingWithRelations = await this.auctionPaintingRepository.findOne({
+      where: { auctionPaintingId: saved.auctionPaintingId },
+      relations: ['painting', 'auction'],
+    });
+
+    if (!paintingWithRelations) {
+      throw new NotFoundException('Không thể tải thông tin tranh đấu giá');
+    }
+
+    return paintingWithRelations;
   }
 
   /**
