@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,13 +15,25 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuctionsService } from './auctions.service';
-import { CreateAuctionDto, PlaceBidDto, AddPaintingToAuctionDto } from './dto';
+import {
+  CreateAuctionDto,
+  PlaceBidDto,
+  AddPaintingToAuctionDto,
+  QueryAuctionDto,
+} from './dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Auctions')
 @Controller('auctions')
 export class AuctionsController {
   constructor(private readonly auctionsService: AuctionsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Lấy danh sách phiên đấu giá' })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  async getAuctions(@Query() queryDto: QueryAuctionDto) {
+    return await this.auctionsService.getAuctions(queryDto);
+  }
 
   @Post()
   @UseGuards(AuthGuard)

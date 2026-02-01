@@ -13,7 +13,12 @@ import {
   BidHistory,
 } from './entities';
 import { AuctionStatus } from './entities/auction.entity';
-import { CreateAuctionDto, PlaceBidDto, AddPaintingToAuctionDto } from './dto';
+import {
+  CreateAuctionDto,
+  PlaceBidDto,
+  AddPaintingToAuctionDto,
+  QueryAuctionDto,
+} from './dto';
 
 @Injectable()
 export class AuctionsService {
@@ -28,9 +33,6 @@ export class AuctionsService {
     private readonly bidHistoryRepository: Repository<BidHistory>,
   ) {}
 
-  /**
-   * Tạo phiên đấu giá mới
-   */
   async createAuction(
     createAuctionDto: CreateAuctionDto,
     userId: string,
@@ -56,9 +58,6 @@ export class AuctionsService {
     return await this.auctionRepository.save(auction);
   }
 
-  /**
-   * Thêm tranh vào phiên đấu giá
-   */
   async addPaintingToAuction(
     auctionId: number,
     addPaintingDto: AddPaintingToAuctionDto,
@@ -70,14 +69,12 @@ export class AuctionsService {
       throw new NotFoundException('Không tìm thấy phiên đấu giá');
     }
 
-    // Kiểm tra trạng thái phiên đấu giá
     if (auction.status !== AuctionStatus.PENDING) {
       throw new BadRequestException(
         'Chỉ có thể thêm tranh vào phiên đấu giá đang chờ',
       );
     }
 
-    // Validate giá
     if (
       addPaintingDto.ceilPrice &&
       addPaintingDto.ceilPrice <= addPaintingDto.basePrice
@@ -85,7 +82,6 @@ export class AuctionsService {
       throw new BadRequestException('Giá trần phải lớn hơn giá khởi điểm');
     }
 
-    // Kiểm tra tranh đã được thêm vào phiên này chưa
     const existingPainting = await this.auctionPaintingRepository.findOne({
       where: {
         auctionId,
@@ -109,7 +105,6 @@ export class AuctionsService {
 
     const saved = await this.auctionPaintingRepository.save(auctionPainting);
 
-    // Load lại với relations
     const paintingWithRelations = await this.auctionPaintingRepository.findOne({
       where: { auctionPaintingId: saved.auctionPaintingId },
       relations: ['painting', 'auction'],
@@ -122,9 +117,7 @@ export class AuctionsService {
     return paintingWithRelations;
   }
 
-  /**
-   * Tham gia phiên đấu giá
-   */
+
   async joinAuction(
     auctionId: number,
     userId: string,
@@ -136,7 +129,6 @@ export class AuctionsService {
       throw new NotFoundException('Không tìm thấy phiên đấu giá');
     }
 
-    // Kiểm tra đã tham gia chưa
     const existingParticipant = await this.auctionParticipantRepository.findOne(
       {
         where: { auctionId, userId },
@@ -168,16 +160,13 @@ export class AuctionsService {
     return participantWithRelations;
   }
 
-  /**
-   * Đặt giá
-   */
+
   async placeBid(
     placeBidDto: PlaceBidDto,
     userId: string,
   ): Promise<{ bidHistory: BidHistory; auctionPainting: AuctionPainting }> {
     const { auctionPaintingId, bidAmount } = placeBidDto;
 
-    // Lấy thông tin tranh đấu giá
     const auctionPainting = await this.auctionPaintingRepository.findOne({
       where: { auctionPaintingId },
       relations: ['auction', 'painting'],
@@ -188,23 +177,19 @@ export class AuctionsService {
 
     const auction = auctionPainting.auction;
 
-    // Kiểm tra trạng thái phiên đấu giá
     if (auction.status !== AuctionStatus.ONGOING) {
       throw new BadRequestException('Phiên đấu giá không đang diễn ra');
     }
 
-    // Kiểm tra thời gian
     const now = new Date();
     if (now < auction.startTime || now > auction.endTime) {
       throw new BadRequestException('Phiên đấu giá không trong thời gian');
     }
 
-    // Kiểm tra tranh đã bán chưa
     if (auctionPainting.isSold) {
       throw new BadRequestException('Tranh đã được bán');
     }
 
-    // Kiểm tra đã tham gia phiên đấu giá chưa
     const participant = await this.auctionParticipantRepository.findOne({
       where: { auctionId: auction.auctionId, userId },
     });
@@ -214,7 +199,6 @@ export class AuctionsService {
       );
     }
 
-    // Validate giá đặt
     const currentBid = auctionPainting.currentBid || auctionPainting.basePrice;
     const minBid = currentBid + auctionPainting.bidStep;
 
@@ -257,9 +241,65 @@ export class AuctionsService {
     return { bidHistory, auctionPainting };
   }
 
-  /**
-   * Lấy chi tiết phiên đấu giá
-   */
+  async getAuctions(queryDto: QueryAuctionDto) {
+    const {
+      status,
+      startFrom,
+      startTo,
+      endFrom,
+      endTo,
+      page = 1,
+      limit = 10,
+    } = queryDto;
+
+    const queryBuilder = this.auctionRepository
+      .createQueryBuilder('auction')
+      .leftJoinAndSelect('auction.auctioneer', 'auctioneer')
+      .leftJoinAndSelect('auction.auctionPaintings', 'auctionPaintings')
+      .leftJoinAndSelect('auctionPaintings.painting', 'painting');
+
+    if (status) {
+      queryBuilder.andWhere('auction.status = :status', { status });
+    }
+
+    if (startFrom) {
+      queryBuilder.andWhere('auction.start_time >= :startFrom', {
+        startFrom: new Date(startFrom),
+      });
+    }
+    if (startTo) {
+      queryBuilder.andWhere('auction.start_time <= :startTo', {
+        startTo: new Date(startTo),
+      });
+    }
+
+    if (endFrom) {
+      queryBuilder.andWhere('auction.end_time >= :endFrom', {
+        endFrom: new Date(endFrom),
+      });
+    }
+    if (endTo) {
+      queryBuilder.andWhere('auction.end_time <= :endTo', {
+        endTo: new Date(endTo),
+      });
+    }
+
+    queryBuilder
+      .orderBy('auction.start_time', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [auctions, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data: auctions,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   async getAuctionDetail(auctionId: number): Promise<Auction> {
     const auction = await this.auctionRepository.findOne({
       where: { auctionId },
