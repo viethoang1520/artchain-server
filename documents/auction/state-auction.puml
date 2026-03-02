@@ -1,0 +1,25 @@
+@startuml Auction State Diagram
+
+skinparam backgroundColor White
+skinparam state {
+  BackgroundColor #E8E8E8
+  BorderColor #888888
+  FontColor Black
+  FontSize 14
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 12
+
+title Auction - State Diagram
+
+[*] --> PENDING : Create
+
+PENDING --> ONGOING : Start (Cron)
+
+ONGOING --> COMPLETED : End (Cron)
+ONGOING --> CANCELLED : Cancel
+
+COMPLETED --> [*]
+CANCELLED --> [*]
+
+@enduml

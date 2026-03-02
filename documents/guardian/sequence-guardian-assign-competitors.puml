@@ -1,0 +1,96 @@
+@startuml Guardian - Assign Competitors
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Guardian - Assign Competitors
+
+actor Guardian
+participant "GuardianScreen" as Screen
+participant "GuardiansController" as Controller
+participant "GuardiansService" as Service
+participant "AuthService" as AuthSvc
+participant "UserRepository" as UserRepo
+participant "CompetitorRepository" as CompRepo
+database "Database" as DB
+
+Guardian -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill student info
+
+Screen -> Controller : assignStudentToGuardian(dto)
+activate Controller
+
+Controller -> Service : assignStudentToGuardian(guardianId, dto)
+activate Service
+
+loop For each student
+  Service -> AuthSvc : register(studentData)
+  activate AuthSvc
+
+  AuthSvc -> UserRepo : findOne({email or username})
+  activate UserRepo
+  UserRepo -> DB : query
+  activate DB
+  DB --> UserRepo : return data
+  deactivate DB
+  UserRepo --> AuthSvc : return existing
+  deactivate UserRepo
+
+  alt User exists
+    AuthSvc --> Service : throw BadRequestException
+  else New user
+    AuthSvc -> AuthSvc : bcrypt.hash(password)
+
+    AuthSvc -> UserRepo : save(newUser)
+    activate UserRepo
+    UserRepo -> DB : insert
+    activate DB
+    DB --> UserRepo : return data
+    deactivate DB
+    UserRepo --> AuthSvc : return user
+    deactivate UserRepo
+
+    AuthSvc -> CompRepo : save({userId})
+    activate CompRepo
+    CompRepo -> DB : insert
+    activate DB
+    DB --> CompRepo : return data
+    deactivate DB
+    CompRepo --> AuthSvc : return competitor
+    deactivate CompRepo
+
+    AuthSvc --> Service : return user
+    deactivate AuthSvc
+  end
+
+  Service -> CompRepo : update({guardianId})
+  activate CompRepo
+  CompRepo -> DB : update
+  activate DB
+  DB --> CompRepo : return data
+  deactivate DB
+  CompRepo --> Service : return result
+  deactivate CompRepo
+end
+
+Service --> Controller : return {success, message}
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Guardian : Show success
+deactivate Screen
+
+@enduml

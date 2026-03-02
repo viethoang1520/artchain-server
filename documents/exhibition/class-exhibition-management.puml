@@ -1,0 +1,109 @@
+@startuml Exhibition Management
+
+skinparam classAttributeIconSize 0
+
+title Exhibition Management - Class Diagram
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK>>
+}
+
+class Award <<Entity>> {
+  + awardId : number <<PK>>
+}
+
+class Exhibition <<Entity>> {
+  + exhibitionId : number <<PK, Auto>>
+  --
+  name : string
+  description : string
+  startDate : Date
+  endDate : Date
+  numberOfPaintings : number
+  status : string
+  createdAt : Date
+  updatedAt : Date
+  --
+  exhibitionPaintings : ExhibitionPainting[]
+}
+
+class ExhibitionPainting <<Entity>> {
+  + id : number <<PK, Auto>>
+  --
+  exhibitionId : number
+  paintingId : string
+  position : string
+  rotation : string
+  scale : string
+  createdAt : Date
+}
+
+class ExhibitionsService <<Service>> {
+  + create(createExhibitionDto)
+  + findAll(status?)
+  + findOne(id)
+  + update(id, updateExhibitionDto)
+  + remove(id)
+  + addPaintings(exhibitionId, addPaintingsDto)
+  + removePainting(exhibitionId, paintingId)
+  + getPaintingsByExhibition(exhibitionId)
+  + updatePaintings(exhibitionId, updatePaintingDto)
+}
+
+class ExhibitionsController <<Controller>> {
+  .. POST api/exhibitions ..
+  + create(createExhibitionDto)
+  .. GET api/exhibitions ..
+  + findAll(status?)
+  + findOne(id)
+  .. PUT api/exhibitions ..
+  + update(id, updateExhibitionDto)
+  .. DELETE api/exhibitions ..
+  + remove(id)
+  .. POST api/exhibitions/:id/paintings ..
+  + addPaintings(id, addPaintingsDto)
+  .. DELETE api/exhibitions/:id/paintings ..
+  + removePainting(exhibitionId, paintingId)
+  .. GET api/exhibitions/:id/paintings ..
+  + getPaintingsByExhibition(id)
+  .. PATCH api/exhibitions/:id/paintings ..
+  + updatePaintings(id, updatePaintingDto)
+}
+
+class Exhibition3DGateway <<WebSocket>> {
+  + handleConnection(client)
+  + handleDisconnect(client)
+  + handleLocalModelUpdate(data, client)
+  + handleLocalModelChatMessage(data, client)
+}
+
+class Person <<Type>> {
+  id : string
+  name : string
+  colors : { hairColor, skinColor }
+  position : [number, number, number]
+  rotation : [number, number, number, string]
+}
+
+Exhibition *-- ExhibitionPainting : "exhibitionId"
+ExhibitionPainting --> Painting : "paintingId"
+
+ExhibitionsController --> ExhibitionsService
+ExhibitionsService --> Exhibition
+ExhibitionsService --> ExhibitionPainting
+ExhibitionsService ..> Painting
+ExhibitionsService ..> User
+ExhibitionsService ..> Competitor
+ExhibitionsService ..> Award
+
+Exhibition3DGateway o-- Person : "persons[]"
+
+@enduml

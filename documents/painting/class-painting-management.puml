@@ -1,0 +1,101 @@
+@startuml Painting Management
+
+skinparam classAttributeIconSize 0
+
+title Painting & Submission Management - Class Diagram
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK>>
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class Award <<Entity>> {
+  + awardId : number <<PK>>
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+}
+
+class Round <<Entity>> {
+  + roundId : number <<PK>>
+}
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+  --
+  roundId : string
+  contestId : number
+  competitorId : string
+  description : string
+  title : string
+  imageUrl : string
+  submissionDate : Date
+  isPassed : boolean
+  status : string
+  awardId : number
+  createdAt : Date
+  updatedAt : Date
+  --
+  evaluations : Evaluation[]
+}
+
+class Evaluation <<Entity>> {
+  + id : string <<UUID, PK>>
+  --
+  paintingId : string
+  examinerId : string
+  scoreRound1 : number
+  scoreRound2 : number
+  creativityScore : number
+  compositionScore : number
+  colorScore : number
+  technicalScore : number
+  aestheticScore : number
+  feedback : string
+  evaluationDate : Date
+  status : string
+  createdAt : Date
+  updatedAt : Date
+}
+
+class PaintingsService <<Service>> {
+  + getPaintingsByContestId(contestId, roundName?, status?, examinerId?)
+  + uploadFile(file, data)
+  + createPainting(data, url)
+  + evaluatePainting(evaluateDto)
+  + evaluateRound2Painting(evaluateDto)
+  + getPaintingEvaluations(paintingId)
+  + getRound2PaintingsWithAvgScore(contestId)
+}
+
+class PaintingsController <<Controller>> {
+  .. GET api/paintings ..
+  + getPaintingsByContestId(contestId, roundName?, status?, examinerId?)
+  .. POST api/paintings ..
+  + uploadFile(file, data)
+  + evaluatePainting(evaluateDto)
+  + evaluateRound2Painting(evaluateDto)
+  .. GET api/paintings/:id ..
+  + getPaintingEvaluations(paintingId)
+  + getRound2PaintingsWithAvgScore(contestId)
+}
+
+Painting --> Competitor : "competitorId"
+Painting --> Contest : "contestId"
+Painting --> Round : "roundId"
+Award o-- Painting : "awardId"
+Painting *-- Evaluation : "paintingId"
+Examiner <-- Evaluation : "examinerId"
+
+PaintingsController --> PaintingsService
+PaintingsService --> Painting
+PaintingsService --> Evaluation
+PaintingsService ..> Examiner
+PaintingsService ..> Round
+PaintingsService ..> Contest
+
+@enduml

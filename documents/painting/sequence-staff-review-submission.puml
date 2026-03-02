@@ -1,0 +1,66 @@
+@startuml Staff - Review Submission
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Review Submission
+
+actor Staff
+participant "SubmissionScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "PaintingRepository" as Repo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Controller : reviewSubmission(paintingId, status)
+activate Controller
+
+Controller -> Service : reviewSubmission(paintingId, status)
+activate Service
+
+Service -> Repo : findOne({paintingId})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return painting
+deactivate Repo
+
+alt Painting not found
+  Service --> Controller : throw NotFoundException
+  Controller --> Screen : return 404
+  Screen --> Staff : Show error message
+else Painting found
+  Service -> Repo : save({status: ACCEPTED/REJECTED})
+  activate Repo
+  Repo -> DB : update
+  activate DB
+  DB --> Repo : return data
+  deactivate DB
+  Repo --> Service : return painting
+  deactivate Repo
+
+  Service --> Controller : return painting
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> Staff : Show success
+  deactivate Screen
+end
+
+@enduml

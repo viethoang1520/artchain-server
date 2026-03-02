@@ -1,0 +1,70 @@
+@startuml WebSocket - Exhibition 3D
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title WebSocket - Exhibition 3D
+
+actor Visitor
+participant "3DExhibitionScreen" as Screen
+participant "Exhibition3DGateway" as Gateway
+
+== Connect ==
+
+Visitor -> Screen : Open 3D exhibition
+activate Screen
+
+Screen -> Gateway : connect()
+activate Gateway
+
+Gateway -> Gateway : Create Person\nwith random color & position
+
+Gateway -> Gateway : Add to persons array
+
+Gateway --> Screen : broadcast('personUpdate', allPersons)
+deactivate Gateway
+
+== Move in 3D Space ==
+
+Screen -> Gateway : emit('localModelUpdate', {position, rotation})
+activate Gateway
+
+Gateway -> Gateway : Update person data
+
+Gateway -> Gateway : broadcast('remoteReceiveUpdate')\nto other clients
+
+deactivate Gateway
+
+== Chat ==
+
+Screen -> Gateway : emit('localModelChatMessage', {message})
+activate Gateway
+
+Gateway -> Gateway : broadcast('remoteReceiveChatMessage')\nto other clients
+
+deactivate Gateway
+
+== Disconnect ==
+
+Screen -> Gateway : disconnect()
+activate Gateway
+
+Gateway -> Gateway : Remove from persons array
+
+Gateway --> Screen : broadcast('personUpdate', allPersons)
+deactivate Gateway
+
+deactivate Screen
+
+@enduml

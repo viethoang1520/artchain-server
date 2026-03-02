@@ -1,0 +1,88 @@
+@startuml Sponsor - Create Sponsor
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Sponsor - Create Sponsor with Payment
+
+actor User
+participant "SponsorScreen" as Screen
+participant "SponsorsController" as Controller
+participant "SponsorsService" as SponsorSvc
+participant "FirebaseService" as Firebase
+participant "PaymentsService" as PaymentSvc
+participant "SponsorRepository" as SponsorRepo
+participant "TransactionRepository" as TransRepo
+participant "OrderRepository" as OrderRepo
+database "Database" as DB
+
+User -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill sponsor form\n+ upload logo
+
+Screen -> Controller : createSponsor(dto, file)
+activate Controller
+
+Controller -> SponsorSvc : createSponsor(dto, file)
+activate SponsorSvc
+
+SponsorSvc -> Firebase : upload(logo)
+activate Firebase
+Firebase --> SponsorSvc : return signedUrl
+deactivate Firebase
+
+SponsorSvc -> SponsorRepo : create & save(sponsor)
+activate SponsorRepo
+SponsorRepo -> DB : insert
+activate DB
+DB --> SponsorRepo : return data
+deactivate DB
+SponsorRepo --> SponsorSvc : return sponsor
+deactivate SponsorRepo
+
+SponsorSvc -> PaymentSvc : createPayment(sponsorId, amount, campaignId)
+activate PaymentSvc
+
+PaymentSvc -> TransRepo : save(transaction PENDING)
+activate TransRepo
+TransRepo -> DB : insert
+activate DB
+DB --> TransRepo : return data
+deactivate DB
+TransRepo --> PaymentSvc : return transaction
+deactivate TransRepo
+
+PaymentSvc -> PaymentSvc : PayOS.createPaymentLink()
+
+PaymentSvc -> OrderRepo : save(order PENDING)
+activate OrderRepo
+OrderRepo -> DB : insert
+activate DB
+DB --> OrderRepo : return data
+deactivate DB
+OrderRepo --> PaymentSvc : return order
+deactivate OrderRepo
+
+PaymentSvc --> SponsorSvc : return {checkoutUrl, qrCode, order}
+deactivate PaymentSvc
+
+SponsorSvc --> Controller : return {sponsor, checkoutUrl, qrCode}
+deactivate SponsorSvc
+Controller --> Screen : return data
+deactivate Controller
+Screen --> User : Show payment link / QR code
+deactivate Screen
+
+@enduml

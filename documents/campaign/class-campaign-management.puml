@@ -1,0 +1,96 @@
+@startuml Campaign Management
+
+skinparam classAttributeIconSize 0
+
+title Campaign Management - Class Diagram
+
+enum CampaignStatus {
+  ACTIVE
+  CLOSED
+  COMPLETED
+  DRAFT
+  CANCELLED
+}
+
+enum SponsorStatus {
+  PENDING
+  PAID
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Campaign <<Entity>> {
+  + campaignId : number <<PK, Auto>>
+  --
+  title : string
+  description : string
+  image : string
+  goalAmount : decimal(15,2)
+  currentAmount : decimal(15,2)
+  deadline : Date
+  status : CampaignStatus
+  staffId : string
+  createdAt : Date
+  updatedAt : Date
+}
+
+class Sponsor <<Entity>> {
+  + sponsorId : number <<PK, Auto>>
+  --
+  name : string
+  logoUrl : string
+  contactInfo : string
+  sponsorshipAmount : decimal(10,2)
+  status : SponsorStatus
+  campaignId : number
+}
+
+class CampaignsService <<Service>> {
+  + create(createCampaignDto)
+  + getAllCampaigns(page, limit, status?)
+  + getSponsorsByCampaignId(campaignId, page, limit, status?)
+  + getCampaignDetail(campaignId)
+  + findAll()
+  + findOne(id)
+  + update(id, updateCampaignDto)
+  + remove(id)
+}
+
+class CampaignsController <<Controller>> {
+  .. GET api/campaigns ..
+  + getAllCampaigns(page?, limit?, status?)
+  + getCampaignDetail(id)
+  + getSponsorsByCampaignId(id, page?, limit?, status?)
+}
+
+class SponsorsService <<Service>> {
+  + createSponsor(createSponsorDto, file?)
+  + getAllSponsors(status?)
+  + getSponsorById(id)
+}
+
+class SponsorsController <<Controller>> {
+  .. GET api/sponsors ..
+  + getAllSponsors(status?)
+  + getSponsorById(id)
+  .. POST api/sponsors ..
+  + createSponsor(file, createSponsorDto)
+}
+
+Campaign --> CampaignStatus
+Campaign --> User : "staffId"
+Sponsor --> SponsorStatus
+Sponsor --> Campaign : "campaignId"
+
+CampaignsController --> CampaignsService
+CampaignsService --> Campaign
+CampaignsService --> Sponsor
+
+SponsorsController --> SponsorsService
+SponsorsService --> Sponsor
+SponsorsService --> Campaign
+SponsorsService ..> CampaignsService
+
+@enduml

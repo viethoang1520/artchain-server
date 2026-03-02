@@ -1,0 +1,74 @@
+@startuml Schedule Management
+
+skinparam classAttributeIconSize 0
+
+title Schedule Management - Class Diagram
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+}
+
+class Schedule <<Entity>> {
+  + scheduleId : number <<PK, Auto>>
+  --
+  contestId : number
+  examinerId : string
+  task : string
+  date : Date
+  status : string
+  createdAt : Date
+  updatedAt : Date
+}
+
+class CreateScheduleDto <<DTO>> {
+  contestId : number
+  examinerId : string
+  task : string
+  date : Date
+}
+
+class UpdateScheduleDto <<DTO>> {
+  task? : string
+  date? : Date
+  status? : string
+}
+
+class StaffService <<Service>> {
+  + createSchedule(createScheduleDto)
+  + getSchedulesByExaminer(examinerId)
+  + getSchedulesByContest(contestId)
+  + updateSchedule(scheduleId, updateScheduleDto)
+  + deleteSchedule(scheduleId)
+}
+
+class StaffController <<Controller>> {
+  .. POST api/staff/schedules ..
+  + createSchedule(createScheduleDto, req)
+  .. GET api/staff/schedules ..
+  + getSchedulesByExaminer(examinerId, req)
+  + getSchedulesByContest(contestId, req)
+  .. PUT api/staff/schedules/:id ..
+  + updateSchedule(scheduleId, updateScheduleDto, req)
+  .. DELETE api/staff/schedules/:id ..
+  + deleteSchedule(scheduleId, req)
+}
+
+class ExaminersController <<Controller>> {
+  .. GET api/examiners/schedules ..
+  + getMySchedules(req)
+}
+
+Schedule --> Contest : "contestId"
+Schedule --> Examiner : "examinerId"
+
+StaffController --> StaffService
+StaffService --> Schedule
+StaffService ..> CreateScheduleDto
+StaffService ..> UpdateScheduleDto
+ExaminersController --> StaffService
+
+@enduml

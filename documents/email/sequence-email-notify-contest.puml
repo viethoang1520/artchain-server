@@ -1,0 +1,82 @@
+@startuml Email - Notify Contest
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Email - Notify New Contest
+
+actor Staff
+participant "EmailScreen" as Screen
+participant "EmailsController" as Controller
+participant "EmailsService" as Service
+participant "ContestRepository" as ContestRepo
+participant "UserRepository" as UserRepo
+participant "MailService" as Mailer
+participant "NotificationService" as NotifSvc
+participant "FirebaseService" as Firebase
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Controller : notifyContest()
+activate Controller
+
+Controller -> Service : sendNotificationForNewContest()
+activate Service
+
+Service -> ContestRepo : findOne({status: ACTIVE, order: DESC})
+activate ContestRepo
+ContestRepo -> DB : query
+activate DB
+DB --> ContestRepo : return data
+deactivate DB
+ContestRepo --> Service : return contest
+deactivate ContestRepo
+
+Service -> UserRepo : find({role: COMPETITOR})
+activate UserRepo
+UserRepo -> DB : query
+activate DB
+DB --> UserRepo : return data
+deactivate DB
+UserRepo --> Service : return competitors
+deactivate UserRepo
+
+loop For each competitor
+  Service -> Mailer : sendMail(email, contestInfo)
+  activate Mailer
+  Mailer --> Service : return result
+  deactivate Mailer
+
+  alt Has push tokens
+    Service -> NotifSvc : pushNotificationByTokens(tokens)
+    activate NotifSvc
+    NotifSvc -> Firebase : sendMulticast(message)
+    activate Firebase
+    Firebase --> NotifSvc : return result
+    deactivate Firebase
+    NotifSvc --> Service : return result
+    deactivate NotifSvc
+  end
+end
+
+Service --> Controller : return {message: 'Sent'}
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show success
+deactivate Screen
+
+@enduml

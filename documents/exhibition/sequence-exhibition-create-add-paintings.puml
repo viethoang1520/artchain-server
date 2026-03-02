@@ -1,0 +1,118 @@
+@startuml Exhibition - Create & Add Paintings
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Exhibition - Create & Add Paintings
+
+actor Staff
+participant "ExhibitionScreen" as Screen
+participant "ExhibitionsController" as Controller
+participant "ExhibitionsService" as Service
+participant "ExhibitionRepository" as ExhRepo
+participant "PaintingRepository" as PaintRepo
+participant "ExhibitionPaintingRepo" as EPRepo
+database "Database" as DB
+
+== Create Exhibition ==
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill exhibition form
+
+Screen -> Controller : create(dto)
+activate Controller
+
+Controller -> Service : create(dto)
+activate Service
+
+Service -> ExhRepo : create & save(exhibition)
+activate ExhRepo
+ExhRepo -> DB : insert
+activate DB
+DB --> ExhRepo : return data
+deactivate DB
+ExhRepo --> Service : return exhibition
+deactivate ExhRepo
+
+Service --> Controller : return exhibition
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show created
+
+== Add Paintings ==
+
+Screen -> Controller : addPaintings(exhibitionId, paintingIds)
+activate Controller
+
+Controller -> Service : addPaintings(exhibitionId, paintingIds)
+activate Service
+
+Service -> ExhRepo : findOne({exhibitionId})
+activate ExhRepo
+ExhRepo -> DB : query
+activate DB
+DB --> ExhRepo : return data
+deactivate DB
+ExhRepo --> Service : return exhibition
+deactivate ExhRepo
+
+Service -> PaintRepo : find({id In paintingIds})
+activate PaintRepo
+PaintRepo -> DB : query
+activate DB
+DB --> PaintRepo : return data
+deactivate DB
+PaintRepo --> Service : return paintings
+deactivate PaintRepo
+
+Service -> EPRepo : find({exhibitionId})
+activate EPRepo
+EPRepo -> DB : query
+activate DB
+DB --> EPRepo : return data
+deactivate DB
+EPRepo --> Service : return existing
+deactivate EPRepo
+
+loop For each new painting
+  Service -> EPRepo : create & save(exhibitionPainting)
+  activate EPRepo
+  EPRepo -> DB : insert
+  activate DB
+  DB --> EPRepo : return data
+  deactivate DB
+  EPRepo --> Service : return data
+  deactivate EPRepo
+end
+
+Service -> ExhRepo : save(update paintingCount)
+activate ExhRepo
+ExhRepo -> DB : update
+activate DB
+DB --> ExhRepo : return data
+deactivate DB
+ExhRepo --> Service : return exhibition
+deactivate ExhRepo
+
+Service --> Controller : return {added, total}
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show success
+deactivate Screen
+
+@enduml

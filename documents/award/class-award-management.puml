@@ -1,0 +1,61 @@
+@startuml Award Management
+
+skinparam classAttributeIconSize 0
+
+title Award Management - Class Diagram
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+}
+
+class Award <<Entity>> {
+  + awardId : number <<PK, Auto>>
+  --
+  contestId : number
+  name : string
+  description : string
+  rank : number
+  quantity : number
+  prize : decimal(15,2)
+  createdAt : Date
+  updatedAt : Date
+  --
+  paintings : Painting[]
+}
+
+class AwardsService <<Service>> {
+  + create(createAwardDto)
+  + createBatch(createAwardsBatchDto)
+  + findAll()
+  + findByContestId(contestId)
+  + findOne(id)
+  + update(id, updateAwardDto)
+  + remove(id)
+}
+
+class AwardsController <<Controller>> {
+  .. POST api/awards ..
+  + createBatch(createAwardsBatchDto)
+  .. GET api/awards ..
+  + findAll()
+  + findByContestId(contestId)
+  + findOne(id)
+  .. PATCH api/awards ..
+  + update(id, updateAwardDto)
+  .. DELETE api/awards ..
+  + remove(id)
+}
+
+Contest *-- Award : "contestId"
+Award o-- Painting : "awardId"
+
+AwardsController --> AwardsService
+AwardsService --> Award
+AwardsService --> Contest
+AwardsService ..> Painting
+
+@enduml

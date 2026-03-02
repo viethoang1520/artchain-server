@@ -1,0 +1,54 @@
+@startuml Email Management
+
+skinparam classAttributeIconSize 0
+
+title Email Management - Class Diagram
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+  --
+  email : string
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+  --
+  title : string
+}
+
+class NotificationsService <<Service>> {
+  + pushNotificationForUser(userId, pushNotificationDto)
+}
+
+class EmailsService <<Service>> {
+  + sendMail(mailOptions)
+  + sendNotificationForNewContest()
+  + sendWinnerAnnouncement(contestName, winnerEmails)
+}
+
+class EmailsController <<Controller>> {
+  .. POST api/emails ..
+  + sendEmail(mailOptionsDto)
+  + notifyContest()
+  + announceWinners(winnerAnnouncementDto)
+}
+
+class MailOptionsDto <<DTO>> {
+  to : string
+  subject : string
+  body : string
+}
+
+class WinnerAnnouncementDto <<DTO>> {
+  contestName : string
+  winnerEmails : string[]
+}
+
+EmailsController --> EmailsService
+EmailsService --> Contest
+EmailsService --> User
+EmailsService --> NotificationsService : "push notification"
+EmailsService ..> MailOptionsDto
+EmailsService ..> WinnerAnnouncementDto
+
+@enduml

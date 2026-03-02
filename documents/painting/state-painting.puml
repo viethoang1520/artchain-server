@@ -1,0 +1,27 @@
+@startuml Painting State Diagram
+
+skinparam backgroundColor White
+skinparam state {
+  BackgroundColor #E8E8E8
+  BorderColor #888888
+  FontColor Black
+  FontSize 14
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 12
+
+title Painting - State Diagram
+
+[*] --> PENDING : Submit
+
+PENDING --> ACCEPTED : Staff Approve
+PENDING --> REJECTED : Staff Reject
+
+ACCEPTED --> ORIGINAL_SUBMITTED : Submit Original
+ACCEPTED --> NOT_SUBMITTED_ORIGINAL : Deadline Passed
+
+REJECTED --> [*]
+ORIGINAL_SUBMITTED --> [*]
+NOT_SUBMITTED_ORIGINAL --> [*]
+
+@enduml

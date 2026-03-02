@@ -1,0 +1,23 @@
+@startuml Transaction State Diagram
+
+skinparam backgroundColor White
+skinparam state {
+  BackgroundColor #E8E8E8
+  BorderColor #888888
+  FontColor Black
+  FontSize 14
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 12
+
+title Transaction - State Diagram
+
+[*] --> PENDING : Create
+
+PENDING --> SUCCESS : Webhook Success
+PENDING --> FAILED : Webhook Failed
+
+SUCCESS --> [*]
+FAILED --> [*]
+
+@enduml

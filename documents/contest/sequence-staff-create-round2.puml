@@ -1,0 +1,79 @@
+@startuml Staff - Create Round 2
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Create Round 2 with Tables
+
+actor Staff
+participant "ContestDetailScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "ContestRepository" as ContestRepo
+participant "RoundRepository" as RoundRepo
+participant "PaintingRepository" as PaintRepo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Screen : Set Round 2 dates\n& table count
+
+Screen -> Controller : createRound2WithTables(contestId, dto)
+activate Controller
+
+Controller -> Service : createRound2WithTables(contestId, dto)
+activate Service
+
+Service -> ContestRepo : findOne({contestId})
+activate ContestRepo
+ContestRepo -> DB : query
+activate DB
+DB --> ContestRepo : return data
+deactivate DB
+ContestRepo --> Service : return contest
+deactivate ContestRepo
+
+Service -> Service : getRound2QualifiedPaintings()\nGet qualified competitors\nsorted by avg score
+
+loop For each table (3-26)
+  Service -> RoundRepo : create & save(ROUND_2 table)
+  activate RoundRepo
+  RoundRepo -> DB : insert
+  activate DB
+  DB --> RoundRepo : return data
+  deactivate DB
+  RoundRepo --> Service : return round
+  deactivate RoundRepo
+
+  loop For each seeded competitor
+    Service -> PaintRepo : create & save(painting)
+    activate PaintRepo
+    PaintRepo -> DB : insert
+    activate DB
+    DB --> PaintRepo : return data
+    deactivate DB
+    PaintRepo --> Service : return painting
+    deactivate PaintRepo
+  end
+end
+
+Service --> Controller : return {rounds, paintings}
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show success
+deactivate Screen
+
+@enduml

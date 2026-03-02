@@ -1,0 +1,11 @@
+---
+title: Post - State Diagram
+---
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> PUBLISHED : Publish
+    DRAFT --> DELETED : Delete
+    PUBLISHED --> ARCHIVED : Archive
+    PUBLISHED --> DELETED : Delete
+    DELETED --> DRAFT : Restore
+    ARCHIVED --> [*]

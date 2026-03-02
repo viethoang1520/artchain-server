@@ -1,0 +1,90 @@
+@startuml User Management
+
+skinparam classAttributeIconSize 0
+
+title User Management - Class Diagram
+
+enum UserRole {
+  COMPETITOR
+  EXAMINER
+  ADMIN
+  GUARDIAN
+  STAFF
+}
+
+enum UserStatus {
+  ACTIVE = 1
+  INACTIVE = 0
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+  --
+  username : string <<unique>>
+  password : string
+  fullName : string
+  email : string <<unique>>
+  phone : string
+  role : UserRole
+  status : UserStatus
+  positionLevel : string
+  createdAt : Date
+  --
+  pushTokens : PushToken[]
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK, FK→User>>
+  --
+  birthday : Date
+  schoolName : string
+  ward : string
+  grade : string
+  guardianId : string
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK, FK→User>>
+  --
+  specialization : string
+  assignedScheduleId : number
+}
+
+class UsersService <<Service>> {
+  + submissions(userId)
+  + me(userId)
+  + update(id, updateUserDto)
+  + getAchievements(userId)
+}
+
+class UsersController <<Controller>> {
+  .. GET api/users ..
+  + me(req)
+  + submissions(req)
+  + findOne(id)
+  + getAchievements(userId)
+  .. PUT api/users ..
+  + update(id, updateUserDto)
+}
+
+User --> UserRole
+User --> UserStatus
+User <|-- Competitor : "userId = competitorId"
+User <|-- Examiner : "userId = examinerId"
+Competitor --> User : "guardianId (Guardian)"
+
+UsersController --> UsersService
+UsersService --> User
+UsersService --> Competitor
+UsersService --> Examiner
+
+note as N1
+  <b>Roles as User</b>
+  Admin, Staff, Competitor, Examiner,
+  Guardian, and Bidder are all roles
+  of the <b>User</b> entity.
+  Competitor and Examiner have
+  additional profile tables.
+end note
+
+@enduml

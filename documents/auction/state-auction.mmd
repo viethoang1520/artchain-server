@@ -1,0 +1,10 @@
+---
+title: Auction - State Diagram
+---
+stateDiagram-v2
+    [*] --> PENDING : Create
+    PENDING --> ONGOING : Start (Cron)
+    ONGOING --> COMPLETED : End (Cron)
+    ONGOING --> CANCELLED : Cancel
+    COMPLETED --> [*]
+    CANCELLED --> [*]

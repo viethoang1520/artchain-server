@@ -1,0 +1,61 @@
+@startuml Profile Management
+
+skinparam classAttributeIconSize 0
+
+title Profile Management - Class Diagram
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+  --
+  username : string
+  fullName : string
+  email : string
+  phone : string
+  role : UserRole
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK>>
+  --
+  birthday : Date
+  schoolName : string
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+  --
+  specialization : string
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class ContestExaminer <<Entity>> {
+  + contestId : number <<PK>>
+  + examinerId : string <<PK>>
+}
+
+class ProfileService <<Service>> {
+  ' No public methods currently
+}
+
+class ProfileController <<Controller>> {
+  ' No endpoints currently
+}
+
+note as N1
+  ProfileService has injected repositories
+  for User, Competitor, Examiner,
+  Contest, and ContestExaminer
+  but no public methods implemented yet.
+end note
+
+ProfileController --> ProfileService
+ProfileService ..> User
+ProfileService ..> Competitor
+ProfileService ..> Examiner
+ProfileService ..> Contest
+ProfileService ..> ContestExaminer
+
+@enduml

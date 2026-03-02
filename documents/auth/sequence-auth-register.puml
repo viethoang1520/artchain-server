@@ -1,0 +1,92 @@
+@startuml Auth - Register
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Auth - Register
+
+actor User
+participant "RegisterScreen" as Screen
+participant "AuthController" as Controller
+participant "AuthService" as Service
+participant "UserRepository" as UserRepo
+participant "CompetitorRepository" as CompRepo
+participant "ExaminerRepository" as ExamRepo
+database "Database" as DB
+
+User -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill register form
+
+Screen -> Controller : register(registerDto)
+activate Controller
+
+Controller -> Service : register(registerDto)
+activate Service
+
+Service -> UserRepo : findOne({email or username})
+activate UserRepo
+UserRepo -> DB : query
+activate DB
+DB --> UserRepo : return data
+deactivate DB
+UserRepo --> Service : return existing
+deactivate UserRepo
+
+alt User already exists
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> User : Show error message
+else User not found
+  Service -> Service : bcrypt.hash(password)
+
+  Service -> UserRepo : save(newUser)
+  activate UserRepo
+  UserRepo -> DB : insert
+  activate DB
+  DB --> UserRepo : return data
+  deactivate DB
+  UserRepo --> Service : return user
+  deactivate UserRepo
+
+  alt Role = COMPETITOR
+    Service -> CompRepo : save({userId})
+    activate CompRepo
+    CompRepo -> DB : insert
+    activate DB
+    DB --> CompRepo : return data
+    deactivate DB
+    CompRepo --> Service : return competitor
+    deactivate CompRepo
+  else Role = EXAMINER
+    Service -> ExamRepo : save({userId})
+    activate ExamRepo
+    ExamRepo -> DB : insert
+    activate DB
+    DB --> ExamRepo : return data
+    deactivate DB
+    ExamRepo --> Service : return examiner
+    deactivate ExamRepo
+  end
+
+  Service --> Controller : return user
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> User : Show success
+  deactivate Screen
+end
+
+@enduml

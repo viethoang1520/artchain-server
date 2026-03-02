@@ -1,0 +1,79 @@
+@startuml Post Management
+
+skinparam classAttributeIconSize 0
+
+title Post Management - Class Diagram
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Post <<Entity>> {
+  + post_id : number <<PK, Auto>>
+  --
+  account_id : string
+  title : string
+  content : string
+  image_url : string
+  status : PostStatus
+  published_at : Date
+  created_at : Date
+  updated_at : Date
+  --
+  postTags : PostTag[]
+}
+
+class Tag <<Entity>> {
+  + tag_id : number <<PK, Auto>>
+  --
+  tag_name : string <<unique>>
+  created_at : Date
+  --
+  postTags : PostTag[]
+}
+
+class PostTag <<Entity>> {
+  + post_id : number <<PK, FK>>
+  + tag_id : number <<PK, FK>>
+}
+
+class PostsService <<Service>> {
+  + createPost(createPostDto, file?)
+  + getAllPosts(queryDto)
+  + getPublicPosts(queryDto)
+  + getPostById(id)
+  + updatePost(id, updatePostDto)
+  + softDeletePost(id)
+  + restorePost(id)
+  + publishPost(id)
+  + createTag(tag_name)
+  + getAllTags()
+  + deleteTag(id)
+  + getPostDetail(id)
+}
+
+class PostsController <<Controller>> {
+  .. GET api/posts ..
+  + getPublicPosts(queryDto)
+  + getPostDetail(id)
+  + getAllTags()
+}
+
+Post --> PostStatus
+Post --> User : "account_id"
+Post *-- PostTag : "post_id"
+Tag *-- PostTag : "tag_id"
+
+PostsController --> PostsService
+PostsService --> Post
+PostsService --> Tag
+PostsService --> PostTag
+
+@enduml

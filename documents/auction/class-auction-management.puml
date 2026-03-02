@@ -1,0 +1,117 @@
+@startuml Auction Management
+
+skinparam classAttributeIconSize 0
+
+title Auction Management - Class Diagram
+
+enum AuctionStatus {
+  PENDING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+}
+
+class Auction <<Entity>> {
+  + auctionId : number <<PK, Auto>>
+  --
+  title : string
+  startTime : Date
+  endTime : Date
+  status : AuctionStatus
+  auctioneerId : string
+  createdAt : Date
+  updatedAt : Date
+  --
+  auctionPaintings : AuctionPainting[]
+  auctionParticipants : AuctionParticipant[]
+}
+
+class AuctionPainting <<Entity>> {
+  + auctionPaintingId : number <<PK, Auto>>
+  --
+  auctionId : number
+  paintingId : string
+  basePrice : bigint
+  ceilPrice : bigint
+  bidStep : bigint
+  currentBid : bigint
+  currentBidderId : string
+  isSold : boolean
+  revoked : number
+  createdAt : Date
+  updatedAt : Date
+  --
+  bidHistories : BidHistory[]
+}
+
+class AuctionParticipant <<Entity>> {
+  + participantId : number <<PK, Auto>>
+  --
+  auctionId : number
+  userId : string
+  joinTime : Date
+}
+
+class BidHistory <<Entity>> {
+  + bidHistoryId : number <<PK, Auto>>
+  --
+  auctionPaintingId : number
+  bidderId : string
+  bidAmount : bigint
+  bidTime : Date
+  status : string
+}
+
+class AuctionsService <<Service>> {
+  + createAuction(createAuctionDto, userId)
+  + addPaintingToAuction(auctionId, addPaintingDto)
+  + joinAuction(auctionId, userId)
+  + placeBid(placeBidDto, userId)
+  + getAuctions(queryDto)
+  + getAuctionDetail(auctionId)
+}
+
+class AuctionsController <<Controller>> {
+  .. GET auctions ..
+  + getAuctions(queryDto)
+  + getAuctionDetail(auctionId)
+  .. POST auctions ..
+  + createAuction(createAuctionDto, req)
+  + addPaintingToAuction(auctionId, addPaintingDto)
+  + joinAuction(auctionId, req)
+  + placeBid(placeBidDto, req)
+}
+
+class AuctionGateway <<WebSocket>> {
+  + handleConnection(client)
+  + handleDisconnect(client)
+  + handleJoinAuction(data, socket)
+  + handlePlaceBid(data, socket)
+}
+
+Auction --> AuctionStatus
+User <-- Auction : "auctioneerId"
+Auction *-- AuctionPainting : "auctionId"
+Auction *-- AuctionParticipant : "auctionId"
+AuctionPainting --> Painting : "paintingId"
+AuctionPainting *-- BidHistory : "auctionPaintingId"
+AuctionPainting --> User : "currentBidderId"
+AuctionParticipant --> User : "userId"
+BidHistory --> User : "bidderId"
+
+AuctionsController --> AuctionsService
+AuctionGateway --> AuctionsService
+AuctionsService --> Auction
+AuctionsService --> AuctionPainting
+AuctionsService --> AuctionParticipant
+AuctionsService --> BidHistory
+
+@enduml

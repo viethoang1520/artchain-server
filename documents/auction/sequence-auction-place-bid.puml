@@ -1,0 +1,107 @@
+@startuml Auction - Place Bid
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Auction - Place Bid
+
+actor Bidder
+participant "AuctionScreen" as Screen
+participant "AuctionsController" as Controller
+participant "AuctionsService" as Service
+participant "AuctionPaintingRepo" as APRepo
+participant "AuctionParticipantRepo" as PartRepo
+participant "BidHistoryRepository" as BidRepo
+database "Database" as DB
+
+Bidder -> Screen : Access
+activate Screen
+
+Screen -> Screen : Enter bid amount
+
+Screen -> Controller : placeBid(dto)
+activate Controller
+
+Controller -> Service : placeBid(dto, userId)
+activate Service
+
+Service -> APRepo : findOne({auctionPaintingId})
+activate APRepo
+APRepo -> DB : query
+activate DB
+DB --> APRepo : return data
+deactivate DB
+APRepo --> Service : return auctionPainting
+deactivate APRepo
+
+alt Auction not ONGOING
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> Bidder : Show error
+else Painting already sold
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> Bidder : Show error
+else Valid auction
+  Service -> PartRepo : findOne({auctionId, userId})
+  activate PartRepo
+  PartRepo -> DB : query
+  activate DB
+  DB --> PartRepo : return data
+  deactivate DB
+  PartRepo --> Service : return participant
+  deactivate PartRepo
+
+  alt Not a participant
+    Service --> Controller : throw ForbiddenException
+    Controller --> Screen : return 403
+    Screen --> Bidder : Show error
+  else Is participant
+    Service -> BidRepo : update(all ACTIVE -> OUTBID)
+    activate BidRepo
+    BidRepo -> DB : update
+    activate DB
+    DB --> BidRepo : return data
+    deactivate DB
+    BidRepo --> Service : return result
+    deactivate BidRepo
+
+    Service -> BidRepo : create & save(new bid ACTIVE)
+    activate BidRepo
+    BidRepo -> DB : insert
+    activate DB
+    DB --> BidRepo : return data
+    deactivate DB
+    BidRepo --> Service : return bidHistory
+    deactivate BidRepo
+
+    Service -> APRepo : save(update currentPrice)
+    activate APRepo
+    APRepo -> DB : update
+    activate DB
+    DB --> APRepo : return data
+    deactivate DB
+    APRepo --> Service : return auctionPainting
+    deactivate APRepo
+
+    Service --> Controller : return {bidHistory, auctionPainting}
+    deactivate Service
+    Controller --> Screen : return data
+    deactivate Controller
+    Screen --> Bidder : Show bid placed
+    deactivate Screen
+  end
+end
+
+@enduml

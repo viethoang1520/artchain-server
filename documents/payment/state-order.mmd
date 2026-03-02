@@ -1,0 +1,9 @@
+---
+title: Order - State Diagram
+---
+stateDiagram-v2
+    [*] --> PENDING : Create
+    PENDING --> COMPLETED : Payment Success
+    PENDING --> CANCELLED : Payment Failed
+    COMPLETED --> [*]
+    CANCELLED --> [*]

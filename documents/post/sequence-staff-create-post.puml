@@ -1,0 +1,113 @@
+@startuml Staff - Create & Publish Post
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Create & Publish Post
+
+actor Staff
+participant "PostScreen" as Screen
+participant "StaffController" as Controller
+participant "PostsService" as Service
+participant "FirebaseService" as Firebase
+participant "PostRepository" as PostRepo
+participant "TagRepository" as TagRepo
+participant "PostTagRepository" as PTRepo
+database "Database" as DB
+
+== Create Post ==
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill post form\n+ upload image
+
+Screen -> Controller : createPost(dto, file)
+activate Controller
+
+Controller -> Service : createPost(userId, dto, file)
+activate Service
+
+Service -> Firebase : upload(image)
+activate Firebase
+Firebase --> Service : return signedUrl
+deactivate Firebase
+
+Service -> PostRepo : create & save(post)
+activate PostRepo
+PostRepo -> DB : insert
+activate DB
+DB --> PostRepo : return data
+deactivate DB
+PostRepo --> Service : return post
+deactivate PostRepo
+
+Service -> TagRepo : findByIds(tagIds)
+activate TagRepo
+TagRepo -> DB : query
+activate DB
+DB --> TagRepo : return data
+deactivate DB
+TagRepo --> Service : return tags
+deactivate TagRepo
+
+Service -> PTRepo : save(postTags)
+activate PTRepo
+PTRepo -> DB : insert
+activate DB
+DB --> PTRepo : return data
+deactivate DB
+PTRepo --> Service : return postTags
+deactivate PTRepo
+
+Service --> Controller : return post
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show draft created
+
+== Publish Post ==
+
+Screen -> Controller : publishPost(postId)
+activate Controller
+
+Controller -> Service : publishPost(postId)
+activate Service
+
+Service -> PostRepo : findOne({postId})
+activate PostRepo
+PostRepo -> DB : query
+activate DB
+DB --> PostRepo : return data
+deactivate DB
+PostRepo --> Service : return post
+deactivate PostRepo
+
+Service -> PostRepo : save({status: PUBLISHED})
+activate PostRepo
+PostRepo -> DB : update
+activate DB
+DB --> PostRepo : return data
+deactivate DB
+PostRepo --> Service : return post
+deactivate PostRepo
+
+Service --> Controller : return post
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show published
+deactivate Screen
+
+@enduml

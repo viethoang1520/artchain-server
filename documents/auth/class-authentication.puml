@@ -1,0 +1,65 @@
+@startuml Authentication
+
+skinparam classAttributeIconSize 0
+
+title Authentication - Class Diagram
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+  --
+  username : string
+  password : string
+  email : string
+  role : UserRole
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK>>
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+}
+
+class AuthService <<Service>> {
+  + login(loginDto)
+  + register(registerDto)
+}
+
+class AuthController <<Controller>> {
+  .. POST api/auth ..
+  + login(loginDto)
+  + register(registerDto)
+}
+
+class LoginDTO <<DTO>> {
+  username : string
+  password : string
+}
+
+class RegisterDTO <<DTO>> {
+  username : string
+  password : string
+  fullName : string
+  email : string
+  role : UserRole
+}
+
+class JwtAuthGuard <<Guard>> {
+}
+
+class RolesGuard <<Guard>> {
+}
+
+AuthController --> AuthService
+AuthService --> User
+AuthService --> Competitor
+AuthService --> Examiner
+AuthService --> LoginDTO : "uses"
+AuthService --> RegisterDTO : "uses"
+AuthController ..> JwtAuthGuard : "protects"
+AuthController ..> RolesGuard : "protects"
+AuthService ..> LoginDTO
+AuthService ..> RegisterDTO
+
+@enduml

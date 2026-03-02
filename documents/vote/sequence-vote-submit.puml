@@ -1,0 +1,101 @@
+@startuml Vote - Submit Vote
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Vote - Submit Vote
+
+actor User
+participant "VoteScreen" as Screen
+participant "VotesController" as Controller
+participant "VotesService" as Service
+participant "PaintingRepository" as PaintRepo
+participant "AwardRepository" as AwardRepo
+participant "VoteRepository" as VoteRepo
+database "Database" as DB
+
+User -> Screen : Access
+activate Screen
+
+Screen -> Controller : voteForAward(dto)
+activate Controller
+
+Controller -> Service : voteForAward(dto, userId)
+activate Service
+
+Service -> PaintRepo : findOne({paintingId})
+activate PaintRepo
+PaintRepo -> DB : query
+activate DB
+DB --> PaintRepo : return data
+deactivate DB
+PaintRepo --> Service : return painting
+deactivate PaintRepo
+
+Service -> AwardRepo : findOne({awardId})
+activate AwardRepo
+AwardRepo -> DB : query
+activate DB
+DB --> AwardRepo : return data
+deactivate DB
+AwardRepo --> Service : return award
+deactivate AwardRepo
+
+alt Award rank in [1,2,3]
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> User : Show error (top-3 not votable)
+else Valid award
+  Service -> VoteRepo : findOne({userId, awardId})
+  activate VoteRepo
+  VoteRepo -> DB : query
+  activate DB
+  DB --> VoteRepo : return data
+  deactivate DB
+  VoteRepo --> Service : return existing
+  deactivate VoteRepo
+
+  alt Already voted
+    Service --> Controller : throw ConflictException
+    Controller --> Screen : return 409
+    Screen --> User : Show already voted
+  else New vote
+    Service -> VoteRepo : create & save(vote)
+    activate VoteRepo
+    VoteRepo -> DB : insert
+    activate DB
+    DB --> VoteRepo : return data
+    deactivate DB
+    VoteRepo --> Service : return vote
+    deactivate VoteRepo
+
+    Service -> VoteRepo : count({awardId})
+    activate VoteRepo
+    VoteRepo -> DB : query
+    activate DB
+    DB --> VoteRepo : return data
+    deactivate DB
+    VoteRepo --> Service : return count
+    deactivate VoteRepo
+
+    Service --> Controller : return {vote, currentVoteCount}
+    deactivate Service
+    Controller --> Screen : return data
+    deactivate Controller
+    Screen --> User : Show vote success
+    deactivate Screen
+  end
+end
+
+@enduml

@@ -1,0 +1,13 @@
+---
+title: Campaign - State Diagram
+---
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> ACTIVE : Activate
+    DRAFT --> CANCELLED : Cancel
+    ACTIVE --> CLOSED : Close
+    ACTIVE --> COMPLETED : Complete
+    ACTIVE --> CANCELLED : Cancel
+    CLOSED --> [*]
+    COMPLETED --> [*]
+    CANCELLED --> [*]

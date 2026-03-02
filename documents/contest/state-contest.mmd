@@ -1,0 +1,12 @@
+---
+title: Contest - State Diagram
+---
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> UPCOMING : Publish (startDate > now)
+    DRAFT --> ACTIVE : Publish (startDate ≤ now ≤ endDate)
+    DRAFT --> ENDED : Publish (endDate < now)
+    UPCOMING --> ACTIVE : Cron (startDate reached)
+    UPCOMING --> ENDED : Cron (endDate reached)
+    ACTIVE --> ENDED : Cron (endDate reached)
+    ENDED --> [*]

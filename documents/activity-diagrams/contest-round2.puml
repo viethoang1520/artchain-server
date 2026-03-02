@@ -1,0 +1,111 @@
+@startuml Contest Round 2
+
+skinparam backgroundColor White
+skinparam ActivityBackgroundColor #E8E8E8
+skinparam ActivityBorderColor #888888
+skinparam ActivityFontSize 13
+skinparam ArrowColor #555555
+skinparam ActivityDiamondBackgroundColor #E8E8E8
+skinparam ActivityDiamondBorderColor #888888
+skinparam PartitionBackgroundColor #F5F5F5
+skinparam PartitionBorderColor #AAAAAA
+skinparam NoteBackgroundColor #F5F5F5
+skinparam NoteBorderColor #AAAAAA
+
+title Contest Round 2
+
+|Staff|
+start
+:Select contest for Round 2;
+:Set Round 2 dates\n& table count (3-6);
+
+|System|
+:Find contest by ID;
+
+if (ROUND_2 already exists?) then ([Yes])
+  |Staff|
+  :Error: Round 2 already exists;
+  detach
+else ([No])
+  :Get qualified competitors\n(status: ORIGINAL_SUBMITTED);
+  :Validate table count (3-6);
+
+  if (Enough competitors?) then ([Yes])
+    :Distribute competitors across\ntables using snake-draft algorithm;
+
+    note right
+      Snake-draft ensures balanced
+      distribution across tables
+    end note
+
+    while (More tables?) is ([Yes])
+      :Create Round entity\n(type: ROUND_2, table);
+      while (More competitors\nin table?) is ([Yes])
+        :Create Painting entity\n(status: ACCEPTED)\nfor each competitor;
+      endwhile ([No])
+    endwhile ([No])
+
+    |Staff|
+    :Round 2 created successfully;
+  else ([No])
+    |Staff|
+    :Error: Not enough competitors;
+    detach
+  endif
+endif
+
+|Competitor|
+:Arrive at competition venue;
+:Receive assigned table\n& painting materials;
+
+note right
+  Each finalist draws
+  live at their assigned table
+end note
+
+:Create artwork on-site;
+
+|Staff|
+:Photograph/scan each\nfinalist's artwork;
+:Upload drawing to system;
+
+|System|
+:Upload image to\nFirebase Storage;
+:Get signed URL;
+:Update Painting entity\nwith image URL;
+
+note right
+  Repeat for each
+  competitor's drawing
+end note
+
+|Examiner|
+:View Round 2 paintings\nassigned for evaluation;
+
+|System|
+:Find Round 2 paintings\nassigned to this examiner;
+
+|Examiner|
+:Grade with detailed criteria;
+
+note right
+  Criteria:
+  - Creativity
+  - Composition
+  - Color usage
+  - Technical skill
+  - Aesthetic quality
+end note
+
+|System|
+:Validate all criteria scores;
+:Calculate final score =\nweighted average of criteria;
+:Save evaluation record;
+:Update painting finalScore;
+
+|Staff|
+:View Round 2 results\n& final rankings;
+
+stop
+
+@enduml

@@ -1,0 +1,98 @@
+@startuml Staff - Assign Examiner
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Assign Examiner to Contest
+
+actor Staff
+participant "ContestDetailScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "ContestRepository" as ContestRepo
+participant "ExaminerRepository" as ExamRepo
+participant "ContestExaminerRepo" as CERepo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Controller : assignExaminer(contestId, examinerId)
+activate Controller
+
+Controller -> Service : assignExaminerToContest(contestId, examinerId)
+activate Service
+
+Service -> ContestRepo : findOne({contestId})
+activate ContestRepo
+ContestRepo -> DB : query
+activate DB
+DB --> ContestRepo : return data
+deactivate DB
+ContestRepo --> Service : return contest
+deactivate ContestRepo
+
+alt Contest not found
+  Service --> Controller : throw NotFoundException
+  Controller --> Screen : return 404
+  Screen --> Staff : Show error
+else Contest found
+  Service -> ExamRepo : findOne({examinerId})
+  activate ExamRepo
+  ExamRepo -> DB : query
+  activate DB
+  DB --> ExamRepo : return data
+  deactivate DB
+  ExamRepo --> Service : return examiner
+  deactivate ExamRepo
+
+  alt Examiner not found
+    Service --> Controller : throw NotFoundException
+    Controller --> Screen : return 404
+    Screen --> Staff : Show error
+  else Examiner found
+    Service -> CERepo : findOne({contestId, examinerId})
+    activate CERepo
+    CERepo -> DB : query
+    activate DB
+    DB --> CERepo : return data
+    deactivate DB
+    CERepo --> Service : return existing
+    deactivate CERepo
+
+    alt Already assigned
+      Service --> Controller : throw BadRequestException
+      Controller --> Screen : return 400
+      Screen --> Staff : Show already assigned
+    else Not assigned
+      Service -> CERepo : create & save(assignment)
+      activate CERepo
+      CERepo -> DB : insert
+      activate DB
+      DB --> CERepo : return data
+      deactivate DB
+      CERepo --> Service : return assignment
+      deactivate CERepo
+
+      Service --> Controller : return assignment
+      deactivate Service
+      Controller --> Screen : return data
+      deactivate Controller
+      Screen --> Staff : Show success
+      deactivate Screen
+    end
+  end
+end
+
+@enduml

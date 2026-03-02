@@ -1,0 +1,11 @@
+---
+title: Exhibition - State Diagram
+---
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> ACTIVE : Activate
+    DRAFT --> CANCELLED : Cancel
+    ACTIVE --> COMPLETED : Complete
+    ACTIVE --> CANCELLED : Cancel
+    COMPLETED --> [*]
+    CANCELLED --> [*]

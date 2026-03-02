@@ -1,0 +1,27 @@
+@startuml Post State Diagram
+
+skinparam backgroundColor White
+skinparam state {
+  BackgroundColor #E8E8E8
+  BorderColor #888888
+  FontColor Black
+  FontSize 14
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 12
+
+title Post - State Diagram
+
+[*] --> DRAFT : Create
+
+DRAFT --> PUBLISHED : Publish
+DRAFT --> DELETED : Delete
+
+PUBLISHED --> ARCHIVED : Archive
+PUBLISHED --> DELETED : Delete
+
+DELETED --> DRAFT : Restore
+
+ARCHIVED --> [*]
+
+@enduml

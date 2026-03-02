@@ -1,0 +1,93 @@
+@startuml Award - Create Batch
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Award - Create Batch Awards
+
+actor Staff
+participant "AwardScreen" as Screen
+participant "AwardsController" as Controller
+participant "AwardsService" as Service
+participant "ContestRepository" as ContestRepo
+participant "AwardRepository" as AwardRepo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill awards info
+
+Screen -> Controller : createBatch(awards[])
+activate Controller
+
+Controller -> Service : createBatch(awards[])
+activate Service
+
+loop For each unique contestId
+  Service -> ContestRepo : findOne({contestId})
+  activate ContestRepo
+  ContestRepo -> DB : query
+  activate DB
+  DB --> ContestRepo : return data
+  deactivate DB
+  ContestRepo --> Service : return contest
+  deactivate ContestRepo
+
+  alt Contest not found
+    Service --> Controller : throw NotFoundException
+    Controller --> Screen : return 404
+    Screen --> Staff : Show error
+  end
+end
+
+loop For each award
+  Service -> AwardRepo : create & save(award)
+  activate AwardRepo
+  AwardRepo -> DB : insert
+  activate DB
+  DB --> AwardRepo : return data
+  deactivate DB
+  AwardRepo --> Service : return award
+  deactivate AwardRepo
+end
+
+loop For each contest
+  Service -> AwardRepo : find({contestId})
+  activate AwardRepo
+  AwardRepo -> DB : query
+  activate DB
+  DB --> AwardRepo : return data
+  deactivate DB
+  AwardRepo --> Service : return awards
+  deactivate AwardRepo
+
+  Service -> ContestRepo : save(update numOfAward)
+  activate ContestRepo
+  ContestRepo -> DB : update
+  activate DB
+  DB --> ContestRepo : return data
+  deactivate DB
+  ContestRepo --> Service : return contest
+  deactivate ContestRepo
+end
+
+Service --> Controller : return awards
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show success
+deactivate Screen
+
+@enduml

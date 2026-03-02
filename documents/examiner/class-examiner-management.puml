@@ -1,0 +1,73 @@
+@startuml Examiner Management
+
+skinparam classAttributeIconSize 0
+
+title Examiner Management - Class Diagram
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK, FK→User>>
+  --
+  specialization : string
+  assignedScheduleId : number
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class ContestExaminer <<Entity>> {
+  + contestId : number <<PK>>
+  + examinerId : string <<PK>>
+  --
+  assignmentDate : Date
+  status : string
+  role : string
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class Schedule <<Entity>> {
+  + scheduleId : number <<PK>>
+  --
+  contestId : number
+  examinerId : string
+  task : string
+  date : Date
+  status : string
+}
+
+class Evaluation <<Entity>> {
+  + id : string <<UUID, PK>>
+  --
+  paintingId : string
+  examinerId : string
+}
+
+class StaffService <<Service>> {
+  + getAllExaminers()
+  + assignExaminerToContest(contestId, assignExaminerDto)
+  + getExaminersByContest(contestId)
+  + removeExaminerFromContest(contestId, examinerId)
+  + getSchedulesByExaminer(examinerId)
+}
+
+class ExaminersController <<Controller>> {
+  .. GET api/examiners/schedules ..
+  + getMySchedules(req)
+}
+
+User <|-- Examiner : "userId = examinerId"
+Contest *-- ContestExaminer : "contestId"
+Examiner *-- ContestExaminer : "examinerId"
+Schedule --> Contest : "contestId"
+Schedule --> Examiner : "examinerId"
+Evaluation --> Examiner : "examinerId"
+
+ExaminersController --> StaffService
+StaffService --> Examiner
+StaffService --> ContestExaminer
+StaffService --> Schedule
+
+@enduml

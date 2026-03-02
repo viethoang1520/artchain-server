@@ -1,0 +1,63 @@
+@startuml Notification Management
+
+skinparam classAttributeIconSize 0
+
+title Notification Management - Class Diagram
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Notification <<Entity>> {
+  + notificationId : number <<PK, Auto>>
+  --
+  accountId : string
+  message : string
+  isRead : boolean
+  createdAt : Date
+  updatedAt : Date
+}
+
+class PushToken <<Entity>> {
+  + tokenId : number <<PK, Auto>>
+  --
+  tokenValue : string
+  accountId : string
+  createdAt : Date
+}
+
+class NotificationsService <<Service>> {
+  + addPushTokenForUser(account_id, addPushTokenDto)
+  + pushNotificationForUser(userId, pushNotificationDto)
+  + pushNotificationByTokens(tokens, pushNotificationDto)
+  + getNotificationsByUserId(userId, notificationQueryDto)
+  + createNotification(createNotificationDto)
+  + updateNotificationReadStatus(notification_id)
+}
+
+class NotificationsController <<Controller>> {
+  .. POST api/notifications/tokens ..
+  + addPushTokenForUser(sub, addPushTokenDto)
+  + pushNotification(sub, pushNotificationDto)
+  .. GET api/notifications ..
+  + getNotificationsByUserId(sub, notificationQueryDto)
+  .. POST api/notifications ..
+  + createNotification(createNotificationDto)
+  .. PATCH api/notifications/:id ..
+  + updateNotificationReadStatus(id)
+}
+
+class FirebaseService <<Service>> {
+  + pushNotification(message)
+}
+
+Notification --> User : "accountId"
+PushToken --> User : "accountId"
+
+NotificationsController --> NotificationsService
+NotificationsService --> Notification
+NotificationsService --> PushToken
+NotificationsService --> User
+NotificationsService --> FirebaseService : "push via FCM"
+
+@enduml

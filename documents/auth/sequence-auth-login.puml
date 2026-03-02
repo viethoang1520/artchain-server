@@ -1,0 +1,72 @@
+@startuml Auth - Login
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Auth - Login
+
+actor User
+participant "LoginScreen" as Screen
+participant "AuthController" as Controller
+participant "AuthService" as Service
+participant "UserRepository" as Repo
+database "Database" as DB
+
+User -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill login form
+
+Screen -> Controller : login(loginDto)
+activate Controller
+
+Controller -> Service : login(loginDto)
+activate Service
+
+Service -> Repo : findOne({username})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return user
+deactivate Repo
+
+alt User not found
+  Service --> Controller : throw UnauthorizedException
+  Controller --> Screen : return 401
+  Screen --> User : Show error message
+else User is banned (status = 0)
+  Service --> Controller : throw UnauthorizedException
+  Controller --> Screen : return 401
+  Screen --> User : Show error message
+else User found
+  Service -> Service : bcrypt.compare(password)
+
+  alt Password mismatch
+    Service --> Controller : throw UnauthorizedException
+    Controller --> Screen : return 401
+    Screen --> User : Show error message
+  else Password matches
+    Service -> Service : jwtService.signAsync(payload)
+    Service --> Controller : return {access_token}
+    deactivate Service
+    Controller --> Screen : return {access_token}
+    deactivate Controller
+    Screen --> User : Show success
+    deactivate Screen
+  end
+end
+
+@enduml

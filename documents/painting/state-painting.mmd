@@ -1,0 +1,12 @@
+---
+title: Painting - State Diagram
+---
+stateDiagram-v2
+    [*] --> PENDING : Submit
+    PENDING --> ACCEPTED : Staff Approve
+    PENDING --> REJECTED : Staff Reject
+    ACCEPTED --> ORIGINAL_SUBMITTED : Submit Original
+    ACCEPTED --> NOT_SUBMITTED_ORIGINAL : Deadline Passed
+    REJECTED --> [*]
+    ORIGINAL_SUBMITTED --> [*]
+    NOT_SUBMITTED_ORIGINAL --> [*]

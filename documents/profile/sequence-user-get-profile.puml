@@ -1,0 +1,78 @@
+@startuml User - Get Profile
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title User - Get Profile
+
+actor User
+participant "ProfileScreen" as Screen
+participant "UsersController" as Controller
+participant "UsersService" as Service
+participant "UserRepository" as UserRepo
+participant "CompetitorRepository" as CompRepo
+participant "ExaminerRepository" as ExamRepo
+database "Database" as DB
+
+User -> Screen : Access
+activate Screen
+
+Screen -> Controller : me()
+activate Controller
+
+Controller -> Service : me(userId)
+activate Service
+
+Service -> UserRepo : findOne({userId})
+activate UserRepo
+UserRepo -> DB : query
+activate DB
+DB --> UserRepo : return data
+deactivate DB
+UserRepo --> Service : return user
+deactivate UserRepo
+
+alt Role = COMPETITOR
+  Service -> CompRepo : findOne({userId})
+  activate CompRepo
+  CompRepo -> DB : query
+  activate DB
+  DB --> CompRepo : return data
+  deactivate DB
+  CompRepo --> Service : return competitor
+  deactivate CompRepo
+
+  Service --> Controller : return user + competitor info
+else Role = EXAMINER
+  Service -> ExamRepo : findOne({userId})
+  activate ExamRepo
+  ExamRepo -> DB : query
+  activate DB
+  DB --> ExamRepo : return data
+  deactivate DB
+  ExamRepo --> Service : return examiner
+  deactivate ExamRepo
+
+  Service --> Controller : return user + examiner info
+else Other role
+  Service --> Controller : return user basic info
+end
+
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> User : Show profile
+deactivate Screen
+
+@enduml

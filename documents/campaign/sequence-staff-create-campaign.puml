@@ -1,0 +1,75 @@
+@startuml Staff - Create Campaign
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Create Campaign
+
+actor Staff
+participant "CampaignScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "FirebaseService" as Firebase
+participant "UserRepository" as UserRepo
+participant "CampaignRepository" as CampRepo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill campaign form\n+ upload image
+
+Screen -> Controller : createCampaign(dto, file)
+activate Controller
+
+Controller -> Service : createCampaign(userId, dto, file)
+activate Service
+
+Service -> UserRepo : findOne({userId})
+activate UserRepo
+UserRepo -> DB : query
+activate DB
+DB --> UserRepo : return data
+deactivate DB
+UserRepo --> Service : return user
+deactivate UserRepo
+
+alt Role != STAFF/ADMIN
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> Staff : Show error
+else Authorized
+  Service -> Firebase : upload(image)
+  activate Firebase
+  Firebase --> Service : return publicUrl
+  deactivate Firebase
+
+  Service -> CampRepo : create & save(campaign)
+  activate CampRepo
+  CampRepo -> DB : insert
+  activate DB
+  DB --> CampRepo : return data
+  deactivate DB
+  CampRepo --> Service : return campaign
+  deactivate CampRepo
+
+  Service --> Controller : return campaign
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> Staff : Show success
+  deactivate Screen
+end
+
+@enduml

@@ -1,0 +1,92 @@
+@startuml Payment - Webhook
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Payment - Webhook Processing
+
+actor "PayOS" as PayOS
+participant "PaymentsController" as Controller
+participant "PaymentsService" as Service
+participant "OrderRepository" as OrderRepo
+participant "TransactionRepository" as TransRepo
+participant "SponsorRepository" as SponsorRepo
+database "Database" as DB
+
+PayOS -> Controller : POST /webhook(body)
+activate Controller
+
+Controller -> Service : handleWebhook(body)
+activate Service
+
+Service -> OrderRepo : findOne({orderCode})
+activate OrderRepo
+OrderRepo -> DB : query
+activate DB
+DB --> OrderRepo : return data
+deactivate DB
+OrderRepo --> Service : return order
+deactivate OrderRepo
+
+Service -> TransRepo : findOne({transactionId})
+activate TransRepo
+TransRepo -> DB : query
+activate DB
+DB --> TransRepo : return data
+deactivate DB
+TransRepo --> Service : return transaction
+deactivate TransRepo
+
+Service -> SponsorRepo : findOne({sponsorId})
+activate SponsorRepo
+SponsorRepo -> DB : query
+activate DB
+DB --> SponsorRepo : return data
+deactivate DB
+SponsorRepo --> Service : return sponsor
+deactivate SponsorRepo
+
+alt Payment code = '00' (Success)
+  Service -> OrderRepo : save({status: COMPLETED})
+  activate OrderRepo
+  OrderRepo -> DB : update
+  deactivate OrderRepo
+
+  Service -> TransRepo : save({status: SUCCESS})
+  activate TransRepo
+  TransRepo -> DB : update
+  deactivate TransRepo
+
+  Service -> SponsorRepo : save({status: PAID})
+  activate SponsorRepo
+  SponsorRepo -> DB : update
+  deactivate SponsorRepo
+else Payment failed
+  Service -> OrderRepo : save({status: CANCELLED})
+  activate OrderRepo
+  OrderRepo -> DB : update
+  deactivate OrderRepo
+
+  Service -> TransRepo : save({status: FAILED})
+  activate TransRepo
+  TransRepo -> DB : update
+  deactivate TransRepo
+end
+
+Service --> Controller : return {}
+deactivate Service
+Controller --> PayOS : return 200
+deactivate Controller
+
+@enduml

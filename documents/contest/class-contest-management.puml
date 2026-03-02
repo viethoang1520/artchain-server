@@ -1,0 +1,102 @@
+@startuml Contest Management
+
+skinparam classAttributeIconSize 0
+
+title Contest Management - Class Diagram
+
+enum ContestStatus {
+  UPCOMING
+  DRAFT
+  ENDED
+  COMPLETED
+  ACTIVE
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK, Auto>>
+  --
+  title : string
+  description : string
+  bannerUrl : string
+  numOfAward : number
+  round2Quantity : number
+  numberOfTablesRound2 : number
+  isScheduleEnforced : boolean
+  ruleUrl : string
+  startDate : Date
+  endDate : Date
+  status : ContestStatus
+  createdBy : string
+  --
+  awards : Award[]
+}
+
+class Round <<Entity>> {
+  + roundId : number <<PK, Auto>>
+  --
+  contestId : number
+  table : string
+  name : string
+  startDate : Date
+  endDate : Date
+  submissionDeadline : Date
+  resultAnnounceDate : Date
+  sendOriginalDeadline : Date
+  status : string
+  createdAt : Date
+  updatedAt : Date
+}
+
+class ContestExaminer <<Entity>> {
+  + contestId : number <<PK, FK>>
+  + examinerId : string <<PK, FK>>
+  --
+  assignmentDate : Date
+  status : string
+  role : string
+}
+
+class ContestsService <<Service>> {
+  + findAll(query)
+  + findOne(id)
+  + findAllForExaminer(examinerId)
+  + create(createContestDto)
+  + update(id, updateContestDto)
+  + publish(id)
+  + checkUsersUploadStatus(contestId, userIds)
+}
+
+class ContestsController <<Controller>> {
+  .. GET api/contests ..
+  + findAll(query)
+  + findOne(id)
+  + findAllForExaminer(examinerId)
+  + checkUploadStatus(id, userIds)
+}
+
+class ContestCronService <<Service>> {
+  + handleEndedContests()
+  + handleActiveContests()
+}
+
+Contest --> ContestStatus
+Contest *-- Round : "contestId"
+Contest *-- ContestExaminer : "contestId"
+Examiner <-- ContestExaminer : "examinerId"
+User <-- Contest : "createdBy"
+
+ContestsController --> ContestsService
+ContestsService --> Contest
+ContestsService --> Round
+ContestsService --> ContestExaminer
+ContestCronService --> Contest
+
+@enduml

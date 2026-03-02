@@ -1,0 +1,78 @@
+@startuml Payment Management
+
+skinparam classAttributeIconSize 0
+
+title Payment & Transaction Management - Class Diagram
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+class Sponsor <<Entity>> {
+  + sponsorId : number <<PK>>
+}
+
+class Campaign <<Entity>> {
+  + campaignId : number <<PK>>
+}
+
+class Transaction <<Entity>> {
+  + transactionId : string <<UUID, PK>>
+  --
+  sponsorId : number
+  campaignId : number
+  amount : decimal(12,2)
+  paymentDate : Date
+  status : TransactionStatus
+  note : string
+  createdAt : Date
+  updatedAt : Date
+}
+
+class Order <<Entity>> {
+  + id : string <<UUID, PK>>
+  --
+  sponsorId : number
+  orderCode : number <<unique>>
+  amount : decimal(12,2)
+  description : string
+  returnUrl : string
+  cancelUrl : string
+  transactionId : string
+  status : string
+  createdAt : Date
+}
+
+class PaymentsService <<Service>> {
+  + createPayment(sponsorId, totalAmount, campaignId)
+  + createNewOrder(sponsorId, orderCode, totalAmount, transactionId, manager)
+  + handleWebhook(payload)
+}
+
+class PaymentsController <<Controller>> {
+  .. POST api/payments ..
+  + handleWebhook(req, res)
+}
+
+Transaction --> TransactionStatus
+Transaction --> Sponsor : "sponsorId"
+Transaction --> Campaign : "campaignId"
+Order --> OrderStatus
+Order --> Sponsor : "sponsorId"
+Order ..> Transaction : "transactionId"
+
+PaymentsController --> PaymentsService
+PaymentsService --> Transaction
+PaymentsService --> Order
+PaymentsService --> Campaign
+PaymentsService --> Sponsor
+
+@enduml

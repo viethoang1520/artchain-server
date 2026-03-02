@@ -1,0 +1,49 @@
+@startuml Auction State Diagram
+title Auction - State Transitions
+skinparam state {
+  BackgroundColor<<initial>> LightBlue
+  BackgroundColor<<active>> LightGreen
+  BackgroundColor<<terminal>> LightGray
+}
+
+state "PENDING" as PENDING <<initial>>
+state "ONGOING" as ONGOING <<active>>
+state "COMPLETED" as COMPLETED <<terminal>>
+state "CANCELLED" as CANCELLED <<terminal>>
+
+note right of PENDING
+  **Default/Initial State**
+  Set on creation via
+  auctions.service.ts → createAuction()
+  status: AuctionStatus.PENDING
+end note
+
+[*] --> PENDING : createAuction()\n[auctions.service.ts L55]
+
+PENDING --> ONGOING : **No code transition found**\n(enum exists, ONGOING checked in placeBid,\nlikely changed via direct DB update\nor admin action not in codebase)
+
+note bottom of ONGOING
+  placeBid() requires
+  auction.status === ONGOING
+  [auctions.service.ts L180]
+  
+  addPaintingToAuction() requires
+  auction.status === PENDING
+  [auctions.service.ts L72]
+end note
+
+note bottom of COMPLETED
+  No code path transitions
+  TO COMPLETED in codebase.
+  Enum exists but transition
+  is not implemented.
+end note
+
+note bottom of CANCELLED
+  No code path transitions
+  TO CANCELLED in codebase.
+  Enum exists but transition
+  is not implemented.
+end note
+
+@enduml

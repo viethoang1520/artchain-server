@@ -1,0 +1,172 @@
+@startuml Staff Management
+
+skinparam classAttributeIconSize 0
+
+title Staff Management - Class Diagram
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class Round <<Entity>> {
+  + roundId : number <<PK>>
+}
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+}
+
+class ContestExaminer <<Entity>> {
+  + contestId : number <<PK, FK>>
+  + examinerId : string <<PK, FK>>
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+}
+
+class Campaign <<Entity>> {
+  + campaignId : number <<PK>>
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Schedule <<Entity>> {
+  + scheduleId : number <<PK>>
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK>>
+}
+
+class Award <<Entity>> {
+  + awardId : number <<PK>>
+}
+
+class Evaluation <<Entity>> {
+  + id : string <<UUID, PK>>
+}
+
+class FirebaseService <<Service>> {
+  + getStorage()
+}
+
+class StaffService <<Service>> {
+  __ Contest __
+  + createContest(createContestDto, bannerFile?, ruleFile?)
+  + updateContest(id, updateContestDto, bannerFile?, ruleFile?)
+  + publishContest(id)
+  + toggleScheduleEnforcement(contestId)
+  + getAllContests(queryDto)
+  + getContest(id)
+  __ Rounds __
+  + createRound(contestId, createRoundDto)
+  + getRoundsByContest(contestId, queryDto)
+  + getRoundByName(contestId, name)
+  + getRoundById(contestId, roundId)
+  + updateRound(contestId, roundId, updateRoundDto)
+  + deleteRound(contestId, roundId)
+  + createRound2WithTables(contestId, date, numberOfTables?)
+  __ Submissions __
+  + getAllSubmissions(queryDto)
+  + getSubmission(paintingId)
+  + reviewSubmission(paintingId, reviewDto)
+  + acceptSubmission(paintingId)
+  + acceptMultipleSubmissions(paintingIds)
+  + rejectSubmission(paintingId, reason)
+  + getPendingSubmissions(contestId?, roundId?)
+  + getRound2QualifiedPaintings(contestId)
+  + updateOriginalSubmissionStatus(contestId, paintingId, hasSubmittedOriginal)
+  __ Paintings __
+  + assignAwardToPainting(paintingId, awardId)
+  + unassignAwardFromPainting(paintingId)
+  + uploadRound2PaintingImage(paintingId, imageFile?, title?, description?)
+  __ Examiners __
+  + assignExaminerToContest(contestId, assignExaminerDto)
+  + getExaminersByContest(contestId)
+  + removeExaminerFromContest(contestId, examinerId)
+  + getAllExaminers()
+  __ Campaign __
+  + createCampaign(data)
+  + updateCampaign(campaignId, updateCampaignDto, imageFile?, staffId?)
+  __ Schedule __
+  + createSchedule(createScheduleDto)
+  + getSchedulesByExaminer(examinerId)
+  + getSchedulesByContest(contestId)
+  + updateSchedule(scheduleId, updateScheduleDto)
+  + deleteSchedule(scheduleId)
+}
+
+class StaffController <<Controller>> {
+  __ Contest (api/staff/contests) __
+  + createContest(files, createContestDto, req)
+  + updateContest(id, files, updateContestDto, req)
+  + publishContest(id, req)
+  + toggleScheduleEnforcement(id, req)
+  + createRound2WithTables(contestId, date, numberOfTables?, req?)
+  + getAllContests(queryDto, req)
+  + getContest(id, req)
+  __ Rounds __
+  + createRound(contestId, createRoundDto, req)
+  + getRoundsByContest(contestId, queryDto, req)
+  + getRoundByName(contestId, name, req?)
+  + getRound(contestId, roundId, req?)
+  + updateRound(contestId, roundId, updateRoundDto, req)
+  + deleteRound(contestId, roundId, req)
+  __ Submissions __
+  + getAllSubmissions(queryDto, req?)
+  + getPendingSubmissions(contestId?, roundId?, req?)
+  + getSubmission(paintingId, req)
+  + reviewSubmission(paintingId, reviewDto, req)
+  + acceptMultipleSubmissions(acceptMultipleDto, req)
+  + rejectSubmission(paintingId, reason, req)
+  + getRound2QualifiedPaintings(contestId, req)
+  + updateOriginalSubmissionStatus(contestId, paintingId, updateDto, req)
+  __ Posts & Tags __
+  + createPost(file, createPostDto, req)
+  + getAllPosts(queryDto, req)
+  + getPostById(id, req)
+  + updatePost(id, updatePostDto, req)
+  + softDeletePost(id, req)
+  + restorePost(id, req)
+  + publishPost(id, req)
+  + createTag(createTagDto, req)
+  + getAllTags(req)
+  + deleteTag(id, req)
+  __ Examiners __
+  + assignExaminerToContest(contestId, assignExaminerDto, req)
+  + getExaminersByContest(contestId, req)
+  + removeExaminerFromContest(contestId, examinerId, req)
+  + getAllExaminers(req)
+  __ Campaign __
+  + createCampaign(createCampaignDto, image?, req?)
+  + updateCampaign(id, updateCampaignDto, image?, req?)
+  __ Schedule __
+  + createSchedule(createScheduleDto, req)
+  + getSchedulesByExaminer(examinerId, req)
+  + getSchedulesByContest(contestId, req)
+  + updateSchedule(scheduleId, updateScheduleDto, req)
+  + deleteSchedule(scheduleId, req)
+  __ Paintings __
+  + assignAwardToPainting(paintingId, assignAwardDto, req)
+  + unassignAwardFromPainting(paintingId, req)
+  + uploadRound2PaintingImage(paintingId, image?, title?, description?)
+}
+
+StaffController --> StaffService
+StaffService --> Contest
+StaffService --> Round
+StaffService --> Painting
+StaffService --> ContestExaminer
+StaffService --> Examiner
+StaffService --> Campaign
+StaffService --> User
+StaffService --> Schedule
+StaffService --> Competitor
+StaffService --> Award
+StaffService --> Evaluation
+StaffService --> FirebaseService
+
+@enduml

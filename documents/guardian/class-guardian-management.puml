@@ -1,0 +1,49 @@
+@startuml Guardian Management
+
+skinparam classAttributeIconSize 0
+
+title Guardian Management - Class Diagram
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+  --
+  role : UserRole
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK, FK→User>>
+  --
+  guardianId : string
+}
+
+class GuardiansService <<Service>> {
+  + assignStudentToGuardian(studentData, guardianId)
+  + getStudentsByGuardian(guardianId)
+  + getCompetitorSubmissions(competitorId)
+}
+
+class GuardiansController <<Controller>> {
+  .. POST api/guardians ..
+  + assignStudentToGuardian(body)
+  .. GET api/guardians ..
+  + getStudentsByGuardian(guardianId)
+  + getCompetitorSubmissions(competitorId)
+}
+
+class AuthService <<Service>> {
+  + register(registerDto)
+}
+
+class UsersService <<Service>> {
+  + submissions(userId)
+}
+
+Competitor --> User : "guardianId"
+
+GuardiansController --> GuardiansService
+GuardiansService --> Competitor
+GuardiansService --> User
+GuardiansService --> AuthService : "register students"
+GuardiansService --> UsersService : "get submissions"
+
+@enduml

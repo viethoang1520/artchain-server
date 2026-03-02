@@ -1,0 +1,70 @@
+@startuml Admin - Ban User
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Admin - Ban User
+
+actor Admin
+participant "AdminScreen" as Screen
+participant "AdminController" as Controller
+participant "AdminService" as Service
+participant "UserRepository" as Repo
+database "Database" as DB
+
+Admin -> Screen : Access
+activate Screen
+
+Screen -> Controller : banUser(userId)
+activate Controller
+
+Controller -> Service : banUser(userId)
+activate Service
+
+Service -> Repo : findOne({userId})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return user
+deactivate Repo
+
+alt User not found
+  Service --> Controller : throw NotFoundException
+  Controller --> Screen : return 404
+  Screen --> Admin : Show error message
+else Already banned
+  Service --> Controller : return {success: false}
+  Controller --> Screen : return data
+  Screen --> Admin : Show already banned
+else User found & active
+  Service -> Repo : update(id, {status: 0})
+  activate Repo
+  Repo -> DB : update
+  activate DB
+  DB --> Repo : return data
+  deactivate DB
+  Repo --> Service : return result
+  deactivate Repo
+
+  Service --> Controller : return {success: true}
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> Admin : Show success
+  deactivate Screen
+end
+
+@enduml

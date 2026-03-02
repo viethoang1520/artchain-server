@@ -1,0 +1,120 @@
+@startuml Contest Flow
+
+skinparam backgroundColor White
+skinparam ActivityBackgroundColor #E8E8E8
+skinparam ActivityBorderColor #888888
+skinparam ActivityFontSize 13
+skinparam ArrowColor #555555
+skinparam ActivityDiamondBackgroundColor #E8E8E8
+skinparam ActivityDiamondBorderColor #888888
+skinparam PartitionBackgroundColor #F5F5F5
+skinparam PartitionBorderColor #AAAAAA
+skinparam NoteBackgroundColor #F5F5F5
+skinparam NoteBorderColor #AAAAAA
+
+title Contest Flow
+
+|Staff|
+start
+:Fill contest form\n+ upload banner & rules;
+
+|System|
+:Upload banner to\nFirebase Storage;
+:Upload rule file to\nFirebase Storage;
+:Get signed URLs;
+:Create Contest entity\n(status: DRAFT);
+
+while (More rounds?) is ([Yes])
+  :Create Round entity;
+endwhile ([No])
+
+|Staff|
+:Contest created (DRAFT);
+
+:Select examiner\nto assign;
+
+|System|
+:Find contest by ID;
+:Find examiner by ID;
+
+if (Examiner found?) then ([Yes])
+  :Check if already assigned;
+
+  if (Already assigned?) then ([Yes])
+    |Staff|
+    :Error: Already assigned;
+    detach
+  else ([No])
+    :Create ContestExaminer entity;
+
+    |Staff|
+    :Create evaluation schedule\nfor examiner;
+
+    |System|
+    :Validate examiner is\nassigned to contest;
+    :Create Schedule entity;
+    :Update examiner's\nassignedScheduleId;
+
+    |Staff|
+    :Examiner assigned with schedule;
+  endif
+else ([No])
+  |Staff|
+  :Error: Examiner not found;
+  detach
+endif
+
+note right
+  Repeat for each examiner
+end note
+
+|Staff|
+:Select contest to publish;
+
+|System|
+:Find contest by ID;
+
+if (Status = DRAFT?) then ([Yes])
+  if (numberOfTablesRound2\nvalid (2-26)?) then ([Yes])
+    :Determine status by date:\n- endDate < now → ENDED\n- startDate ≤ now ≤ endDate → ACTIVE\n- startDate > now → UPCOMING;
+    :Save contest;
+    |Staff|
+    :Contest published;
+  else ([No])
+    |Staff|
+    :Error: Invalid table count;
+    detach
+  endif
+else ([No])
+  |Staff|
+  :Error: Can only publish DRAFT;
+  detach
+endif
+
+|System|
+:Find latest ACTIVE contest;
+:Find all users\nwith role COMPETITOR;
+
+while (More competitors?) is ([Yes])
+  |User|
+  :Receive email about\nnew contest;
+
+  if (Has push tokens?) then ([Yes])
+    :Receive push notification\nvia Firebase FCM;
+  endif
+
+  |System|
+endwhile ([No])
+
+|Staff|
+:Users notified;
+
+note right
+  Cron jobs also run:
+  - Midnight: expired contests → ENDED
+  - Hourly: UPCOMING with startDate ≤ now → ACTIVE
+end note
+
+stop
+
+@enduml

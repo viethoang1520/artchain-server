@@ -1,0 +1,131 @@
+@startuml Contest Round 1
+
+skinparam backgroundColor White
+skinparam ActivityBackgroundColor #E8E8E8
+skinparam ActivityBorderColor #888888
+skinparam ActivityFontSize 13
+skinparam ArrowColor #555555
+skinparam ActivityDiamondBackgroundColor #E8E8E8
+skinparam ActivityDiamondBorderColor #888888
+skinparam PartitionBackgroundColor #F5F5F5
+skinparam PartitionBorderColor #AAAAAA
+skinparam NoteBackgroundColor #F5F5F5
+skinparam NoteBorderColor #AAAAAA
+
+title Contest Round 1
+
+|Competitor|
+start
+:Browse active contests;
+
+|System|
+:Return paginated contests\n(status: ACTIVE);
+
+|Competitor|
+:Select contest to join;
+
+|System|
+:Check contest is ACTIVE;
+:Check competitor not\nalready joined;
+
+if (Valid?) then ([Yes])
+  :Guardian assigns competitor;
+  :Create Competitor entity\nlinked to contest;
+  |Competitor|
+  :Upload painting\n(image + description);
+
+  |System|
+  :Upload image to\nFirebase Storage;
+  :Create Painting entity\n(status: PENDING);
+else ([No])
+  |Competitor|
+  :Error: Cannot join contest;
+  detach
+endif
+
+|Staff|
+:View pending submissions;
+
+|System|
+:Find paintings by\nround & status PENDING;
+
+|Staff|
+:Review each submission;
+
+if (Approve?) then ([Yes])
+  |System|
+  :Update painting status\nto ACCEPTED;
+else ([No])
+  |System|
+  :Update painting status\nto REJECTED;
+
+  |Competitor|
+  :Receive rejection notice;
+  detach
+endif
+
+note right
+  Repeat for each
+  pending submission
+end note
+
+|Examiner|
+:View assigned paintings\nfor evaluation;
+
+|System|
+:Find paintings assigned\nto this examiner\n(status: ACCEPTED);
+
+|Examiner|
+:Grade painting with criteria\n(creativity, composition,\ncolor, technical, aesthetic);
+
+|System|
+:Validate all criteria\nscores provided;
+:Calculate final score =\nweighted average;
+:Save evaluation;
+:Update painting finalScore;
+
+note right
+  Each examiner evaluates
+  paintings in their
+  assigned schedule
+end note
+
+|System|
+:Collect all graded paintings\nfor this round;
+:Rank paintings by finalScore;
+:Select top N competitors\nbased on contest config;
+
+|Staff|
+:View qualified competitors\nfor Round 2;
+
+:Request original artwork\nfrom top competitors;
+
+|Competitor|
+:Submit original artwork;
+
+|System|
+:Update painting status\nto ORIGINAL_SUBMITTED;
+
+|Staff|
+:Verify original matches\ndigital submission;
+
+if (Matches?) then ([Yes])
+  |System|
+  :Competitor confirmed\nfor Round 2;
+else ([No])
+  |System|
+  :Flag competitor as\ndisqualified;
+
+  |Staff|
+  :Handle disqualification;
+  detach
+endif
+
+note right
+  Repeat for each
+  qualified competitor
+end note
+
+stop
+
+@enduml

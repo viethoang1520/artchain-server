@@ -1,0 +1,9 @@
+---
+title: Transaction - State Diagram
+---
+stateDiagram-v2
+    [*] --> PENDING : Create
+    PENDING --> SUCCESS : Webhook Success
+    PENDING --> FAILED : Webhook Failed
+    SUCCESS --> [*]
+    FAILED --> [*]

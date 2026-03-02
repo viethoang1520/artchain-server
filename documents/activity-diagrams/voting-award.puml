@@ -1,0 +1,122 @@
+@startuml Voting and Award Assignment
+
+skinparam backgroundColor White
+skinparam ActivityBackgroundColor #E8E8E8
+skinparam ActivityBorderColor #888888
+skinparam ActivityFontSize 13
+skinparam ArrowColor #555555
+skinparam ActivityDiamondBackgroundColor #E8E8E8
+skinparam ActivityDiamondBorderColor #888888
+skinparam PartitionBackgroundColor #F5F5F5
+skinparam PartitionBorderColor #AAAAAA
+skinparam NoteBackgroundColor #F5F5F5
+skinparam NoteBorderColor #AAAAAA
+
+title Voting and Award Assignment
+
+|User|
+start
+:Browse contest paintings;
+
+|System|
+:Return paintings\n(exclude top 3 winners);
+
+note right
+  Only non-top-3 paintings
+  are eligible for voting
+end note
+
+|User|
+:Select painting to vote for;
+
+|System|
+:Validate user is logged in;
+:Check user has not\nalready voted for\nthis painting in this round;
+
+if (Already voted?) then ([Yes])
+  |User|
+  :Error: Already voted;
+  detach
+else ([No])
+  :Create Vote entity;
+  :Increment painting\nvote count;
+
+  |User|
+  :Vote recorded successfully;
+endif
+
+note right
+  Users can vote for
+  multiple different paintings
+  but only once per painting
+end note
+
+|System|
+:Calculate final rankings\nbased on examiner scores;
+:Identify top 3 winners\nby finalScore;
+:Identify audience\nfavorite by vote count;
+
+|Staff|
+:View contest results:\n- 1st, 2nd, 3rd place\n- Audience favorite winner;
+
+:Create awards for contest;
+
+|System|
+:Validate contest exists;
+
+|Staff|
+while (More awards?) is ([Yes])
+  :Define award\n(name, description,\nprize value, quantity);
+
+  |System|
+  :Create Award entity\nlinked to contest;
+endwhile ([No])
+
+|Staff|
+:Assign awards to winners;
+
+|System|
+while (More winners?) is ([Yes])
+  :Link award to\nwinning competitor;
+  :Create award notification;
+endwhile ([No])
+
+|Staff|
+:Create announcement post;
+
+|System|
+:Create Post entity\n(status: DRAFT);
+
+|Staff|
+:Publish post;
+
+|System|
+:Update post status\nto PUBLISHED;
+
+|User|
+:Receive email notification;
+:Receive push notification;
+
+|Staff|
+:Create exhibition\n(2D or 3D format);
+
+|System|
+:Create Exhibition entity;
+
+|Staff|
+:Add winning paintings\nto exhibition;
+
+|System|
+while (More paintings?) is ([Yes])
+  :Link painting\nto exhibition;
+endwhile ([No])
+
+:Exhibition ready for\npublic viewing;
+
+|User|
+:Browse exhibitions;
+:View winning artworks;
+
+stop
+
+@enduml

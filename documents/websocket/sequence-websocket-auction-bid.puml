@@ -1,0 +1,91 @@
+@startuml WebSocket - Auction Bidding
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title WebSocket - Auction Bidding
+
+actor Bidder
+participant "AuctionScreen" as Screen
+participant "AuctionGateway" as Gateway
+participant "AuctionsService" as Service
+participant "BidHistoryRepository" as BidRepo
+participant "AuctionPaintingRepo" as APRepo
+database "Database" as DB
+
+== Join Auction Room ==
+
+Bidder -> Screen : Open auction
+activate Screen
+
+Screen -> Gateway : emit('joinAuction', {auctionId, userId})
+activate Gateway
+
+Gateway -> Service : joinAuction(auctionId, userId)
+activate Service
+Service --> Gateway : return participant
+deactivate Service
+
+Gateway -> Gateway : socket.join('auction_' + id)
+
+Gateway --> Screen : emit('joinedAuction')
+Gateway -> Gateway : broadcast('userJoined') to room
+deactivate Gateway
+
+== Place Bid via WebSocket ==
+
+Screen -> Gateway : emit('placeBid', {auctionPaintingId, bidAmount})
+activate Gateway
+
+Gateway -> Service : placeBid(dto, userId)
+activate Service
+
+Service -> APRepo : findOne({auctionPaintingId})
+activate APRepo
+APRepo -> DB : query
+activate DB
+DB --> APRepo : return data
+deactivate DB
+APRepo --> Service : return auctionPainting
+deactivate APRepo
+
+Service -> BidRepo : update(ACTIVE -> OUTBID)
+activate BidRepo
+BidRepo -> DB : update
+activate DB
+DB --> BidRepo : return data
+deactivate DB
+BidRepo --> Service : return result
+deactivate BidRepo
+
+Service -> BidRepo : create & save(new bid)
+activate BidRepo
+BidRepo -> DB : insert
+activate DB
+DB --> BidRepo : return data
+deactivate DB
+BidRepo --> Service : return bidHistory
+deactivate BidRepo
+
+Service --> Gateway : return {bidHistory, auctionPainting}
+deactivate Service
+
+Gateway -> Gateway : broadcast('newBid') to room
+Gateway --> Screen : emit('bidPlaced')
+deactivate Gateway
+
+Screen --> Bidder : Show bid confirmed
+deactivate Screen
+
+@enduml

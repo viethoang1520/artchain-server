@@ -1,0 +1,76 @@
+@startuml Staff - Create Contest
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Create Contest
+
+actor Staff
+participant "CreateContestScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "FirebaseService" as Firebase
+participant "ContestRepository" as ContestRepo
+participant "RoundRepository" as RoundRepo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill contest form\n+ upload banner & rules
+
+Screen -> Controller : createContest(dto, files)
+activate Controller
+
+Controller -> Service : createContest(dto, files)
+activate Service
+
+Service -> Firebase : upload(banner)
+activate Firebase
+Firebase --> Service : return signedUrl
+deactivate Firebase
+
+Service -> Firebase : upload(ruleFile)
+activate Firebase
+Firebase --> Service : return signedUrl
+deactivate Firebase
+
+Service -> ContestRepo : create & save(contest)
+activate ContestRepo
+ContestRepo -> DB : insert
+activate DB
+DB --> ContestRepo : return data
+deactivate DB
+ContestRepo --> Service : return contest
+deactivate ContestRepo
+
+loop For each round
+  Service -> RoundRepo : create & save(round)
+  activate RoundRepo
+  RoundRepo -> DB : insert
+  activate DB
+  DB --> RoundRepo : return data
+  deactivate DB
+  RoundRepo --> Service : return round
+  deactivate RoundRepo
+end
+
+Service --> Controller : return {contest, rounds}
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Staff : Show success
+deactivate Screen
+
+@enduml

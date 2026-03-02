@@ -1,0 +1,78 @@
+@startuml Contest Cron - Auto Transitions
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Contest Cron - Auto State Transitions
+
+actor "Scheduler" as Cron
+participant "ContestCronService" as Service
+participant "ContestRepository" as Repo
+database "Database" as DB
+
+== Every day at midnight ==
+
+Cron -> Service : handleEndedContests()
+activate Service
+
+Service -> Repo : find({endDate <= now,\nstatus IN [ACTIVE, UPCOMING, DRAFT]})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return expired contests
+deactivate Repo
+
+loop For each expired contest
+  Service -> Repo : update({status: ENDED})
+  activate Repo
+  Repo -> DB : update
+  activate DB
+  DB --> Repo : return data
+  deactivate DB
+  Repo --> Service : return result
+  deactivate Repo
+end
+
+deactivate Service
+
+== Every hour ==
+
+Cron -> Service : handleActiveContests()
+activate Service
+
+Service -> Repo : find({startDate <= now <= endDate,\nstatus: UPCOMING})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return ready contests
+deactivate Repo
+
+loop For each ready contest
+  Service -> Repo : update({status: ACTIVE})
+  activate Repo
+  Repo -> DB : update
+  activate DB
+  DB --> Repo : return data
+  deactivate DB
+  Repo --> Service : return result
+  deactivate Repo
+end
+
+deactivate Service
+
+@enduml

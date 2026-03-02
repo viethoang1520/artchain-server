@@ -1,0 +1,43 @@
+@startuml Contest State Diagram
+title Contest - State Transitions
+skinparam state {
+  BackgroundColor<<initial>> LightBlue
+  BackgroundColor<<active>> LightGreen
+  BackgroundColor<<terminal>> LightGray
+}
+
+state "DRAFT" as DRAFT <<initial>>
+state "ACTIVE" as ACTIVE <<active>>
+state "UPCOMING" as UPCOMING
+state "ENDED" as ENDED
+state "COMPLETED" as COMPLETED <<terminal>>
+
+note right of DRAFT
+  **Default/Initial State**
+  Set on creation via
+  staffs.service.ts → createContest()
+  status = createContestDto.status || DRAFT
+end note
+
+[*] --> DRAFT : createContest()\n[staffs.service.ts L117]
+
+DRAFT --> ACTIVE : publishContest()\n[staffs.service.ts L308]\n(only from DRAFT, validates config)
+
+DRAFT --> ENDED : Cron: handleEndedContests()\n[contest-cron.service.ts L39]\n(endDate <= today midnight)
+
+UPCOMING --> ACTIVE : Cron: handleActiveContests()\n[contest-cron.service.ts L115]\n(startDate <= today <= endDate,\nruns EVERY_HOUR)
+
+UPCOMING --> ENDED : Cron: handleEndedContests()\n[contest-cron.service.ts L35]\n(endDate <= today midnight,\nruns EVERY_DAY_AT_MIDNIGHT)
+
+ACTIVE --> ENDED : Cron: handleEndedContests()\n[contest-cron.service.ts L31]\n(endDate <= today midnight,\nruns EVERY_DAY_AT_MIDNIGHT)
+
+note bottom of COMPLETED
+  No code path transitions
+  TO ContestStatus.COMPLETED.
+  Enum exists but is unused
+  in current codebase.
+  Possibly manual DB update
+  or future feature.
+end note
+
+@enduml

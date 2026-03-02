@@ -1,0 +1,68 @@
+@startuml Staff - Publish Contest
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Publish Contest
+
+actor Staff
+participant "ContestDetailScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "ContestRepository" as Repo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Controller : publishContest(contestId)
+activate Controller
+
+Controller -> Service : publishContest(contestId)
+activate Service
+
+Service -> Repo : findOne({contestId})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return contest
+deactivate Repo
+
+alt Status != DRAFT
+  Service --> Controller : return {success: false}
+  Controller --> Screen : return data
+  Screen --> Staff : Show error
+else Status = DRAFT
+  Service -> Service : Determine status\nbased on dates
+
+  Service -> Repo : save(contest)
+  activate Repo
+  Repo -> DB : update
+  activate DB
+  DB --> Repo : return data
+  deactivate DB
+  Repo --> Service : return contest
+  deactivate Repo
+
+  Service --> Controller : return contest
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> Staff : Show success
+  deactivate Screen
+end
+
+@enduml

@@ -1,0 +1,155 @@
+@startuml Auction Flow
+
+skinparam backgroundColor White
+skinparam ActivityBackgroundColor #E8E8E8
+skinparam ActivityBorderColor #888888
+skinparam ActivityFontSize 13
+skinparam ArrowColor #555555
+skinparam ActivityDiamondBackgroundColor #E8E8E8
+skinparam ActivityDiamondBorderColor #888888
+skinparam PartitionBackgroundColor #F5F5F5
+skinparam PartitionBorderColor #AAAAAA
+skinparam NoteBackgroundColor #F5F5F5
+skinparam NoteBorderColor #AAAAAA
+
+title Auction Flow
+
+|Staff|
+start
+:Create auction\n(set start/end time, paintings,\nfloor price, ceil price, bid step);
+
+|System|
+:Validate paintings belong\nto contest winners;
+:Create Auction entity\n(status: PENDING);
+
+while (More paintings?) is ([Yes])
+  :Create AuctionPainting entity\n(floor price, ceil price, bid step);
+endwhile ([No])
+
+|Staff|
+:Auction created;
+
+note right
+  Cron job will transition
+  PENDING → ONGOING
+  when startDate ≤ now
+end note
+
+|User|
+:Login to system;
+
+|System|
+:Authenticate user;
+:Return access token;
+
+|User|
+:Navigate to wallet;
+:Initiate deposit;
+
+|System|
+:Create payment order;
+
+|PayOS|
+:Generate checkout URL\n& QR code;
+
+|User|
+:Complete payment on PayOS;
+
+|PayOS|
+:Send payment webhook;
+
+|System|
+:Receive webhook;
+:Verify transaction signature;
+:Update wallet balance;
+
+|User|
+:Wallet funded;
+
+:Browse active auctions;
+
+|System|
+:Return auctions\n(status: ONGOING);
+
+|User|
+:Select auction to join;
+
+|System|
+:Validate auction is ONGOING;
+:Check user wallet balance\n>= minimum deposit;
+
+if (Sufficient balance?) then ([Yes])
+  :Register user as\nauction participant;
+  |User|
+  :Joined auction successfully;
+else ([No])
+  |User|
+  :Error: Insufficient balance;
+  detach
+endif
+
+|User|
+:Connect to auction\nvia WebSocket;
+
+|System|
+:Join socket room\n(auction_{id});
+:Broadcast "userJoined";
+
+|User|
+:View auction paintings\n& current prices;
+:Select painting to bid on;
+:Enter bid amount;
+:Emit "placeBid" event;
+
+|System|
+:Validate painting not sold;
+:Validate auction still ONGOING;
+:Calculate minimum bid\n(currentPrice + bidStep);
+
+if (Bid >= minimum?) then ([Yes])
+  if (Bid <= ceil price?) then ([Yes])
+    :Set previous ACTIVE bids\nto OUTBID;
+    :Create BidHistory\n(status: ACTIVE);
+    :Update painting current price;
+    :Broadcast "newBid"\nto all participants;
+
+    |User|
+    :Bid placed successfully;
+  else ([No])
+    |User|
+    :Error: Exceeds ceiling price;
+    detach
+  endif
+else ([No])
+  |User|
+  :Error: Bid too low;
+  detach
+endif
+
+|System|
+:Auction time expires;
+:Update auction status\nto COMPLETED;
+
+while (More paintings?) is ([Yes])
+  :Find highest ACTIVE bid;
+
+  if (Has winning bid?) then ([Yes])
+    :Mark painting as SOLD;
+    :Deduct amount from\nwinner's wallet;
+
+    |User|
+    :Receive notification\n(email + push);
+
+    |System|
+  else ([No])
+    :Mark painting as UNSOLD;
+  endif
+endwhile ([No])
+
+|User|
+:Receive winning notification;
+:Arrange artwork pickup/delivery;
+
+stop
+
+@enduml

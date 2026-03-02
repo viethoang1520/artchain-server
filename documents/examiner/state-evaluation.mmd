@@ -1,0 +1,7 @@
+---
+title: Evaluation - State Diagram
+---
+stateDiagram-v2
+    [*] --> PENDING : Create
+    PENDING --> COMPLETED : Evaluate
+    COMPLETED --> [*]

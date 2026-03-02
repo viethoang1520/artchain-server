@@ -1,0 +1,69 @@
+@startuml Sponsor Management
+
+skinparam classAttributeIconSize 0
+
+title Sponsor Management - Class Diagram
+
+enum SponsorStatus {
+  PENDING
+  PAID
+}
+
+class Campaign <<Entity>> {
+  + campaignId : number <<PK, Auto>>
+  --
+  title : string
+  currentAmount : decimal(15,2)
+}
+
+class Sponsor <<Entity>> {
+  + sponsorId : number <<PK, Auto>>
+  --
+  name : string
+  logoUrl : string
+  contactInfo : string
+  sponsorshipAmount : decimal(10,2)
+  status : SponsorStatus
+  campaignId : number
+}
+
+class CreateSponsorDto <<DTO>> {
+  name : string
+  contactInfo : string
+  sponsorshipAmount : number
+  campaignId : number
+}
+
+class FirebaseService <<Service>> {
+  + getStorage() : Bucket
+}
+
+class PaymentsService <<Service>> {
+  + createPayment(sponsorId, totalAmount, campaignId)
+}
+
+class SponsorsService <<Service>> {
+  + createSponsor(createSponsorDto, file?)
+  + getAllSponsors(status?)
+  + getSponsorById(id)
+}
+
+class SponsorsController <<Controller>> {
+  .. GET api/sponsors ..
+  + getAllSponsors(status?)
+  + getSponsorById(id)
+  .. POST api/sponsors ..
+  + createSponsor(file, createSponsorDto)
+}
+
+Sponsor --> SponsorStatus
+Sponsor --> Campaign : "campaignId"
+
+SponsorsController --> SponsorsService
+SponsorsService --> Sponsor
+SponsorsService --> Campaign
+SponsorsService --> FirebaseService : "logo upload"
+SponsorsService --> PaymentsService : "create payment"
+SponsorsService ..> CreateSponsorDto
+
+@enduml

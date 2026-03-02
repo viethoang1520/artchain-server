@@ -1,0 +1,8 @@
+---
+title: Bid History - State Diagram
+---
+stateDiagram-v2
+    [*] --> ACTIVE : Place Bid
+    ACTIVE --> OUTBID : New Higher Bid
+    ACTIVE --> [*] : Auction Ends (Winner)
+    OUTBID --> [*]

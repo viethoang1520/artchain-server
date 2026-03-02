@@ -1,0 +1,87 @@
+@startuml Admin Management
+
+skinparam classAttributeIconSize 0
+
+title Admin Management - Class Diagram
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+}
+
+class Evaluation <<Entity>> {
+  + id : string <<UUID, PK>>
+}
+
+class Vote <<Entity>> {
+  + voteId : number <<PK>>
+}
+
+class Award <<Entity>> {
+  + awardId : number <<PK>>
+}
+
+class Competitor <<Entity>> {
+  + competitorId : string <<PK>>
+}
+
+class Examiner <<Entity>> {
+  + examinerId : string <<PK>>
+}
+
+class Exhibition <<Entity>> {
+  + exhibitionId : number <<PK>>
+}
+
+class Campaign <<Entity>> {
+  + campaignId : number <<PK>>
+}
+
+class AdminService <<Service>> {
+  + findAllCompetitors(paginationDto)
+  + getAllAccounts(paginationDto, role?)
+  + banUser(id)
+  + activateUser(id)
+  + getSystemStatistics()
+  + getContestStatistics(contestId)
+  + getTopCompetitors(limit)
+  + getTopExaminers(limit)
+  + getMostVotedPaintings(limit)
+  + getUserGrowthStatistics(startDate?, endDate?, groupBy)
+}
+
+class AdminController <<Controller>> {
+  .. GET api/admin/accounts ..
+  + getAllAccounts(paginationDto, role?)
+  .. PATCH api/admin/users ..
+  + banUser(id)
+  + activateUser(id)
+  .. GET api/admin/statistics ..
+  + getSystemStatistics()
+  + getContestStatistics(contestId)
+  + getTopCompetitors(limit?)
+  + getTopExaminers(limit?)
+  + getMostVotedPaintings(limit?)
+  + getUserGrowthStatistics(startDate?, endDate?, groupBy?)
+}
+
+AdminController --> AdminService
+AdminService --> User
+AdminService --> Contest
+AdminService --> Painting
+AdminService --> Evaluation
+AdminService --> Vote
+AdminService --> Award
+AdminService --> Competitor
+AdminService --> Examiner
+AdminService --> Exhibition
+AdminService --> Campaign
+
+@enduml

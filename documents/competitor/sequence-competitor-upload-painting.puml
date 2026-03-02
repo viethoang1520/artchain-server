@@ -1,0 +1,74 @@
+@startuml Competitor - Upload Painting
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Competitor - Upload Painting
+
+actor Competitor
+participant "UploadScreen" as Screen
+participant "PaintingsController" as Controller
+participant "PaintingsService" as Service
+participant "FirebaseService" as Firebase
+participant "PaintingRepository" as Repo
+database "Database" as DB
+
+Competitor -> Screen : Access
+activate Screen
+
+Screen -> Screen : Fill form & select file
+
+Screen -> Controller : uploadFile(dto, file)
+activate Controller
+
+Controller -> Service : uploadFile(dto, file)
+activate Service
+
+Service -> Repo : findOne({competitorId, roundId})
+activate Repo
+Repo -> DB : query
+activate DB
+DB --> Repo : return data
+deactivate DB
+Repo --> Service : return existing
+deactivate Repo
+
+alt Already submitted for this round
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> Competitor : Show error message
+else Not yet submitted
+  Service -> Firebase : upload(file)
+  activate Firebase
+  Firebase --> Service : return signedUrl
+  deactivate Firebase
+
+  Service -> Repo : create & save(painting)
+  activate Repo
+  Repo -> DB : insert
+  activate DB
+  DB --> Repo : return data
+  deactivate DB
+  Repo --> Service : return painting
+  deactivate Repo
+
+  Service --> Controller : return painting
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> Competitor : Show success
+  deactivate Screen
+end
+
+@enduml

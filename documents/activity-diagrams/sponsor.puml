@@ -1,0 +1,100 @@
+@startuml Sponsor Flow
+
+skinparam backgroundColor White
+skinparam ActivityBackgroundColor #E8E8E8
+skinparam ActivityBorderColor #888888
+skinparam ActivityFontSize 13
+skinparam ArrowColor #555555
+skinparam ActivityDiamondBackgroundColor #E8E8E8
+skinparam ActivityDiamondBorderColor #888888
+skinparam PartitionBackgroundColor #F5F5F5
+skinparam PartitionBorderColor #AAAAAA
+skinparam NoteBackgroundColor #F5F5F5
+skinparam NoteBorderColor #AAAAAA
+
+title Sponsor Flow
+
+|Staff|
+start
+:Fill campaign form\n& upload image;
+
+|System|
+:Validate user role\n(STAFF or ADMIN);
+
+if (Authorized?) then ([Yes])
+  :Upload image to\nFirebase Storage;
+  :Create & save\nCampaign entity;
+  |Staff|
+  :Campaign created;
+else ([No])
+  :Error: Unauthorized;
+  detach
+endif
+
+|Sponsor|
+:Fill sponsor form\n& upload logo;
+:Select campaign\n& enter amount;
+
+|System|
+:Find campaign by ID;
+
+if (Campaign found?) then ([Yes])
+  if (Campaign expired?) then ([Yes])
+    |Sponsor|
+    :Error: Campaign expired;
+    detach
+  else ([No])
+    if (Logo provided?) then ([Yes])
+      :Upload logo to\nFirebase Storage;
+    endif
+
+    :Create Sponsor entity\n(status: PENDING);
+
+    note right
+      Begin DB transaction
+    end note
+
+    :Create Transaction\n(status: PENDING);
+    :Create Order\n(linked to Transaction);
+    :Commit transaction;
+
+    |PayOS|
+    :Generate payment link;
+    :Return checkout URL\n& QR code;
+
+    |Sponsor|
+    :Receive checkout URL\n& QR code;
+    :Complete payment\non PayOS;
+
+    |PayOS|
+    :Send payment webhook;
+
+    |System|
+    :Receive webhook;
+    :Find Order by orderCode;
+    :Find linked Transaction;
+
+    if (Payment code = '00'?) then ([Success])
+      :Order → COMPLETED;
+      :Transaction → SUCCESS;
+      :Sponsor → PAID;
+      :Save all entities;
+      |Sponsor|
+      :Donation complete;
+      stop
+    else ([Failed])
+      :Order → CANCELLED;
+      :Transaction → FAILED;
+      :Save all entities;
+      |Sponsor|
+      :Payment failed;
+      detach
+    endif
+  endif
+else ([No])
+  |Sponsor|
+  :Error: Campaign not found;
+  detach
+endif
+
+@enduml

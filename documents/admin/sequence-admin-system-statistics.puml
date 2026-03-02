@@ -1,0 +1,83 @@
+@startuml Admin - System Statistics
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Admin - Get System Statistics
+
+actor Admin
+participant "DashboardScreen" as Screen
+participant "AdminController" as Controller
+participant "AdminService" as Service
+participant "UserRepository" as UserRepo
+participant "ContestRepository" as ContestRepo
+participant "PaintingRepository" as PaintRepo
+participant "EvaluationRepository" as EvalRepo
+database "Database" as DB
+
+Admin -> Screen : Access
+activate Screen
+
+Screen -> Controller : getSystemStatistics()
+activate Controller
+
+Controller -> Service : getSystemStatistics()
+activate Service
+
+Service -> UserRepo : count({role filters})
+activate UserRepo
+UserRepo -> DB : query
+activate DB
+DB --> UserRepo : return data
+deactivate DB
+UserRepo --> Service : return counts
+deactivate UserRepo
+
+Service -> ContestRepo : count({status filters})
+activate ContestRepo
+ContestRepo -> DB : query
+activate DB
+DB --> ContestRepo : return data
+deactivate DB
+ContestRepo --> Service : return counts
+deactivate ContestRepo
+
+Service -> PaintRepo : count({status filters})
+activate PaintRepo
+PaintRepo -> DB : query
+activate DB
+DB --> PaintRepo : return data
+deactivate DB
+PaintRepo --> Service : return counts
+deactivate PaintRepo
+
+Service -> EvalRepo : count()
+activate EvalRepo
+EvalRepo -> DB : query
+activate DB
+DB --> EvalRepo : return data
+deactivate DB
+EvalRepo --> Service : return count
+deactivate EvalRepo
+
+Service -> Service : Aggregate statistics\n(top schools, top competitors)
+
+Service --> Controller : return statistics
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+Screen --> Admin : Show dashboard
+deactivate Screen
+
+@enduml

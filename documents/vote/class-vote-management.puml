@@ -1,0 +1,62 @@
+@startuml Vote Management
+
+skinparam classAttributeIconSize 0
+
+title Vote Management - Class Diagram
+
+class Painting <<Entity>> {
+  + paintingId : string <<UUID, PK>>
+}
+
+class Award <<Entity>> {
+  + awardId : number <<PK>>
+}
+
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class User <<Entity>> {
+  + userId : string <<UUID, PK>>
+}
+
+class Vote <<Entity>> {
+  + voteId : number <<PK, Auto>>
+  --
+  paintingId : string
+  accountId : string
+  awardId : number
+  contestId : number
+  createdAt : Date
+  updatedAt : Date
+}
+
+class VotesService <<Service>> {
+  + getVotableAwards(contestId)
+  + getPaintingsForAward(contestId, awardId, accountId?)
+  + voteForAward(accountId, paintingId, awardId, contestId)
+  + removeVoteForAward(accountId, paintingId, awardId, contestId)
+}
+
+class VotesController <<Controller>> {
+  .. GET api/votes ..
+  + getVotableAwards(contestId)
+  + getPaintingsForAward(contestId, awardId, accountId?)
+  .. POST api/votes ..
+  + voteForAward(body)
+  .. DELETE api/votes ..
+  + removeVoteForAward(body)
+}
+
+Vote --> Painting : "paintingId"
+Vote --> Award : "awardId"
+Vote --> Contest : "contestId"
+Vote --> User : "accountId"
+
+VotesController --> VotesService
+VotesService --> Vote
+VotesService ..> Painting
+VotesService ..> Contest
+VotesService ..> Award
+
+@enduml

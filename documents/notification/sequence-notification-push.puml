@@ -1,0 +1,81 @@
+@startuml Notification - Push
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Notification - Push Notification
+
+actor User
+participant "App" as Screen
+participant "NotificationsController" as Controller
+participant "NotificationsService" as Service
+participant "UserRepository" as UserRepo
+participant "FirebaseService" as Firebase
+database "Database" as DB
+
+== Register Push Token ==
+
+User -> Screen : Open app
+activate Screen
+
+Screen -> Controller : addPushTokenForUser(dto)
+activate Controller
+
+Controller -> Service : addPushTokenForUser(userId, dto)
+activate Service
+
+Service -> Service : Check existing token
+
+Service -> Service : create & save(pushToken)
+
+Service --> Controller : return pushToken
+deactivate Service
+Controller --> Screen : return data
+deactivate Controller
+
+== Send Push Notification ==
+
+Screen -> Controller : pushNotification(dto)
+activate Controller
+
+Controller -> Service : pushNotificationForUser(dto)
+activate Service
+
+Service -> UserRepo : findOne({userId, relations: pushTokens})
+activate UserRepo
+UserRepo -> DB : query
+activate DB
+DB --> UserRepo : return data
+deactivate DB
+UserRepo --> Service : return user with tokens
+deactivate UserRepo
+
+alt No tokens found
+  Service --> Controller : return (no-op)
+  Controller --> Screen : return data
+else Has tokens
+  Service -> Firebase : pushNotification({tokens, notification})
+  activate Firebase
+  Firebase --> Service : return result
+  deactivate Firebase
+
+  Service --> Controller : return result
+  deactivate Service
+  Controller --> Screen : return data
+  deactivate Controller
+  Screen --> User : Show notification
+  deactivate Screen
+end
+
+@enduml

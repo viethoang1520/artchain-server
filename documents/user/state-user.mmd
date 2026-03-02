@@ -1,0 +1,7 @@
+---
+title: User - State Diagram
+---
+stateDiagram-v2
+    [*] --> ACTIVE : Register
+    ACTIVE --> INACTIVE : Admin Ban
+    INACTIVE --> ACTIVE : Admin Activate

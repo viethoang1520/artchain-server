@@ -1,0 +1,95 @@
+@startuml Staff - Assign Award to Painting
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+title Staff - Assign Award to Painting
+
+actor Staff
+participant "AwardScreen" as Screen
+participant "StaffController" as Controller
+participant "StaffService" as Service
+participant "PaintingRepository" as PaintRepo
+participant "AwardRepository" as AwardRepo
+database "Database" as DB
+
+Staff -> Screen : Access
+activate Screen
+
+Screen -> Controller : assignAwardToPainting(paintingId, awardId)
+activate Controller
+
+Controller -> Service : assignAwardToPainting(paintingId, awardId)
+activate Service
+
+Service -> PaintRepo : findOne({paintingId, relations: ['award']})
+activate PaintRepo
+PaintRepo -> DB : query
+activate DB
+DB --> PaintRepo : return data
+deactivate DB
+PaintRepo --> Service : return painting
+deactivate PaintRepo
+
+alt Painting not found
+  Service --> Controller : throw NotFoundException
+  Controller --> Screen : return 404
+  Screen --> Staff : Show error
+else Already has award
+  Service --> Controller : throw BadRequestException
+  Controller --> Screen : return 400
+  Screen --> Staff : Show already awarded
+else No award yet
+  Service -> AwardRepo : findOne({awardId, relations: ['paintings']})
+  activate AwardRepo
+  AwardRepo -> DB : query
+  activate DB
+  DB --> AwardRepo : return data
+  deactivate DB
+  AwardRepo --> Service : return award
+  deactivate AwardRepo
+
+  Service -> PaintRepo : count({awardId})
+  activate PaintRepo
+  PaintRepo -> DB : query
+  activate DB
+  DB --> PaintRepo : return data
+  deactivate DB
+  PaintRepo --> Service : return count
+  deactivate PaintRepo
+
+  alt Award quantity exceeded
+    Service --> Controller : throw BadRequestException
+    Controller --> Screen : return 400
+    Screen --> Staff : Show limit reached
+  else Slots available
+    Service -> PaintRepo : save({awardId})
+    activate PaintRepo
+    PaintRepo -> DB : update
+    activate DB
+    DB --> PaintRepo : return data
+    deactivate DB
+    PaintRepo --> Service : return painting
+    deactivate PaintRepo
+
+    Service --> Controller : return {painting, remainingSlots}
+    deactivate Service
+    Controller --> Screen : return data
+    deactivate Controller
+    Screen --> Staff : Show success
+    deactivate Screen
+  end
+end
+
+@enduml

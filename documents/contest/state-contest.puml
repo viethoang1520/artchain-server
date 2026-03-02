@@ -1,0 +1,28 @@
+@startuml Contest State Diagram
+
+skinparam backgroundColor White
+skinparam state {
+  BackgroundColor #E8E8E8
+  BorderColor #888888
+  FontColor Black
+  FontSize 14
+}
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 12
+
+title Contest - State Diagram
+
+[*] --> DRAFT : Create
+
+DRAFT --> UPCOMING : Publish (startDate > now)
+DRAFT --> ACTIVE : Publish (startDate ≤ now ≤ endDate)
+DRAFT --> ENDED : Publish (endDate < now)
+
+UPCOMING --> ACTIVE : Cron (startDate reached)
+UPCOMING --> ENDED : Cron (endDate reached)
+
+ACTIVE --> ENDED : Cron (endDate reached)
+
+ENDED --> [*]
+
+@enduml
