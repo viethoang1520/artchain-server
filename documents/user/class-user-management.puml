@@ -1,8 +1,8 @@
-@startuml User Management
+@startuml User & Profile Management
 
 skinparam classAttributeIconSize 0
 
-title User Management - Class Diagram
+title User & Profile Management - Class Diagram
 
 enum UserRole {
   COMPETITOR
@@ -50,10 +50,20 @@ class Examiner <<Entity>> {
   assignedScheduleId : number
 }
 
+class Contest <<Entity>> {
+  + contestId : number <<PK>>
+}
+
+class ContestExaminer <<Entity>> {
+  + contestId : number <<PK, FK→Contest>>
+  + examinerId : string <<PK, FK→Examiner>>
+}
+
 class UsersService <<Service>> {
-  + submissions(userId)
+  __ User __
   + me(userId)
   + update(id, updateUserDto)
+  + submissions(userId)
   + getAchievements(userId)
 }
 
@@ -72,6 +82,8 @@ User --> UserStatus
 User <|-- Competitor : "userId = competitorId"
 User <|-- Examiner : "userId = examinerId"
 Competitor --> User : "guardianId (Guardian)"
+Examiner --> ContestExaminer
+ContestExaminer --> Contest
 
 UsersController --> UsersService
 UsersService --> User
@@ -79,12 +91,19 @@ UsersService --> Competitor
 UsersService --> Examiner
 
 note as N1
-  <b>Roles as User</b>
+  <b>Roles & Profile</b>
   Admin, Staff, Competitor, Examiner,
   Guardian, and Bidder are all roles
   of the <b>User</b> entity.
   Competitor and Examiner have
   additional profile tables.
+  --
+  Profile data is served through the
+  <b>UsersController</b> (api/users/me).
+  The ProfileService has injected repos
+  for User, Competitor, Examiner,
+  Contest, and ContestExaminer but
+  no public methods are currently exposed.
 end note
 
 @enduml
