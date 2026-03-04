@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   Query,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +22,7 @@ import {
   AddPaintingToAuctionDto,
   QueryAuctionDto,
   GetBidHistoryDto,
+  UpdateAuctionStatusDto,
 } from './dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -158,5 +160,29 @@ export class AuctionsController {
     @Query() queryDto: GetBidHistoryDto,
   ) {
     return await this.auctionsService.getAuctionBidHistory(auctionId, queryDto);
+  }
+
+  @Patch(':auctionId/status')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật trạng thái phiên đấu giá' })
+  @ApiResponse({ status: 200, description: 'Cập nhật trạng thái thành công' })
+  @ApiResponse({ status: 400, description: 'Chuyển trạng thái không hợp lệ' })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền thay đổi trạng thái',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy phiên đấu giá' })
+  async updateAuctionStatus(
+    @Param('auctionId') auctionId: number,
+    @Body() updateStatusDto: UpdateAuctionStatusDto,
+    @Request() req: any,
+  ) {
+    const userId = req.user.sub;
+    return await this.auctionsService.updateAuctionStatus(
+      auctionId,
+      updateStatusDto,
+      userId,
+    );
   }
 }

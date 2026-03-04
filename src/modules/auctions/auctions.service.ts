@@ -20,6 +20,7 @@ import {
   QueryAuctionDto,
   GetBidHistoryDto,
   BidHistoryStatus,
+  UpdateAuctionStatusDto,
 } from './dto';
 
 @Injectable()
@@ -452,5 +453,77 @@ export class AuctionsService {
         totalPages,
       },
     };
+  }
+
+  async updateAuctionStatus(
+    auctionId: number,
+    updateStatusDto: UpdateAuctionStatusDto,
+    userId: string,
+  ): Promise<Auction> {
+    const { status } = updateStatusDto;
+
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+      relations: ['auctioneer'],
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    if (auction.auctioneerId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền cập nhật trạng thái phiên đấu giá này',
+      );
+    }
+
+    const validTransitions: Record<AuctionStatus, AuctionStatus[]> = {
+      [AuctionStatus.PENDING]: [AuctionStatus.ONGOING, AuctionStatus.CANCELLED],
+      [AuctionStatus.ONGOING]: [
+        AuctionStatus.COMPLETED,
+        AuctionStatus.CANCELLED,
+      ],
+      [AuctionStatus.COMPLETED]: [],
+      [AuctionStatus.CANCELLED]: [],
+    };
+
+    if (!validTransitions[auction.status].includes(status)) {
+      throw new BadRequestException(
+        `Không thể chuyển từ trạng thái ${auction.status} sang ${status}`,
+      );
+    }
+
+    if (status === AuctionStatus.ONGOING) {
+      const now = new Date();
+      if (now < auction.startTime) {
+        throw new BadRequestException(
+          'Không thể bắt đầu đấu giá trước thời gian khởi đầu',
+        );
+      }
+      if (now > auction.endTime) {
+        throw new BadRequestException(
+          'Không thể bắt đầu đấu giá sau thời gian kết thúc',
+        );
+      }
+    }
+
+    auction.status = status;
+    const updatedAuction = await this.auctionRepository.save(auction);
+
+    const result = await this.auctionRepository.findOne({
+      where: { auctionId },
+      relations: [
+        'auctioneer',
+        'auctionPaintings',
+        'auctionPaintings.painting',
+        'auctionPaintings.currentBidder',
+      ],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Không thể tải lại thông tin phiên đấu giá');
+    }
+
+    return result;
   }
 }
