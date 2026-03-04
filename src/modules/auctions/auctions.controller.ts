@@ -20,11 +20,12 @@ import {
   PlaceBidDto,
   AddPaintingToAuctionDto,
   QueryAuctionDto,
+  GetBidHistoryDto,
 } from './dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Auctions')
-@Controller('auctions')
+@Controller('/api/auctions')
 export class AuctionsController {
   constructor(private readonly auctionsService: AuctionsService) {}
 
@@ -91,5 +92,71 @@ export class AuctionsController {
   @ApiResponse({ status: 200, description: 'Lấy chi tiết thành công' })
   async getAuctionDetail(@Param('auctionId') auctionId: number) {
     return await this.auctionsService.getAuctionDetail(auctionId);
+  }
+
+  @Get('painting/:auctionPaintingId/bid-history')
+  @ApiOperation({ summary: 'Lấy lịch sử giá của bức tranh đang được đấu giá' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy lịch sử giá thành công',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              bidHistoryId: { type: 'number' },
+              bidAmount: { type: 'number' },
+              bidTime: { type: 'string', format: 'date-time' },
+              status: { type: 'string' },
+              bidder: {
+                type: 'object',
+                properties: {
+                  userId: { type: 'string' },
+                  firstName: { type: 'string' },
+                  lastName: { type: 'string' },
+                  avatar: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        pagination: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            limit: { type: 'number' },
+            totalItems: { type: 'number' },
+            totalPages: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  async getBidHistory(
+    @Param('auctionPaintingId') auctionPaintingId: number,
+    @Query() queryDto: GetBidHistoryDto,
+  ) {
+    return await this.auctionsService.getBidHistory(
+      auctionPaintingId,
+      queryDto,
+    );
+  }
+
+  @Get(':auctionId/bid-history')
+  @ApiOperation({
+    summary: 'Lấy lịch sử giá của tất cả bức tranh trong phiên đấu giá',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy lịch sử giá toàn bộ phiên đấu giá thành công',
+  })
+  async getAuctionBidHistory(
+    @Param('auctionId') auctionId: number,
+    @Query() queryDto: GetBidHistoryDto,
+  ) {
+    return await this.auctionsService.getAuctionBidHistory(auctionId, queryDto);
   }
 }

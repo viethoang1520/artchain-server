@@ -18,6 +18,8 @@ import {
   PlaceBidDto,
   AddPaintingToAuctionDto,
   QueryAuctionDto,
+  GetBidHistoryDto,
+  BidHistoryStatus,
 } from './dto';
 
 @Injectable()
@@ -117,7 +119,6 @@ export class AuctionsService {
     return paintingWithRelations;
   }
 
-
   async joinAuction(
     auctionId: number,
     userId: string,
@@ -159,7 +160,6 @@ export class AuctionsService {
 
     return participantWithRelations;
   }
-
 
   async placeBid(
     placeBidDto: PlaceBidDto,
@@ -318,5 +318,139 @@ export class AuctionsService {
     }
 
     return auction;
+  }
+
+  async getBidHistory(
+    auctionPaintingId: number,
+    queryDto: GetBidHistoryDto,
+  ): Promise<{
+    data: BidHistory[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+    };
+  }> {
+    const { limit = 10, page = 1, status = BidHistoryStatus.ALL } = queryDto;
+    const offset = (page - 1) * limit;
+
+    const auctionPainting = await this.auctionPaintingRepository.findOne({
+      where: { auctionPaintingId },
+      relations: ['painting', 'auction'],
+    });
+
+    if (!auctionPainting) {
+      throw new NotFoundException('Không tìm thấy tranh trong phiên đấu giá');
+    }
+
+    const whereCondition: any = {
+      auctionPaintingId,
+    };
+
+    if (status !== BidHistoryStatus.ALL) {
+      whereCondition.status = status;
+    }
+
+    const [bidHistories, totalItems] =
+      await this.bidHistoryRepository.findAndCount({
+        where: whereCondition,
+        relations: ['bidder'],
+        order: { bidTime: 'DESC' },
+        take: limit,
+        skip: offset,
+      });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data: bidHistories,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    };
+  }
+
+  async getAuctionBidHistory(
+    auctionId: number,
+    queryDto: GetBidHistoryDto,
+  ): Promise<{
+    data: {
+      auctionPaintingId: number;
+      painting: any;
+      bidHistories: BidHistory[];
+    }[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+    };
+  }> {
+    const { limit = 10, page = 1, status = BidHistoryStatus.ALL } = queryDto;
+    const offset = (page - 1) * limit;
+
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    const auctionPaintings = await this.auctionPaintingRepository.find({
+      where: { auctionId },
+      relations: ['painting'],
+      order: { createdAt: 'ASC' },
+    });
+
+    const result: {
+      auctionPaintingId: number;
+      painting: any;
+      bidHistories: BidHistory[];
+    }[] = [];
+    let totalBidHistories = 0;
+
+    for (const auctionPainting of auctionPaintings) {
+      const whereCondition: any = {
+        auctionPaintingId: auctionPainting.auctionPaintingId,
+      };
+
+      if (status !== BidHistoryStatus.ALL) {
+        whereCondition.status = status;
+      }
+
+      const bidHistories = await this.bidHistoryRepository.find({
+        where: whereCondition,
+        relations: ['bidder'],
+        order: { bidTime: 'DESC' },
+      });
+
+      totalBidHistories += bidHistories.length;
+
+      if (bidHistories.length > 0) {
+        result.push({
+          auctionPaintingId: auctionPainting.auctionPaintingId,
+          painting: auctionPainting.painting,
+          bidHistories,
+        });
+      }
+    }
+
+    const totalPages = Math.ceil(totalBidHistories / limit);
+    const paginatedResult = result.slice(offset, offset + limit);
+
+    return {
+      data: paginatedResult,
+      pagination: {
+        page,
+        limit,
+        totalItems: totalBidHistories,
+        totalPages,
+      },
+    };
   }
 }
