@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Assign Award to Painting
-
 actor Staff
 participant "AwardScreen" as Screen
 participant "StaffController" as Controller

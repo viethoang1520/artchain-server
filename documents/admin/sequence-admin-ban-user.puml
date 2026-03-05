@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Admin - Ban User
-
 actor Admin
 participant "AdminScreen" as Screen
 participant "AdminController" as Controller

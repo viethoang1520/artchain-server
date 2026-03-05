@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Schedule Management - Class Diagram
-
 class Contest <<Entity>> {
   + contestId : number <<PK>>
 }

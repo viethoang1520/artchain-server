@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Email - Notify New Contest
-
 actor Staff
 participant "EmailScreen" as Screen
 participant "EmailsController" as Controller

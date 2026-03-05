@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Notification - Push Notification
-
 actor User
 participant "App" as Screen
 participant "NotificationsController" as Controller

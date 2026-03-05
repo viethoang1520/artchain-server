@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Create Campaign
-
 actor Staff
 participant "CampaignScreen" as Screen
 participant "StaffController" as Controller

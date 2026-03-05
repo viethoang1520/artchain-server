@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Auth - Register
-
 actor User
 participant "RegisterScreen" as Screen
 participant "AuthController" as Controller

@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Examiner Management - Class Diagram
-
 class Examiner <<Entity>> {
   + examinerId : string <<PK, FK→User>>
   --

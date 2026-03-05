@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Sponsor - Create Sponsor with Payment
-
 actor User
 participant "SponsorScreen" as Screen
 participant "SponsorsController" as Controller

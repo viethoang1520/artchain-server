@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Vote - Submit Vote
-
 actor User
 participant "VoteScreen" as Screen
 participant "VotesController" as Controller

@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Sponsor Management - Class Diagram
-
 enum SponsorStatus {
   PENDING
   PAID

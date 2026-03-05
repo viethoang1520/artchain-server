@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Guardian Management - Class Diagram
-
 class User <<Entity>> {
   + userId : string <<UUID, PK>>
   --

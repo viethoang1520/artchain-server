@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Create Contest
-
 actor Staff
 participant "CreateContestScreen" as Screen
 participant "StaffController" as Controller

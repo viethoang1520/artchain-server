@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Award Management - Class Diagram
-
 class Contest <<Entity>> {
   + contestId : number <<PK>>
 }

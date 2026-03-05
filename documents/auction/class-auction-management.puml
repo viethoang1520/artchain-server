@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Auction Management - Class Diagram
-
 enum AuctionStatus {
   PENDING
   ONGOING

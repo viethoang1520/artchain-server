@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Create & Publish Post
-
 actor Staff
 participant "PostScreen" as Screen
 participant "StaffController" as Controller

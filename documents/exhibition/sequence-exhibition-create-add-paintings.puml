@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Exhibition - Create & Add Paintings
-
 actor Staff
 participant "ExhibitionScreen" as Screen
 participant "ExhibitionsController" as Controller

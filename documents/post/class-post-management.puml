@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Post Management - Class Diagram
-
 enum PostStatus {
   DRAFT
   PUBLISHED

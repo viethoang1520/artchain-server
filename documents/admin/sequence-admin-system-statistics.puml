@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Admin - Get System Statistics
-
 actor Admin
 participant "DashboardScreen" as Screen
 participant "AdminController" as Controller

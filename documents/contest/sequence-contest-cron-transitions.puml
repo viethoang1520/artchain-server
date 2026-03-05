@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Contest Cron - Auto State Transitions
-
 actor "Scheduler" as Cron
 participant "ContestCronService" as Service
 participant "ContestRepository" as Repo

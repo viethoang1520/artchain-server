@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Authentication - Class Diagram
-
 class User <<Entity>> {
   + userId : string <<UUID, PK>>
   --
@@ -24,12 +22,14 @@ class Examiner <<Entity>> {
 class AuthService <<Service>> {
   + login(loginDto)
   + register(registerDto)
+  + logout(userId)
 }
 
 class AuthController <<Controller>> {
   .. POST api/auth ..
   + login(loginDto)
   + register(registerDto)
+  + logout()
 }
 
 class LoginDTO <<DTO>> {

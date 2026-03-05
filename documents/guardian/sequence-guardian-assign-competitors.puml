@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Guardian - Assign Competitors
-
 actor Guardian
 participant "GuardianScreen" as Screen
 participant "GuardiansController" as Controller

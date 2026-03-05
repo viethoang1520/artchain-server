@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Painting & Submission Management - Class Diagram
-
 class Competitor <<Entity>> {
   + competitorId : string <<PK>>
 }

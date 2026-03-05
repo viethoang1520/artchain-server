@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Examiner - Evaluate Painting
-
 actor Examiner
 participant "EvaluateScreen" as Screen
 participant "PaintingsController" as Controller

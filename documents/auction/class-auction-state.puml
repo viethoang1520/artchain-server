@@ -1,5 +1,4 @@
 @startuml Auction State Diagram
-title Auction - State Transitions
 skinparam state {
   BackgroundColor<<initial>> LightBlue
   BackgroundColor<<active>> LightGreen

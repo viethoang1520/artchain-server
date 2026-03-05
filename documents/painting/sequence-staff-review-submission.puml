@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Review Submission
-
 actor Staff
 participant "SubmissionScreen" as Screen
 participant "StaffController" as Controller

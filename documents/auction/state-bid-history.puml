@@ -10,8 +10,6 @@ skinparam state {
 skinparam ArrowColor #555555
 skinparam ArrowFontSize 12
 
-title Bid History - State Diagram
-
 [*] --> ACTIVE : Place Bid
 
 ACTIVE --> OUTBID : New Higher Bid

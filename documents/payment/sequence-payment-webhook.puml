@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Payment - Webhook Processing
-
 actor "PayOS" as PayOS
 participant "PaymentsController" as Controller
 participant "PaymentsService" as Service

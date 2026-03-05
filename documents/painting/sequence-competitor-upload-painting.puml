@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Competitor - Upload Painting
-
 actor Competitor
 participant "UploadScreen" as Screen
 participant "PaintingsController" as Controller

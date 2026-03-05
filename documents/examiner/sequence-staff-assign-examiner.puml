@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Assign Examiner to Contest
-
 actor Staff
 participant "ContestDetailScreen" as Screen
 participant "StaffController" as Controller

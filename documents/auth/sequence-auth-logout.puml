@@ -1,0 +1,43 @@
+@startuml Auth - Logout
+
+skinparam style strictuml
+skinparam backgroundColor White
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #666666
+  LifeLineBackgroundColor #F5F5F5
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBorderColor #333333
+  ActorBackgroundColor #FFFFFF
+}
+
+actor User
+participant "AppScreen" as Screen
+participant "AuthController" as Controller
+participant "AuthService" as Service
+
+User -> Screen : Click logout
+activate Screen
+
+Screen -> Controller : logout() [Bearer token]
+activate Controller
+
+Controller -> Service : logout(userId)
+activate Service
+
+Service -> Service : Invalidate token / clear session
+
+Service --> Controller : return {message: "Logged out"}
+deactivate Service
+
+Controller --> Screen : return 200
+deactivate Controller
+
+Screen -> Screen : Remove access_token from storage
+Screen --> User : Redirect to login
+deactivate Screen
+
+@enduml

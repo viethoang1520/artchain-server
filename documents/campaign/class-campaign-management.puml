@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Campaign Management - Class Diagram
-
 enum CampaignStatus {
   ACTIVE
   CLOSED

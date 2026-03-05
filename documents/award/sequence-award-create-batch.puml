@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Award - Create Batch Awards
-
 actor Staff
 participant "AwardScreen" as Screen
 participant "AwardsController" as Controller

@@ -10,3 +10,12 @@
 | 4   | `joinAuction()`          | Join an auction session          |
 | 5   | `placeBid()`             | Place a bid                      |
 | 6   | `getAuctionDetail()`     | Get auction detail by ID         |
+
+# Auction Gateway (WebSocket)
+
+| No  | Method                | Description                           |
+| --- | --------------------- | ------------------------------------- |
+| 1   | `handleConnection()`  | Handle new WebSocket client connect   |
+| 2   | `handleDisconnect()`  | Handle WebSocket client disconnect    |
+| 3   | `handleJoinAuction()` | Handle client joining an auction room |
+| 4   | `handlePlaceBid()`    | Handle client placing a bid via WS    |

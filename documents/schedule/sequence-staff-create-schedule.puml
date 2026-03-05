@@ -14,8 +14,6 @@ skinparam sequence {
   ActorBackgroundColor #FFFFFF
 }
 
-title Staff - Create Schedule
-
 actor Staff
 participant "ScheduleScreen" as Screen
 participant "StaffController" as Controller

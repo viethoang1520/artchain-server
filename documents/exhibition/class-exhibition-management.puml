@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Exhibition Management - Class Diagram
-
 class Painting <<Entity>> {
   + paintingId : string <<UUID, PK>>
 }

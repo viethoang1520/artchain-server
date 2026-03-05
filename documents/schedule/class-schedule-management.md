@@ -13,3 +13,11 @@
 | 3   | `getSchedulesByContest()`  | Get schedules for a contest   |
 | 4   | `updateSchedule()`         | Update a schedule             |
 | 5   | `deleteSchedule()`         | Delete a schedule             |
+
+**Examiners Controller — Schedule Methods:**
+
+**Prefix:** `api/examiners`
+
+| No  | Method             | Description                                  |
+| --- | ------------------ | -------------------------------------------- |
+| 1   | `getMySchedules()` | Get schedules for the authenticated examiner |

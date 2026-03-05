@@ -2,8 +2,6 @@
 
 skinparam classAttributeIconSize 0
 
-title Contest Management - Class Diagram
-
 enum ContestStatus {
   UPCOMING
   DRAFT
