@@ -19,11 +19,12 @@ start
 :Browse contest paintings;
 
 |System|
-:Return paintings\n(exclude top 3 winners);
+:Return paintings\n(exclude award winners);
 
 note right
-  Only non-top-3 paintings
-  are eligible for voting
+  Paintings that already won
+  an award (1st, 2nd, 3rd)
+  are excluded from voting.
 end note
 
 |User|
@@ -45,34 +46,14 @@ else ([No])
   :Vote recorded successfully;
 endif
 
-note right
-  Users can vote for
-  multiple different paintings
-  but only once per painting
-end note
-
 |System|
 :Calculate final rankings\nbased on examiner scores;
-:Identify top 3 winners\nby finalScore;
+:Identify award winners\nby finalScore\n(based on each award's quantity);
 :Identify audience\nfavorite by vote count;
 
 |Staff|
-:View contest results:\n- 1st, 2nd, 3rd place\n- Audience favorite winner;
+:View contest results:\n- Award winners (1st, 2nd, 3rd)\n- Audience favorite winner;
 
-:Create awards for contest;
-
-|System|
-:Validate contest exists;
-
-|Staff|
-while (More awards?) is ([Yes])
-  :Define award\n(name, description,\nprize value, quantity);
-
-  |System|
-  :Create Award entity\nlinked to contest;
-endwhile ([No])
-
-|Staff|
 :Assign awards to winners;
 
 |System|
@@ -98,7 +79,7 @@ endwhile ([No])
 :Receive push notification;
 
 |Staff|
-:Create exhibition\n(2D or 3D format);
+:Create exhibition;
 
 |System|
 :Create Exhibition entity;
@@ -110,6 +91,12 @@ endwhile ([No])
 while (More paintings?) is ([Yes])
   :Link painting\nto exhibition;
 endwhile ([No])
+
+|Staff|
+:Create 3D space\nfor exhibition;
+
+|System|
+:Create 3D Space entity\nlinked to exhibition;
 
 :Exhibition ready for\npublic viewing;
 
