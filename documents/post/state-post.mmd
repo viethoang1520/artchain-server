@@ -8,4 +8,5 @@ stateDiagram-v2
     PUBLISHED --> ARCHIVED : Archive
     PUBLISHED --> DELETED : Delete
     DELETED --> DRAFT : Restore
+    DELETED --> [*]
     ARCHIVED --> [*]

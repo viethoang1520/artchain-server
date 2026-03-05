@@ -4,4 +4,5 @@ title: Sponsor - State Diagram
 stateDiagram-v2
     [*] --> PENDING : Create Sponsorship
     PENDING --> PAID : Payment Success (Webhook)
+    PENDING --> [*] : Cancelled
     PAID --> [*]
