@@ -17,7 +17,7 @@ export class BidHistory {
   @Column({ name: 'auction_painting_id', nullable: false })
   auctionPaintingId: number;
 
-  @Column({ name: 'bidder_id', nullable: false })
+  @Column({ name: 'bidder_id', type: 'uuid', nullable: false })
   bidderId: string;
 
   @Column({
@@ -41,7 +41,7 @@ export class BidHistory {
     default: 'ACTIVE',
     nullable: true,
   })
-  status: string; 
+  status: string;
 
   @ManyToOne(
     () => AuctionPainting,

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { ExhibitionPainting } from './exhibition-painting.entity';
 
 @Entity('exhibitions')
 export class Exhibition {
@@ -37,8 +38,8 @@ export class Exhibition {
   updatedAt: Date;
 
   @OneToMany(
-    () => require('./exhibition-painting.entity').ExhibitionPainting,
-    (exhibitionPainting: any) => exhibitionPainting.exhibition,
+    () => ExhibitionPainting,
+    (exhibitionPainting) => exhibitionPainting.exhibition,
   )
-  exhibitionPaintings: any[];
+  exhibitionPaintings: ExhibitionPainting[];
 }

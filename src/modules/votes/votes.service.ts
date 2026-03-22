@@ -151,7 +151,6 @@ export class VotesService {
     };
   }
 
-
   async getVotableAwards(contestId: number) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
@@ -397,7 +396,7 @@ export class VotesService {
       throw new BadRequestException('Round 2 not found for this contest');
     }
 
-    const round2Ids = round2Tables.map((r) => r.roundId.toString());
+    const round2Ids = round2Tables.map((r) => r.roundId);
 
     if (!painting.roundId || !round2Ids.includes(painting.roundId)) {
       throw new BadRequestException(

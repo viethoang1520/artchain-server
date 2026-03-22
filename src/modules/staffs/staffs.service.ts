@@ -571,7 +571,7 @@ export class StaffService {
                 // Count paintings for this table
                 const paintingCount = await this.paintingsRepository.count({
                   where: {
-                    roundId: tableRound.roundId.toString(),
+                    roundId: tableRound.roundId,
                     status: In([
                       'PENDING',
                       'ACCEPTED',
@@ -614,7 +614,7 @@ export class StaffService {
 
           const paintingCount = await this.paintingsRepository.count({
             where: {
-              roundId: round.roundId.toString(),
+              roundId: round.roundId,
               status: In([
                 'PENDING',
                 'ACCEPTED',
@@ -702,7 +702,7 @@ export class StaffService {
       const tablesWithCompetitors = await Promise.all(
         allRound2Tables.map(async (tableRound) => {
           const paintings = await this.paintingsRepository.find({
-            where: { roundId: tableRound.roundId.toString() },
+            where: { roundId: tableRound.roundId },
           });
 
           const competitorIds = [
@@ -1669,7 +1669,7 @@ export class StaffService {
         const painting = this.paintingsRepository.create({
           competitorId,
           contestId,
-          roundId: savedRound.roundId.toString(),
+          roundId: savedRound.roundId,
           title: `Bảng ${tableNames[i]} - ${competitorName}`,
           description: `Tranh cho Vòng 2, Bảng ${tableNames[i]}. Đang chờ giám khảo tải lên.`,
           status: 'ACCEPTED',
@@ -1687,7 +1687,7 @@ export class StaffService {
     for (let i = 0; i < tablesToCreate; i++) {
       const tableName = `Table ${tableNames[i]}`;
       paintingsByTable[tableName] = createdPaintings.filter(
-        (p) => p.roundId === createdRounds[i].roundId.toString(),
+        (p) => p.roundId === createdRounds[i].roundId,
       );
 
       tableDistribution[tableName] = {
@@ -1834,7 +1834,7 @@ export class StaffService {
 
     // Validate painting is in ROUND_2
     const round = await this.roundsRepository.findOne({
-      where: { roundId: parseInt(painting.roundId) },
+      where: { roundId: painting.roundId },
     });
 
     if (!round || round.name !== 'ROUND_2') {
@@ -1964,7 +1964,7 @@ export class StaffService {
     const paintings = await this.paintingsRepository.find({
       where: {
         contestId,
-        roundId: String(round1.roundId),
+        roundId: round1.roundId,
         status: In(['ACCEPTED', 'ORIGINAL_SUBMITTED']),
       },
     });

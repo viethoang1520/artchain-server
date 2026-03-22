@@ -403,7 +403,7 @@ export class PaintingsService {
     }
 
     const round = await this.roundRepository.findOne({
-      where: { roundId: parseInt(painting.roundId) },
+      where: { roundId: painting.roundId },
     });
 
     if (!round || round.name !== 'ROUND_2') {
@@ -562,7 +562,7 @@ export class PaintingsService {
         const paintings = await this.paintingRepository.find({
           where: {
             contestId: contestId,
-            roundId: round.roundId.toString(),
+            roundId: round.roundId,
           },
         });
 

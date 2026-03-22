@@ -23,6 +23,8 @@ import { VotesModule } from './modules/votes/votes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { AuctionsModule } from './modules/auctions/auctions.module';
+import { WalletsModule } from './modules/wallets/wallets.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { AuctionsModule } from './modules/auctions/auctions.module';
     NotificationsModule,
     WebsocketModule,
     AuctionsModule,
+    WalletsModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

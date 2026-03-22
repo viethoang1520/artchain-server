@@ -17,7 +17,7 @@ export class AuctionParticipant {
   @Column({ name: 'auction_id', nullable: false })
   auctionId: number;
 
-  @Column({ name: 'user_id', nullable: false })
+  @Column({ name: 'user_id', type: 'uuid', nullable: false })
   userId: string;
 
   @CreateDateColumn({ type: 'timestamp', name: 'join_time' })
