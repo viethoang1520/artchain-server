@@ -155,12 +155,11 @@ export class ExhibitionsService {
           }
         }
 
-        painting.position = ep.position ? JSON.parse(ep.position) : null;
-        painting.rotation = ep.rotation ? JSON.parse(ep.rotation) : null;
-        painting.scale = ep.scale ? JSON.parse(ep.scale) : null;
-
         return {
           ...painting,
+          position: ep.position ? JSON.parse(ep.position) : null,
+          rotation: ep.rotation ? JSON.parse(ep.rotation) : null,
+          scale: ep.scale ? JSON.parse(ep.scale) : null,
           competitor: competitorInfo,
           award: awardInfo,
           addedAt: ep.createdAt,

@@ -264,29 +264,29 @@ export class AuctionsService {
     }
 
     if (startFrom) {
-      queryBuilder.andWhere('auction.start_time >= :startFrom', {
+      queryBuilder.andWhere('auction.startTime >= :startFrom', {
         startFrom: new Date(startFrom),
       });
     }
     if (startTo) {
-      queryBuilder.andWhere('auction.start_time <= :startTo', {
+      queryBuilder.andWhere('auction.startTime <= :startTo', {
         startTo: new Date(startTo),
       });
     }
 
     if (endFrom) {
-      queryBuilder.andWhere('auction.end_time >= :endFrom', {
+      queryBuilder.andWhere('auction.endTime >= :endFrom', {
         endFrom: new Date(endFrom),
       });
     }
     if (endTo) {
-      queryBuilder.andWhere('auction.end_time <= :endTo', {
+      queryBuilder.andWhere('auction.endTime <= :endTo', {
         endTo: new Date(endTo),
       });
     }
 
     queryBuilder
-      .orderBy('auction.start_time', 'DESC')
+      .orderBy('auction.startTime', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

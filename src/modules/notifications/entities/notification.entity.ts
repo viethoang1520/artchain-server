@@ -35,7 +35,7 @@ export class Notifications {
   })
   updatedAt: Date;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, (user) => user.notifications)
   @JoinColumn({ name: 'account_id' })
   user: User;
 }

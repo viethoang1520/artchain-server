@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Contest } from '../../contests/entities/contests.entity';
 import { Painting } from '../../paintings/entities/paintings.entity';
+import { Vote } from '../../votes/entities/vote.entity';
 
 @Entity('awards')
 export class Award {
@@ -46,11 +47,13 @@ export class Award {
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-
   @ManyToOne(() => Contest, (contest) => contest.awards)
   @JoinColumn({ name: 'contest_id' })
   contest: Contest;
 
   @OneToMany(() => Painting, (painting) => painting.award)
   paintings: Painting[];
+
+  @OneToMany(() => Vote, (vote) => vote.award)
+  votes: Vote[];
 }

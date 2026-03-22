@@ -27,7 +27,7 @@ export class ExhibitionPainting {
   @JoinColumn({ name: 'exhibition_id' })
   exhibition: Exhibition;
 
-  @ManyToOne(() => Painting)
+  @ManyToOne(() => Painting, (painting) => painting.exhibitionPaintings)
   @JoinColumn({ name: 'painting_id' })
   painting: Painting;
 

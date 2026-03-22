@@ -41,7 +41,7 @@ export class Auction {
   })
   status: AuctionStatus;
 
-  @Column({ name: 'auctioneer_id', nullable: false })
+  @Column({ name: 'auctioneer_id', nullable: true })
   auctioneerId: string;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
@@ -50,7 +50,7 @@ export class Auction {
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User, (user) => user.createdAuctions, { eager: true })
   @JoinColumn({ name: 'auctioneer_id' })
   auctioneer: User;
 

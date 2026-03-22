@@ -10,6 +10,7 @@ import {
 import { Painting } from '../../paintings/entities/paintings.entity';
 import { Award } from '../../awards/entities/award.entity';
 import { Contest } from '../../contests/entities/contests.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('votes')
 export class Vote {
@@ -35,6 +36,10 @@ export class Vote {
   updatedAt: Date;
 
   // Relations
+  @ManyToOne(() => User, (user) => user.votes)
+  @JoinColumn({ name: 'account_id' })
+  user: User;
+
   @ManyToOne(() => Painting)
   @JoinColumn({ name: 'painting_id' })
   painting: Painting;
