@@ -52,7 +52,7 @@ export class Post {
   updated_at: Date;
 
   // Relations
-  @ManyToOne(() => User, { nullable: true })
+  @ManyToOne(() => User, (user) => user.createdPosts, { nullable: true })
   @JoinColumn({ name: 'account_id' })
   creator: User;
 

@@ -7,7 +7,7 @@ export class ContestExaminer {
   @PrimaryColumn({ name: 'contest_id' })
   contestId: number;
 
-  @PrimaryColumn({ name: 'examiner_id' })
+  @PrimaryColumn({ name: 'examiner_id', type: 'uuid' })
   examinerId: string;
 
   @Column({ name: 'assignment_date', nullable: true })

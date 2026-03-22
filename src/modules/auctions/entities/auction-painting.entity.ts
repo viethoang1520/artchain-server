@@ -71,7 +71,7 @@ export class AuctionPainting {
   })
   currentBid: number | null;
 
-  @Column({ name: 'current_bidder_id', nullable: true })
+  @Column({ name: 'current_bidder_id', type: 'uuid', nullable: true })
   currentBidderId: string | null;
 
   @Column({

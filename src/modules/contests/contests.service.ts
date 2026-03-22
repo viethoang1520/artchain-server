@@ -393,7 +393,7 @@ export class ContestsService {
           where: {
             competitorId: userId,
             contestId: contestId,
-            roundId: round1.roundId.toString(),
+            roundId: round1.roundId,
           },
         });
 

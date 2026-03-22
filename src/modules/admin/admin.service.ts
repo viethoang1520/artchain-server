@@ -488,11 +488,11 @@ export class AdminService {
     });
 
     const round1Submissions = round1
-      ? paintings.filter((p) => p.roundId === String(round1.roundId)).length
+      ? paintings.filter((p) => p.roundId === round1.roundId).length
       : 0;
 
     // Đếm tất cả submissions trong ROUND_2 (tất cả các tables)
-    const round2RoundIds = round2Rounds.map((r) => String(r.roundId));
+    const round2RoundIds = round2Rounds.map((r) => r.roundId);
     const round2Submissions = paintings.filter((p) =>
       round2RoundIds.includes(p.roundId),
     ).length;
@@ -501,7 +501,7 @@ export class AdminService {
     const round2ByTable: Record<string, number> = {};
     round2Rounds.forEach((round) => {
       const tableSubmissions = paintings.filter(
-        (p) => p.roundId === String(round.roundId),
+        (p) => p.roundId === round.roundId,
       ).length;
       round2ByTable[round.table || 'Unknown'] = tableSubmissions;
     });

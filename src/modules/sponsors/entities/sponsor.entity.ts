@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Campaign } from '../../campaigns/entities/campaign.entity';
 
 export enum SponsorStatus {
   PENDING = 'PENDING',
@@ -43,4 +50,8 @@ export class Sponsor {
 
   @Column({ name: 'campaign_id', nullable: true })
   campaignId: number;
+
+  @ManyToOne(() => Campaign, (campaign) => campaign.sponsors)
+  @JoinColumn({ name: 'campaign_id' })
+  campaign: Campaign;
 }

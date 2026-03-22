@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   Query,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,11 +21,14 @@ import {
   PlaceBidDto,
   AddPaintingToAuctionDto,
   QueryAuctionDto,
+  GetBidHistoryDto,
+  UpdateAuctionStatusDto,
 } from './dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuctionGateway } from '../websocket/gateways/auction.gateway';
 
 @ApiTags('Auctions')
-@Controller('auctions')
+@Controller('/api/auctions')
 export class AuctionsController {
   constructor(private readonly auctionsService: AuctionsService) {}
 
@@ -83,7 +87,21 @@ export class AuctionsController {
   @ApiResponse({ status: 201, description: 'Đặt giá thành công' })
   async placeBid(@Body() placeBidDto: PlaceBidDto, @Request() req: any) {
     const userId = req.user.sub;
-    return await this.auctionsService.placeBid(placeBidDto, userId);
+    const result = await this.auctionsService.placeBid(placeBidDto, userId);
+
+    AuctionGateway.broadcastNewBid({
+      auctionId: result.auctionPainting.auctionId,
+      auctionPaintingId: result.auctionPainting.auctionPaintingId,
+      paintingId: result.auctionPainting.paintingId,
+      bidAmount: placeBidDto.bidAmount,
+      bidderId: userId,
+      bidderFullName: result.bidderFullName,
+      currentBid: result.auctionPainting.currentBid,
+      currentBidderId: result.auctionPainting.currentBidderId,
+      timestamp: result.bidHistory.bidTime,
+    });
+
+    return result;
   }
 
   @Get(':auctionId')
@@ -91,5 +109,95 @@ export class AuctionsController {
   @ApiResponse({ status: 200, description: 'Lấy chi tiết thành công' })
   async getAuctionDetail(@Param('auctionId') auctionId: number) {
     return await this.auctionsService.getAuctionDetail(auctionId);
+  }
+
+  @Get('painting/:auctionPaintingId/bid-history')
+  @ApiOperation({ summary: 'Lấy lịch sử giá của bức tranh đang được đấu giá' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy lịch sử giá thành công',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              bidHistoryId: { type: 'number' },
+              bidAmount: { type: 'number' },
+              bidTime: { type: 'string', format: 'date-time' },
+              status: { type: 'string' },
+              bidder: {
+                type: 'object',
+                properties: {
+                  userId: { type: 'string' },
+                  firstName: { type: 'string' },
+                  lastName: { type: 'string' },
+                  avatar: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        pagination: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            limit: { type: 'number' },
+            totalItems: { type: 'number' },
+            totalPages: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  async getBidHistory(
+    @Param('auctionPaintingId') auctionPaintingId: number,
+    @Query() queryDto: GetBidHistoryDto,
+  ) {
+    return await this.auctionsService.getBidHistory(
+      auctionPaintingId,
+      queryDto,
+    );
+  }
+
+  @Get(':auctionId/bid-history')
+  @ApiOperation({
+    summary: 'Lấy lịch sử giá của tất cả bức tranh trong phiên đấu giá',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy lịch sử giá toàn bộ phiên đấu giá thành công',
+  })
+  async getAuctionBidHistory(
+    @Param('auctionId') auctionId: number,
+    @Query() queryDto: GetBidHistoryDto,
+  ) {
+    return await this.auctionsService.getAuctionBidHistory(auctionId, queryDto);
+  }
+
+  @Patch(':auctionId/status')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật trạng thái phiên đấu giá' })
+  @ApiResponse({ status: 200, description: 'Cập nhật trạng thái thành công' })
+  @ApiResponse({ status: 400, description: 'Chuyển trạng thái không hợp lệ' })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền thay đổi trạng thái',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy phiên đấu giá' })
+  async updateAuctionStatus(
+    @Param('auctionId') auctionId: number,
+    @Body() updateStatusDto: UpdateAuctionStatusDto,
+    @Request() req: any,
+  ) {
+    const userId = req.user.sub;
+    return await this.auctionsService.updateAuctionStatus(
+      auctionId,
+      updateStatusDto,
+      userId,
+    );
   }
 }
