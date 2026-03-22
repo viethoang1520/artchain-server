@@ -31,6 +31,7 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { Award } from '../awards/entities/award.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { create } from 'domain';
 
 @Injectable()
 export class StaffService {
@@ -69,7 +70,6 @@ export class StaffService {
       let bannerUrl: string | undefined = createContestDto.bannerUrl;
       let ruleUrl: string | undefined = createContestDto.ruleUrl;
 
-      // Upload banner file to Firebase if provided
       if (bannerFile) {
         const bucket = this.firebaseService.getStorage().bucket();
         const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
@@ -111,6 +111,7 @@ export class StaffService {
         ruleUrl,
         numOfAward: createContestDto.numOfAward,
         round2Quantity: createContestDto.round2Quantity,
+        numberOfTablesRound2: createContestDto.numberOfTablesRound2,
         startDate: createContestDto.startDate,
         endDate: createContestDto.endDate,
         status: createContestDto.status || ContestStatus.DRAFT,
@@ -432,7 +433,6 @@ export class StaffService {
 
     const contestWithAwards = await Promise.all(
       contest.awards.map(async (award) => {
-
         const paintings = await this.paintingsRepository.find({
           where: { awardId: award.awardId, contestId: id },
         });
@@ -541,7 +541,6 @@ export class StaffService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    // Get all rounds for this contest without pagination
     const allRounds = await this.roundsRepository.find({
       where: { contestId },
       order: { name: 'ASC', table: 'ASC' },
@@ -564,19 +563,37 @@ export class StaffService {
     const formattedRounds = await Promise.all(
       Object.entries(groupedRounds).map(async ([roundName, rounds]) => {
         if (roundName === 'ROUND_2') {
-          // For ROUND_2, show all tables (A, B, C, D) with basic info
-          const tablesData = rounds
-            .filter((r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table))
-            .map((tableRound) => ({
-              roundId: tableRound.roundId,
-              table: tableRound.table,
-              startDate: tableRound.startDate,
-              endDate: tableRound.endDate,
-              submissionDeadline: tableRound.submissionDeadline,
-              resultAnnounceDate: tableRound.resultAnnounceDate,
-              sendOriginalDeadline: tableRound.sendOriginalDeadline,
-              status: tableRound.status,
-            }));
+          // For ROUND_2, show all tables with basic info
+          const tablesData = await Promise.all(
+            rounds
+              .filter((r) => r.table && /^[A-Z]$/.test(r.table))
+              .map(async (tableRound) => {
+                // Count paintings for this table
+                const paintingCount = await this.paintingsRepository.count({
+                  where: {
+                    roundId: tableRound.roundId.toString(),
+                    status: In([
+                      'PENDING',
+                      'ACCEPTED',
+                      'ORIGINAL_SUBMITTED',
+                      'NOT_SUBMITTED_ORIGINAL',
+                    ]),
+                  },
+                });
+
+                return {
+                  roundId: tableRound.roundId,
+                  table: tableRound.table,
+                  startDate: tableRound.startDate,
+                  endDate: tableRound.endDate,
+                  submissionDeadline: tableRound.submissionDeadline,
+                  resultAnnounceDate: tableRound.resultAnnounceDate,
+                  sendOriginalDeadline: tableRound.sendOriginalDeadline,
+                  status: tableRound.status,
+                  totalPaintings: paintingCount,
+                };
+              }),
+          );
 
           return {
             name: roundName,
@@ -593,7 +610,20 @@ export class StaffService {
             return null;
           }
 
-          const round = paintingsRounds[0]; // Usually only one round per name for non-ROUND_2
+          const round = paintingsRounds[0];
+
+          const paintingCount = await this.paintingsRepository.count({
+            where: {
+              roundId: round.roundId.toString(),
+              status: In([
+                'PENDING',
+                'ACCEPTED',
+                'ORIGINAL_SUBMITTED',
+                'NOT_SUBMITTED_ORIGINAL',
+              ]),
+            },
+          });
+
           return {
             roundId: round.roundId,
             name: roundName,
@@ -605,6 +635,7 @@ export class StaffService {
             sendOriginalDeadline: round.sendOriginalDeadline,
             status: round.status,
             table: round.table,
+            totalPaintings: paintingCount,
           };
         }
       }),
@@ -622,9 +653,7 @@ export class StaffService {
         roundTypes: Object.keys(groupedRounds).filter((roundName) => {
           const rounds = groupedRounds[roundName];
           if (roundName === 'ROUND_2') {
-            return rounds.some(
-              (r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table),
-            );
+            return rounds.some((r) => r.table && /^[A-Z]$/.test(r.table));
           }
           return rounds.some((r) => r.table === 'paintings');
         }),
@@ -984,11 +1013,11 @@ export class StaffService {
       throw new NotFoundException(`Submission with ID ${paintingId} not found`);
     }
 
-    if (reviewDto.status === 'REJECTED' && !reviewDto.reason) {
-      throw new BadRequestException(
-        'Reason is required when rejecting a submission',
-      );
-    }
+    // if (reviewDto.status === 'REJECTED' && !reviewDto.reason) {
+    //   throw new BadRequestException(
+    //     'Reason is required when rejecting a submission',
+    //   );
+    // }
     painting.status = reviewDto.status;
 
     const updatedPainting = await this.paintingsRepository.save(painting);
@@ -998,7 +1027,7 @@ export class StaffService {
       message: `Submission ${reviewDto.status.toLowerCase()} successfully`,
       data: {
         ...updatedPainting,
-        rejectionReason: reviewDto.reason,
+        // rejectionReason: reviewDto.reason,
       },
     };
   }
@@ -1049,12 +1078,12 @@ export class StaffService {
   }
 
   async rejectSubmission(paintingId: string, reason: string) {
-    if (!reason) {
-      throw new BadRequestException(
-        'Reason is required when rejecting a submission',
-      );
-    }
-    return this.reviewSubmission(paintingId, { status: 'REJECTED', reason });
+    // if (!reason) {
+    //   throw new BadRequestException(
+    //     'Reason is required when rejecting a submission',
+    //   );
+    // }
+    return this.reviewSubmission(paintingId, { status: 'REJECTED' });
   }
 
   async getPendingSubmissions(contestId?: number, roundId?: number) {
@@ -1583,7 +1612,7 @@ export class StaffService {
     const topCompetitors = qualifiedCompetitors.map((p) => ({
       competitorId: p.competitorId,
       avgScore: p.avgScore,
-      evaluationCount: 1, 
+      evaluationCount: 1,
     }));
 
     // Generate table names: A, B, C, D, ... up to tablesToCreate
@@ -1632,12 +1661,17 @@ export class StaffService {
       createdRounds.push(savedRound);
 
       for (const competitorId of tables[i]) {
+        const user = await this.usersRepository.findOne({
+          where: { userId: competitorId },
+        });
+        const competitorName = user?.fullName || competitorId;
+
         const painting = this.paintingsRepository.create({
           competitorId,
           contestId,
           roundId: savedRound.roundId.toString(),
-          title: `ROUND_2 - Table ${tableNames[i]} - Pending Upload`,
-          description: `Painting for ROUND_2, Table ${tableNames[i]}. Waiting for examiner to upload.`,
+          title: `Bảng ${tableNames[i]} - ${competitorName}`,
+          description: `Tranh cho Vòng 2, Bảng ${tableNames[i]}. Đang chờ giám khảo tải lên.`,
           status: 'ACCEPTED',
         });
 
@@ -1976,9 +2010,20 @@ export class StaffService {
         );
 
         const validPaintings = paintingsWithScores.filter((p) => p !== null);
-        const bestPainting = validPaintings.sort(
-          (a, b) => b.avgScore - a.avgScore,
-        )[0];
+        const bestPainting = validPaintings.sort((a, b) => {
+          // Sắp xếp theo điểm trung bình giảm dần
+          if (b.avgScore !== a.avgScore) {
+            return b.avgScore - a.avgScore;
+          }
+          // Nếu điểm bằng nhau, sắp xếp theo thời gian nộp tăng dần
+          const dateA = a.submissionDate
+            ? new Date(a.submissionDate).getTime()
+            : Infinity;
+          const dateB = b.submissionDate
+            ? new Date(b.submissionDate).getTime()
+            : Infinity;
+          return dateA - dateB;
+        })[0];
 
         const hasSubmittedOriginal = competitorPaintings.some(
           (p) => p.status === 'ORIGINAL_SUBMITTED',
@@ -2010,8 +2055,7 @@ export class StaffService {
 
     return {
       success: true,
-      message:
-        'Qualified list shows top competitors who passed ROUND_1.',
+      message: 'Qualified list shows top competitors who passed ROUND_1.',
       data: {
         contestId,
         contestTitle: contest.title,

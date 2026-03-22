@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +22,7 @@ import { ExhibitionsService } from './exhibitions.service';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddPaintingsToExhibitionDto } from './dto/add-paintings.dto';
+import { UpdatePaintingDto } from './dto/update-paintings.dto';
 
 @Controller('api/exhibitions')
 @ApiTags('Exhibitions')
@@ -214,5 +216,19 @@ export class ExhibitionsController {
   })
   getPaintingsByExhibition(@Param('id', ParseIntPipe) id: number) {
     return this.exhibitionsService.getPaintingsByExhibition(id);
+  }
+
+  @Patch(':id/paintings')
+  @ApiOperation({
+    summary:
+      'Cập nhật vị trí, xoay, tỉ lệ của các paintings trong triển lãm 3D',
+    description:
+      'Cập nhật vị trí, xoay, tỉ lệ của nhiều paintings trong triển lãm cùng lúc',
+  })
+  updatePaintings(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updatePaintingDto: UpdatePaintingDto,
+  ) {
+    return this.exhibitionsService.updatePaintings(id, updatePaintingDto);
   }
 }
