@@ -1,0 +1,708 @@
+{
+  "errors": {
+    "ERM001": {
+      "type": "inline",
+      "context": "Invalid username or password",
+      "vi": "Tên đăng nhập hoặc mật khẩu không chính xác.",
+      "en": "Invalid username or password."
+    },
+    "ERM002": {
+      "type": "inline",
+      "context": "Account is banned/inactive",
+      "vi": "Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt.",
+      "en": "Your account has been banned or is not activated."
+    },
+    "ERM003": {
+      "type": "inline",
+      "context": "User already exists",
+      "vi": "Tên đăng nhập hoặc email đã tồn tại trong hệ thống.",
+      "en": "Username or email already exists in the system."
+    },
+    "ERM004": {
+      "type": "inline",
+      "context": "Required field is empty",
+      "vi": "Vui lòng nhập {field}.",
+      "en": "Please enter {field}."
+    },
+    "ERM005": {
+      "type": "inline",
+      "context": "Invalid email format",
+      "vi": "Email không đúng định dạng. Vui lòng kiểm tra lại.",
+      "en": "Invalid email format. Please check again."
+    },
+    "ERM006": {
+      "type": "inline",
+      "context": "Password too weak",
+      "vi": "Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số.",
+      "en": "Password must be at least 8 characters, including uppercase, lowercase and numbers."
+    },
+    "ERM007": {
+      "type": "inline",
+      "context": "Password confirmation mismatch",
+      "vi": "Mật khẩu xác nhận không khớp.",
+      "en": "Password confirmation does not match."
+    },
+    "ERM008": {
+      "type": "inline",
+      "context": "Invalid phone number format",
+      "vi": "Số điện thoại không đúng định dạng.",
+      "en": "Invalid phone number format."
+    },
+    "ERM009": {
+      "type": "inline",
+      "context": "User not found",
+      "vi": "Không tìm thấy người dùng với ID: {id}.",
+      "en": "User with ID {id} not found."
+    },
+    "ERM010": {
+      "type": "inline",
+      "context": "Contest not found",
+      "vi": "Không tìm thấy cuộc thi với ID: {id}.",
+      "en": "Contest with ID {id} not found."
+    },
+    "ERM011": {
+      "type": "inline",
+      "context": "Invalid file format or size",
+      "vi": "Phương tiện phải có định dạng hỗ trợ ({format}) và kích thước không vượt quá {size}.",
+      "en": "File must be in supported format ({format}) and size must not exceed {size}."
+    },
+    "ERM012": {
+      "type": "inline",
+      "context": "Incorrect number of files",
+      "vi": "Số lượng file phải nằm trong khoảng từ {min_value} đến {max_value}.",
+      "en": "Number of files must be between {min_value} and {max_value}."
+    },
+    "ERM013": {
+      "type": "inline",
+      "context": "No file uploaded",
+      "vi": "Vui lòng chọn file để tải lên.",
+      "en": "Please select a file to upload."
+    },
+    "ERM014": {
+      "type": "inline",
+      "context": "Painting not found",
+      "vi": "Không tìm thấy bài dự thi với ID: {id}.",
+      "en": "Painting with ID {id} not found."
+    },
+    "ERM015": {
+      "type": "inline",
+      "context": "Already submitted painting",
+      "vi": "Bạn đã nộp bài dự thi cho vòng này. Mỗi thí sinh chỉ được nộp một bài.",
+      "en": "You have already submitted a painting for this round. Each competitor can only submit one."
+    },
+    "ERM016": {
+      "type": "inline",
+      "context": "Examiner not assigned to contest",
+      "vi": "Giám khảo chưa được phân công cho cuộc thi này hoặc không hoạt động.",
+      "en": "Examiner is not assigned to this contest or is not active."
+    },
+    "ERM017": {
+      "type": "inline",
+      "context": "No schedule assigned",
+      "vi": "Giám khảo chưa được phân lịch chấm bài cho cuộc thi này.",
+      "en": "Examiner does not have a schedule assigned for this contest."
+    },
+    "ERM018": {
+      "type": "inline",
+      "context": "Wrong evaluation date",
+      "vi": "Bạn chỉ có thể chấm bài vào ngày đã được phân lịch: {date}.",
+      "en": "You can only evaluate on your scheduled date: {date}."
+    },
+    "ERM019": {
+      "type": "inline",
+      "context": "Invalid round for evaluation",
+      "vi": "Phương thức chấm điểm này chỉ áp dụng cho vòng {round_name}.",
+      "en": "This evaluation method is only for {round_name}."
+    },
+    "ERM020": {
+      "type": "inline",
+      "context": "Exhibition not found",
+      "vi": "Không tìm thấy triển lãm với ID: {id}.",
+      "en": "Exhibition with ID {id} not found."
+    },
+    "ERM021": {
+      "type": "inline",
+      "context": "Invalid characters in input",
+      "vi": "Phát hiện ký tự không hợp lệ. Vui lòng xóa các ký tự đặc biệt hoặc emoji.",
+      "en": "Invalid characters detected. Please remove special characters or emojis."
+    },
+    "ERM022": {
+      "type": "inline",
+      "context": "Campaign not found",
+      "vi": "Không tìm thấy chiến dịch với ID: {id}.",
+      "en": "Campaign with ID {id} not found."
+    },
+    "ERM023": {
+      "type": "inline",
+      "context": "Campaign expired",
+      "vi": "Chiến dịch đã hết hạn hoặc không tồn tại.",
+      "en": "Campaign has expired or does not exist."
+    },
+    "ERM024": {
+      "type": "inline",
+      "context": "Sponsor not found",
+      "vi": "Không tìm thấy nhà tài trợ với ID: {id}.",
+      "en": "Sponsor with ID {id} not found."
+    },
+    "ERM025": {
+      "type": "inline",
+      "context": "Order not found",
+      "vi": "Không tìm thấy đơn hàng.",
+      "en": "Order not found."
+    },
+    "ERM026": {
+      "type": "inline",
+      "context": "Transaction not found",
+      "vi": "Không tìm thấy giao dịch.",
+      "en": "Transaction not found."
+    },
+    "ERM027": {
+      "type": "inline",
+      "context": "Award not found",
+      "vi": "Không tìm thấy giải thưởng với ID: {id}.",
+      "en": "Award with ID {id} not found."
+    },
+    "ERM028": {
+      "type": "inline",
+      "context": "Round not found",
+      "vi": "Không tìm thấy vòng thi với ID: {id}.",
+      "en": "Round with ID {id} not found."
+    },
+    "ERM029": {
+      "type": "inline",
+      "context": "Examiner not found",
+      "vi": "Không tìm thấy giám khảo với ID: {id}.",
+      "en": "Examiner with ID {id} not found."
+    },
+    "ERM030": {
+      "type": "inline",
+      "context": "Post not found",
+      "vi": "Không tìm thấy bài viết với ID: {id}.",
+      "en": "Post with ID {id} not found."
+    },
+    "ERM031": {
+      "type": "inline",
+      "context": "Tag not found",
+      "vi": "Không tìm thấy thẻ với ID: {id}.",
+      "en": "Tag with ID {id} not found."
+    },
+    "ERM032": {
+      "type": "inline",
+      "context": "Invalid score range",
+      "vi": "Điểm số phải nằm trong khoảng từ {min} đến {max}.",
+      "en": "Score must be between {min} and {max}."
+    },
+    "ERM033": {
+      "type": "inline",
+      "context": "Duplicate email",
+      "vi": "Email này đã được sử dụng bởi tài khoản khác.",
+      "en": "This email is already used by another account."
+    },
+    "ERM034": {
+      "type": "inline",
+      "context": "Duplicate username",
+      "vi": "Tên đăng nhập này đã được sử dụng.",
+      "en": "This username is already taken."
+    },
+    "ERM035": {
+      "type": "inline",
+      "context": "Invalid date format",
+      "vi": "Ngày không đúng định dạng. Vui lòng sử dụng định dạng {format}.",
+      "en": "Invalid date format. Please use format {format}."
+    },
+    "ERM036": {
+      "type": "inline",
+      "context": "End date before start date",
+      "vi": "Ngày kết thúc phải sau ngày bắt đầu.",
+      "en": "End date must be after start date."
+    },
+    "ERM037": {
+      "type": "inline",
+      "context": "Contest already ended",
+      "vi": "Cuộc thi đã kết thúc, không thể thực hiện thao tác này.",
+      "en": "Contest has ended, this action cannot be performed."
+    },
+    "ERM038": {
+      "type": "inline",
+      "context": "Round already closed",
+      "vi": "Vòng thi đã đóng, không thể nộp bài.",
+      "en": "Round is closed, submissions are not accepted."
+    },
+    "ERM039": {
+      "type": "inline",
+      "context": "Invalid amount",
+      "vi": "Số tiền phải lớn hơn 0.",
+      "en": "Amount must be greater than 0."
+    },
+    "ERM040": {
+      "type": "inline",
+      "context": "Unauthorized access",
+      "vi": "Bạn không có quyền truy cập tài nguyên này.",
+      "en": "You do not have permission to access this resource."
+    },
+    "ERM041": {
+      "type": "inline",
+      "context": "Token expired",
+      "vi": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      "en": "Session has expired. Please login again."
+    },
+    "ERM042": {
+      "type": "inline",
+      "context": "Invalid token",
+      "vi": "Token không hợp lệ.",
+      "en": "Invalid token."
+    },
+    "ERM043": {
+      "type": "inline",
+      "context": "Painting already evaluated",
+      "vi": "Bài dự thi này đã được chấm điểm bởi bạn.",
+      "en": "This painting has already been evaluated by you."
+    },
+    "ERM044": {
+      "type": "inline",
+      "context": "Vote already submitted",
+      "vi": "Bạn đã bình chọn cho bài dự thi này rồi.",
+      "en": "You have already voted for this painting."
+    },
+    "ERM045": {
+      "type": "inline",
+      "context": "Schedule not found",
+      "vi": "Không tìm thấy lịch chấm bài với ID: {id}.",
+      "en": "Schedule with ID {id} not found."
+    },
+    "ERM046": {
+      "type": "inline",
+      "context": "Guardian has no students",
+      "vi": "Phụ huynh này chưa có học sinh nào được gán.",
+      "en": "This guardian has no students assigned."
+    },
+    "ERM047": {
+      "type": "inline",
+      "context": "Invalid birthday format",
+      "vi": "Ngày sinh không hợp lệ.",
+      "en": "Invalid birthday format."
+    },
+    "ERM048": {
+      "type": "inline",
+      "context": "Minimum age not met",
+      "vi": "Thí sinh phải đủ {min_age} tuổi để tham gia.",
+      "en": "Competitor must be at least {min_age} years old to participate."
+    },
+    "ERM049": {
+      "type": "inline",
+      "context": "Maximum age exceeded",
+      "vi": "Thí sinh đã vượt quá độ tuổi tối đa ({max_age}) để tham gia.",
+      "en": "Competitor has exceeded the maximum age ({max_age}) to participate."
+    },
+    "ERM050": {
+      "type": "inline",
+      "context": "Notification not found",
+      "vi": "Không tìm thấy thông báo.",
+      "en": "Notification not found."
+    }
+  },
+  "confirmations": {
+    "CFM001": {
+      "type": "popup",
+      "context": "Confirm delete user",
+      "vi": "Bạn có chắc chắn muốn xóa người dùng này không?",
+      "en": "Are you sure you want to delete this user?"
+    },
+    "CFM002": {
+      "type": "popup",
+      "context": "Confirm delete contest",
+      "vi": "Bạn có chắc chắn muốn xóa cuộc thi này không? Thao tác này không thể hoàn tác.",
+      "en": "Are you sure you want to delete this contest? This action cannot be undone."
+    },
+    "CFM003": {
+      "type": "popup",
+      "context": "Confirm delete painting",
+      "vi": "Bạn có chắc chắn muốn xóa bài dự thi này không?",
+      "en": "Are you sure you want to delete this painting?"
+    },
+    "CFM004": {
+      "type": "popup",
+      "context": "Confirm submit painting",
+      "vi": "Bạn có chắc chắn muốn nộp bài? Sau khi nộp bạn không thể chỉnh sửa.",
+      "en": "Are you sure you want to submit? You cannot edit after submission."
+    },
+    "CFM005": {
+      "type": "popup",
+      "context": "Confirm publish contest",
+      "vi": "Bạn có chắc chắn muốn công bố cuộc thi này không?",
+      "en": "Are you sure you want to publish this contest?"
+    },
+    "CFM006": {
+      "type": "popup",
+      "context": "Confirm close round",
+      "vi": "Bạn có chắc chắn muốn đóng vòng thi này không?",
+      "en": "Are you sure you want to close this round?"
+    },
+    "CFM007": {
+      "type": "popup",
+      "context": "Confirm end contest",
+      "vi": "Bạn có chắc chắn muốn kết thúc cuộc thi này không?",
+      "en": "Are you sure you want to end this contest?"
+    },
+    "CFM008": {
+      "type": "popup",
+      "context": "Confirm assign examiner",
+      "vi": "Bạn có chắc chắn muốn phân công giám khảo này cho cuộc thi không?",
+      "en": "Are you sure you want to assign this examiner to the contest?"
+    },
+    "CFM009": {
+      "type": "popup",
+      "context": "Confirm remove examiner",
+      "vi": "Bạn có chắc chắn muốn gỡ giám khảo khỏi cuộc thi này không?",
+      "en": "Are you sure you want to remove the examiner from this contest?"
+    },
+    "CFM010": {
+      "type": "popup",
+      "context": "Confirm delete exhibition",
+      "vi": "Bạn có chắc chắn muốn xóa triển lãm này không?",
+      "en": "Are you sure you want to delete this exhibition?"
+    },
+    "CFM011": {
+      "type": "popup",
+      "context": "Confirm publish exhibition",
+      "vi": "Bạn có chắc chắn muốn công bố triển lãm này không?",
+      "en": "Are you sure you want to publish this exhibition?"
+    },
+    "CFM012": {
+      "type": "popup",
+      "context": "Confirm ban account",
+      "vi": "Bạn có chắc chắn muốn khóa tài khoản này không?",
+      "en": "Are you sure you want to ban this account?"
+    },
+    "CFM013": {
+      "type": "popup",
+      "context": "Confirm an action for an object",
+      "vi": "Bạn có chắc chắn muốn {action} {object} không?",
+      "en": "Are you sure you want to {action} {object}?"
+    },
+    "CFM014": {
+      "type": "popup",
+      "context": "Confirm cancel payment",
+      "vi": "Bạn có chắc chắn muốn hủy thanh toán này không?",
+      "en": "Are you sure you want to cancel this payment?"
+    },
+    "CFM015": {
+      "type": "popup",
+      "context": "Confirm delete post",
+      "vi": "Bạn có chắc chắn muốn xóa bài viết này không?",
+      "en": "Are you sure you want to delete this post?"
+    },
+    "CFM016": {
+      "type": "popup",
+      "context": "Confirm assign award",
+      "vi": "Bạn có chắc chắn muốn trao giải thưởng này cho bài dự thi?",
+      "en": "Are you sure you want to assign this award to the painting?"
+    },
+    "CFM017": {
+      "type": "popup",
+      "context": "Confirm logout",
+      "vi": "Bạn có chắc chắn muốn đăng xuất không?",
+      "en": "Are you sure you want to logout?"
+    }
+  },
+  "success": {
+    "SSM001": {
+      "type": "toast",
+      "context": "Login successfully",
+      "vi": "Đăng nhập thành công.",
+      "en": "Login successful."
+    },
+    "SSM002": {
+      "type": "toast",
+      "context": "Login failed",
+      "vi": "Đăng nhập không thành công. Vui lòng thử lại.",
+      "en": "Login failed. Please try again."
+    },
+    "SSM003": {
+      "type": "toast",
+      "context": "Register successfully",
+      "vi": "Đăng ký thành công. Vui lòng đăng nhập lại.",
+      "en": "Registration successful. Please login."
+    },
+    "SSM004": {
+      "type": "toast",
+      "context": "User updated successfully",
+      "vi": "Cập nhật thông tin người dùng thành công.",
+      "en": "User information updated successfully."
+    },
+    "SSM005": {
+      "type": "toast",
+      "context": "Profile updated successfully",
+      "vi": "Cập nhật hồ sơ thành công.",
+      "en": "Profile updated successfully."
+    },
+    "SSM006": {
+      "type": "toast",
+      "context": "Contest created successfully",
+      "vi": "Tạo cuộc thi thành công.",
+      "en": "Contest created successfully."
+    },
+    "SSM007": {
+      "type": "toast",
+      "context": "Contest updated successfully",
+      "vi": "Cập nhật cuộc thi thành công.",
+      "en": "Contest updated successfully."
+    },
+    "SSM008": {
+      "type": "toast",
+      "context": "Contest deleted successfully",
+      "vi": "Xóa cuộc thi thành công.",
+      "en": "Contest deleted successfully."
+    },
+    "SSM009": {
+      "type": "toast",
+      "context": "Painting submitted successfully",
+      "vi": "Nộp bài dự thi thành công.",
+      "en": "Painting submitted successfully."
+    },
+    "SSM010": {
+      "type": "toast",
+      "context": "Painting deleted successfully",
+      "vi": "Xóa bài dự thi thành công.",
+      "en": "Painting deleted successfully."
+    },
+    "SSM011": {
+      "type": "toast",
+      "context": "Evaluation submitted successfully",
+      "vi": "Chấm điểm bài dự thi thành công.",
+      "en": "Evaluation submitted successfully."
+    },
+    "SSM012": {
+      "type": "toast",
+      "context": "Evaluation updated successfully",
+      "vi": "Cập nhật điểm chấm thành công.",
+      "en": "Evaluation updated successfully."
+    },
+    "SSM013": {
+      "type": "toast",
+      "context": "Examiner assigned successfully",
+      "vi": "Phân công giám khảo thành công.",
+      "en": "Examiner assigned successfully."
+    },
+    "SSM014": {
+      "type": "toast",
+      "context": "Exhibition created successfully",
+      "vi": "Tạo triển lãm thành công.",
+      "en": "Exhibition created successfully."
+    },
+    "SSM015": {
+      "type": "toast",
+      "context": "Exhibition updated successfully",
+      "vi": "Cập nhật triển lãm thành công.",
+      "en": "Exhibition updated successfully."
+    },
+    "SSM016": {
+      "type": "toast",
+      "context": "Exhibition deleted successfully",
+      "vi": "Xóa triển lãm thành công.",
+      "en": "Exhibition deleted successfully."
+    },
+    "SSM017": {
+      "type": "toast",
+      "context": "Paintings added to exhibition",
+      "vi": "Thêm tranh vào triển lãm thành công.",
+      "en": "Paintings added to exhibition successfully."
+    },
+    "SSM018": {
+      "type": "toast",
+      "context": "Campaign created successfully",
+      "vi": "Tạo chiến dịch tài trợ thành công.",
+      "en": "Campaign created successfully."
+    },
+    "SSM019": {
+      "type": "toast",
+      "context": "Sponsor registered successfully",
+      "vi": "Đăng ký tài trợ thành công.",
+      "en": "Sponsor registered successfully."
+    },
+    "SSM020": {
+      "type": "toast",
+      "context": "Payment completed successfully",
+      "vi": "Thanh toán thành công.",
+      "en": "Payment completed successfully."
+    },
+    "SSM021": {
+      "type": "toast",
+      "context": "Payment cancelled",
+      "vi": "Thanh toán đã bị hủy.",
+      "en": "Payment has been cancelled."
+    },
+    "SSM022": {
+      "type": "toast",
+      "context": "Vote submitted successfully",
+      "vi": "Bình chọn thành công.",
+      "en": "Vote submitted successfully."
+    },
+    "SSM023": {
+      "type": "toast",
+      "context": "Award created successfully",
+      "vi": "Tạo giải thưởng thành công.",
+      "en": "Award created successfully."
+    },
+    "SSM024": {
+      "type": "toast",
+      "context": "Award assigned successfully",
+      "vi": "Trao giải thưởng thành công.",
+      "en": "Award assigned successfully."
+    },
+    "SSM025": {
+      "type": "toast",
+      "context": "Round created successfully",
+      "vi": "Tạo vòng thi thành công.",
+      "en": "Round created successfully."
+    },
+    "SSM026": {
+      "type": "toast",
+      "context": "Round updated successfully",
+      "vi": "Cập nhật vòng thi thành công.",
+      "en": "Round updated successfully."
+    },
+    "SSM027": {
+      "type": "toast",
+      "context": "Schedule created successfully",
+      "vi": "Tạo lịch chấm bài thành công.",
+      "en": "Schedule created successfully."
+    },
+    "SSM028": {
+      "type": "toast",
+      "context": "Students assigned to guardian",
+      "vi": "Gán học sinh cho phụ huynh thành công.",
+      "en": "Students assigned to guardian successfully."
+    },
+    "SSM029": {
+      "type": "toast",
+      "context": "Post created successfully",
+      "vi": "Tạo bài viết thành công.",
+      "en": "Post created successfully."
+    },
+    "SSM030": {
+      "type": "toast",
+      "context": "Post updated successfully",
+      "vi": "Cập nhật bài viết thành công.",
+      "en": "Post updated successfully."
+    },
+    "SSM031": {
+      "type": "toast",
+      "context": "Post deleted successfully",
+      "vi": "Xóa bài viết thành công.",
+      "en": "Post deleted successfully."
+    },
+    "SSM032": {
+      "type": "toast",
+      "context": "Notification sent successfully",
+      "vi": "Gửi thông báo thành công.",
+      "en": "Notification sent successfully."
+    },
+    "SSM033": {
+      "type": "toast",
+      "context": "File uploaded successfully",
+      "vi": "Tải file lên thành công.",
+      "en": "File uploaded successfully."
+    },
+    "SSM034": {
+      "type": "toast",
+      "context": "Account activated successfully",
+      "vi": "Kích hoạt tài khoản thành công.",
+      "en": "Account activated successfully."
+    },
+    "SSM035": {
+      "type": "toast",
+      "context": "Account banned successfully",
+      "vi": "Khóa tài khoản thành công.",
+      "en": "Account banned successfully."
+    },
+    "SSM036": {
+      "type": "toast",
+      "context": "Logout successfully",
+      "vi": "Đăng xuất thành công.",
+      "en": "Logout successful."
+    }
+  },
+  "warnings": {
+    "WRN001": {
+      "type": "warning",
+      "context": "Contest ending soon",
+      "vi": "Cuộc thi sẽ kết thúc trong {days} ngày nữa.",
+      "en": "Contest will end in {days} days."
+    },
+    "WRN002": {
+      "type": "warning",
+      "context": "Submission deadline approaching",
+      "vi": "Hạn nộp bài còn {hours} giờ nữa.",
+      "en": "Submission deadline in {hours} hours."
+    },
+    "WRN003": {
+      "type": "warning",
+      "context": "Campaign deadline approaching",
+      "vi": "Chiến dịch sẽ kết thúc vào {date}.",
+      "en": "Campaign will end on {date}."
+    },
+    "WRN004": {
+      "type": "warning",
+      "context": "Unsaved changes",
+      "vi": "Bạn có thay đổi chưa được lưu. Bạn có muốn rời khỏi trang?",
+      "en": "You have unsaved changes. Do you want to leave this page?"
+    },
+    "WRN005": {
+      "type": "warning",
+      "context": "Low painting submissions",
+      "vi": "Số bài dự thi còn thấp. Hiện tại có {count} bài.",
+      "en": "Low number of submissions. Currently {count} paintings."
+    }
+  },
+  "information": {
+    "INF001": {
+      "type": "info",
+      "context": "No data found",
+      "vi": "Không có dữ liệu.",
+      "en": "No data found."
+    },
+    "INF002": {
+      "type": "info",
+      "context": "No contests available",
+      "vi": "Hiện tại không có cuộc thi nào đang diễn ra.",
+      "en": "No contests are currently available."
+    },
+    "INF003": {
+      "type": "info",
+      "context": "No paintings found",
+      "vi": "Không tìm thấy bài dự thi nào.",
+      "en": "No paintings found."
+    },
+    "INF004": {
+      "type": "info",
+      "context": "No submissions yet",
+      "vi": "Bạn chưa có bài dự thi nào.",
+      "en": "You have no submissions yet."
+    },
+    "INF005": {
+      "type": "info",
+      "context": "No notifications",
+      "vi": "Bạn không có thông báo mới.",
+      "en": "You have no new notifications."
+    },
+    "INF006": {
+      "type": "info",
+      "context": "Loading",
+      "vi": "Đang tải dữ liệu...",
+      "en": "Loading data..."
+    },
+    "INF007": {
+      "type": "info",
+      "context": "Processing",
+      "vi": "Đang xử lý...",
+      "en": "Processing..."
+    },
+    "INF008": {
+      "type": "info",
+      "context": "Uploading",
+      "vi": "Đang tải lên...",
+      "en": "Uploading..."
+    }
+  }
+}
