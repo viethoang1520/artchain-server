@@ -1,7 +1,7 @@
-import { UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
@@ -14,10 +14,45 @@ import { AUCTION_EVENTS } from '../events/auction.event';
 
 @WebSocketGateway({ cors: true, namespace: 'auction' })
 export class AuctionGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
   server: Server;
+
+  private static io: Server | null = null;
+
+  afterInit(server: Server) {
+    AuctionGateway.io = server;
+  }
+
+  static broadcastNewBid(payload: {
+    auctionId: number;
+    auctionPaintingId: number;
+    paintingId: string;
+    bidAmount: number;
+    bidderId: string;
+    bidderFullName: string | null;
+    currentBid: number | null;
+    currentBidderId: string | null;
+    timestamp: Date;
+  }) {
+    if (!AuctionGateway.io) {
+      return;
+    }
+
+    AuctionGateway.io
+      .to(`auction_${payload.auctionId}`)
+      .emit(AUCTION_EVENTS.NEW_BID, {
+        auctionPaintingId: payload.auctionPaintingId,
+        paintingId: payload.paintingId,
+        bidAmount: payload.bidAmount,
+        bidderId: payload.bidderId,
+        userName: payload.bidderFullName, // Ensure userName is included
+        currentBid: payload.currentBid,
+        currentBidderId: payload.currentBidderId,
+        timestamp: payload.timestamp,
+      });
+  }
 
   constructor(private readonly auctionsService: AuctionsService) {}
 
@@ -41,7 +76,7 @@ export class AuctionGateway
         auctionId,
         userId,
       );
-      console.log("participant: ", participant)
+      console.log('participant: ', participant);
 
       socket.join(`auction_${auctionId}`);
 
@@ -86,6 +121,7 @@ export class AuctionGateway
         paintingId: result.auctionPainting.paintingId,
         bidAmount,
         bidderId: userId,
+        userName: result.bidderFullName,
         currentBid: result.auctionPainting.currentBid,
         currentBidderId: result.auctionPainting.currentBidderId,
         timestamp: result.bidHistory.bidTime,

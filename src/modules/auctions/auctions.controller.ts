@@ -25,6 +25,7 @@ import {
   UpdateAuctionStatusDto,
 } from './dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuctionGateway } from '../websocket/gateways/auction.gateway';
 
 @ApiTags('Auctions')
 @Controller('/api/auctions')
@@ -86,7 +87,21 @@ export class AuctionsController {
   @ApiResponse({ status: 201, description: 'Đặt giá thành công' })
   async placeBid(@Body() placeBidDto: PlaceBidDto, @Request() req: any) {
     const userId = req.user.sub;
-    return await this.auctionsService.placeBid(placeBidDto, userId);
+    const result = await this.auctionsService.placeBid(placeBidDto, userId);
+
+    AuctionGateway.broadcastNewBid({
+      auctionId: result.auctionPainting.auctionId,
+      auctionPaintingId: result.auctionPainting.auctionPaintingId,
+      paintingId: result.auctionPainting.paintingId,
+      bidAmount: placeBidDto.bidAmount,
+      bidderId: userId,
+      bidderFullName: result.bidderFullName,
+      currentBid: result.auctionPainting.currentBid,
+      currentBidderId: result.auctionPainting.currentBidderId,
+      timestamp: result.bidHistory.bidTime,
+    });
+
+    return result;
   }
 
   @Get(':auctionId')

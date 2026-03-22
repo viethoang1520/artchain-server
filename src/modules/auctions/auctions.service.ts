@@ -165,7 +165,11 @@ export class AuctionsService {
   async placeBid(
     placeBidDto: PlaceBidDto,
     userId: string,
-  ): Promise<{ bidHistory: BidHistory; auctionPainting: AuctionPainting }> {
+  ): Promise<{
+    bidHistory: BidHistory;
+    auctionPainting: AuctionPainting;
+    bidderFullName: string | null;
+  }> {
     const { auctionPaintingId, bidAmount } = placeBidDto;
 
     const auctionPainting = await this.auctionPaintingRepository.findOne({
@@ -193,6 +197,7 @@ export class AuctionsService {
 
     const participant = await this.auctionParticipantRepository.findOne({
       where: { auctionId: auction.auctionId, userId },
+      relations: ['user'],
     });
     if (!participant) {
       throw new ForbiddenException(
@@ -239,7 +244,11 @@ export class AuctionsService {
     auctionPainting.currentBidderId = userId;
     await this.auctionPaintingRepository.save(auctionPainting);
 
-    return { bidHistory, auctionPainting };
+    return {
+      bidHistory,
+      auctionPainting,
+      bidderFullName: participant.user?.fullName || null,
+    };
   }
 
   async getAuctions(queryDto: QueryAuctionDto) {
