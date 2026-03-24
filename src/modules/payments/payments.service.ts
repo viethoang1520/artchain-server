@@ -56,7 +56,6 @@ export class PaymentsService {
         returnUrl: `${this.configService.get('CLIENT_URL')}/payment/success`,
         cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
       }
-      const paymentLink = await PayOS.paymentRequests.create(order);
       const createdOrder = await this.createNewOrder(
         sponsorId,
         orderCode,
@@ -65,6 +64,7 @@ export class PaymentsService {
         queryRunner.manager
       );
       await queryRunner.commitTransaction();
+      const paymentLink = await PayOS.paymentRequests.create(order);
       return {
         checkoutUrl: paymentLink.checkoutUrl,
         qrCode: paymentLink.qrCode,
@@ -96,7 +96,6 @@ export class PaymentsService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
-
       const { code, desc, data } = payload;
       const order = await queryRunner.manager.findOne(Order, {
         where: { orderCode: data.orderCode },
@@ -112,9 +111,15 @@ export class PaymentsService {
         where: { sponsorId: order.sponsorId },
       });
 
+      if (order.status === OrderStatus.COMPLETED) {
+        return;
+      }
       if (code === '00' && sponsor) {
-        order.status = OrderStatus.COMPLETED;
+        if (transaction.status !== TransactionStatus.PENDING) {
+          return;
+        }
         transaction.status = TransactionStatus.SUCCESS;
+        order.status = OrderStatus.COMPLETED;
         sponsor.status = SponsorStatus.PAID;
       } else {
         order.status = OrderStatus.CANCELLED;
