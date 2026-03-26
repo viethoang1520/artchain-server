@@ -5,9 +5,10 @@ import { Repository } from 'typeorm/repository/Repository';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { Sponsor, SponsorStatus } from '../sponsors/entities/sponsor.entity';
 import PayOS from '../../common/config/payos.config';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderStatus, OrderType } from './entities/order.entity';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
+import { Wallet } from '../wallets/entities';
 
 @Injectable()
 export class PaymentsService {
@@ -57,9 +58,13 @@ export class PaymentsService {
         cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
       }
       const createdOrder = await this.createNewOrder(
-        sponsorId,
+        {
+          sponsorId,
+          orderType: OrderType.SPONSOR,
+        },
         orderCode,
         totalAmount,
+        `THANH TOAN TAI TRO ${orderCode}`,
         savedTransaction.transactionId,
         queryRunner.manager
       );
@@ -78,14 +83,84 @@ export class PaymentsService {
     }
   }
 
-  async createNewOrder(sponsorId: number, orderCode: number, totalAmount: number, transactionId: string, manager: EntityManager) {
+  async createWalletTopupPayment(
+    walletId: number,
+    userId: string,
+    totalAmount: number,
+  ): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const orderCode = Number(String(new Date().getTime()).slice(-6));
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: { walletId },
+      });
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      const description = `NAP TIEN VI ${orderCode}`;
+      const newTransaction = queryRunner.manager.create(Transaction, {
+        userId,
+        amount: totalAmount,
+        status: TransactionStatus.PENDING,
+        note: description,
+      });
+      const savedTransaction = await queryRunner.manager.save(newTransaction);
+
+      const order = {
+        orderCode,
+        amount: parseFloat(totalAmount.toString()),
+        description,
+        returnUrl: `${this.configService.get('CLIENT_URL')}/payment/success`,
+        cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
+      };
+
+      const createdOrder = await this.createNewOrder(
+        {
+          walletId,
+          orderType: OrderType.WALLET_TOPUP,
+        },
+        orderCode,
+        totalAmount,
+        description,
+        savedTransaction.transactionId,
+        queryRunner.manager,
+      );
+
+      await queryRunner.commitTransaction();
+      const paymentLink = await PayOS.paymentRequests.create(order);
+      return {
+        checkoutUrl: paymentLink.checkoutUrl,
+        qrCode: paymentLink.qrCode,
+        order: createdOrder,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async createNewOrder(
+    orderRef: { sponsorId?: number; walletId?: number; orderType: OrderType },
+    orderCode: number,
+    totalAmount: number,
+    description: string,
+    transactionId: string,
+    manager: EntityManager,
+  ) {
     const newOrder = manager.create(Order, {
-      sponsorId,
+      sponsorId: orderRef.sponsorId,
+      walletId: orderRef.walletId,
+      orderType: orderRef.orderType,
       orderCode,
       amount: totalAmount,
-      description: `THANH TOAN TAI TRO ${orderCode}`,
-      returnUrl: `${process.env.CLIENT_URL}/payment/success`,
-      cancelUrl: `${process.env.CLIENT_URL}/payment/cancel`,
+      description,
+      returnUrl: `${this.configService.get('CLIENT_URL')}/payment/success`,
+      cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
       transactionId,
     });
     return await manager.save(newOrder);
@@ -96,7 +171,7 @@ export class PaymentsService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
-      const { code, desc, data } = payload;
+      const { code, data } = payload;
       const order = await queryRunner.manager.findOne(Order, {
         where: { orderCode: data.orderCode },
       });
@@ -107,20 +182,47 @@ export class PaymentsService {
       });
       if (!transaction) throw new Error('Transaction not found');
 
-      const sponsor = await queryRunner.manager.findOne(Sponsor, {
-        where: { sponsorId: order.sponsorId },
-      });
+      const sponsor =
+        order.orderType === OrderType.SPONSOR && order.sponsorId
+          ? await queryRunner.manager.findOne(Sponsor, {
+            where: { sponsorId: order.sponsorId },
+          })
+          : null;
+
+      const wallet =
+        order.orderType === OrderType.WALLET_TOPUP && order.walletId
+          ? await queryRunner.manager.findOne(Wallet, {
+            where: { walletId: order.walletId },
+          })
+          : null;
 
       if (order.status === OrderStatus.COMPLETED) {
+        await queryRunner.commitTransaction();
         return;
       }
-      if (code === '00' && sponsor) {
+
+      if (code === '00') {
         if (transaction.status !== TransactionStatus.PENDING) {
+          await queryRunner.commitTransaction();
           return;
         }
+
         transaction.status = TransactionStatus.SUCCESS;
         order.status = OrderStatus.COMPLETED;
-        sponsor.status = SponsorStatus.PAID;
+
+        if (order.orderType === OrderType.SPONSOR) {
+          if (!sponsor) {
+            throw new Error('Sponsor not found for sponsor order');
+          }
+          sponsor.status = SponsorStatus.PAID;
+        }
+
+        if (order.orderType === OrderType.WALLET_TOPUP) {
+          if (!wallet) {
+            throw new Error('Wallet not found for wallet top-up order');
+          }
+          wallet.balance = Number(wallet.balance) + Number(order.amount);
+        }
       } else {
         order.status = OrderStatus.CANCELLED;
         transaction.status = TransactionStatus.FAILED;
@@ -131,7 +233,9 @@ export class PaymentsService {
       if (sponsor) {
         await queryRunner.manager.save(sponsor);
       }
-
+      if (wallet) {
+        await queryRunner.manager.save(wallet);
+      }
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();

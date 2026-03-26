@@ -8,14 +8,15 @@ import { Campaign } from '../campaigns/entities/campaign.entity';
 import { Order } from './entities/order.entity';
 import { ConfigModule } from '@nestjs/config';
 import { Sponsor } from '../sponsors/entities/sponsor.entity';
+import { Wallet } from '../wallets/entities';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Transaction, Campaign, Order, Sponsor]),
-    
+    TypeOrmModule.forFeature([Transaction, Campaign, Order, Sponsor, Wallet]),
+
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],
   exports: [PaymentsService],
 })
-export class PaymentsModule {}
+export class PaymentsModule { }
