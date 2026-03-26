@@ -6,6 +6,7 @@ import {
   AuctionParticipant,
   BidHistory,
 } from './entities';
+import { Painting } from '../paintings/entities/paintings.entity';
 import { AuctionsService } from './auctions.service';
 import { AuctionsController } from './auctions.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -17,6 +18,7 @@ import { AuthModule } from '../auth/auth.module';
       AuctionPainting,
       AuctionParticipant,
       BidHistory,
+      Painting,
     ]),
     AuthModule,
   ],

@@ -13,6 +13,7 @@ import {
   BidHistory,
 } from './entities';
 import { AuctionStatus } from './entities/auction.entity';
+import { Painting } from '../paintings/entities/paintings.entity';
 import {
   CreateAuctionDto,
   PlaceBidDto,
@@ -34,6 +35,8 @@ export class AuctionsService {
     private readonly auctionParticipantRepository: Repository<AuctionParticipant>,
     @InjectRepository(BidHistory)
     private readonly bidHistoryRepository: Repository<BidHistory>,
+    @InjectRepository(Painting)
+    private readonly paintingRepository: Repository<Painting>,
   ) {}
 
   async createAuction(
@@ -240,9 +243,23 @@ export class AuctionsService {
     await this.bidHistoryRepository.save(bidHistory);
 
     // Cập nhật auction painting
+    const hitCeilPrice =
+      auctionPainting.ceilPrice !== null &&
+      bidAmount === auctionPainting.ceilPrice;
+
     auctionPainting.currentBid = bidAmount;
     auctionPainting.currentBidderId = userId;
+    if (hitCeilPrice) {
+      auctionPainting.isSold = true;
+    }
     await this.auctionPaintingRepository.save(auctionPainting);
+
+    if (hitCeilPrice) {
+      await this.paintingRepository.update(
+        { paintingId: auctionPainting.paintingId },
+        { ownerId: userId },
+      );
+    }
 
     return {
       bidHistory,
