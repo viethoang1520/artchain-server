@@ -32,7 +32,7 @@ export class Painting {
   competitorId: string;
 
   @Column({ nullable: true, name: 'owner_id', type: 'uuid' })
-  ownerId: string;
+  ownerId: string | null;
 
   @Column({ type: 'text', nullable: true, name: 'description' })
   description: string;

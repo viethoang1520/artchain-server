@@ -207,4 +207,26 @@ export class AuctionsController {
       userId,
     );
   }
+
+  @Patch(':auctionId/end')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kết thúc phiên đấu giá' })
+  @ApiResponse({
+    status: 200,
+    description: 'Kết thúc phiên đấu giá thành công',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Phiên đấu giá không ở trạng thái đang diễn ra',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền kết thúc phiên đấu giá',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy phiên đấu giá' })
+  async endAuction(@Param('auctionId') auctionId: number, @Request() req: any) {
+    const userId = req.user.sub;
+    return await this.auctionsService.endAuction(auctionId, userId);
+  }
 }

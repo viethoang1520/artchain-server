@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull, Not } from 'typeorm';
 import {
   Auction,
   AuctionPainting,
@@ -566,6 +566,73 @@ export class AuctionsService {
 
     auction.status = status;
     const updatedAuction = await this.auctionRepository.save(auction);
+
+    const result = await this.auctionRepository.findOne({
+      where: { auctionId },
+      relations: [
+        'auctioneer',
+        'auctionPaintings',
+        'auctionPaintings.painting',
+        'auctionPaintings.currentBidder',
+      ],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Không thể tải lại thông tin phiên đấu giá');
+    }
+
+    return result;
+  }
+
+  async endAuction(auctionId: number, userId: string): Promise<Auction> {
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+      relations: ['auctioneer'],
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    if (auction.auctioneerId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền kết thúc phiên đấu giá này',
+      );
+    }
+
+    if (auction.status !== AuctionStatus.ONGOING) {
+      throw new BadRequestException(
+        'Chỉ có thể kết thúc phiên đấu giá đang diễn ra',
+      );
+    }
+
+    const now = new Date();
+    auction.status = AuctionStatus.COMPLETED;
+    auction.endTime = now;
+    await this.auctionRepository.save(auction);
+
+    const soldPaintings = await this.auctionPaintingRepository.find({
+      where: {
+        auctionId,
+        currentBidderId: Not(IsNull()),
+      },
+    });
+
+    if (soldPaintings.length > 0) {
+      await this.auctionPaintingRepository.update(
+        { auctionId, currentBidderId: Not(IsNull()) },
+        { isSold: true },
+      );
+
+      await Promise.all(
+        soldPaintings.map((item) =>
+          this.paintingRepository.update(
+            { paintingId: item.paintingId },
+            { ownerId: item.currentBidderId },
+          ),
+        ),
+      );
+    }
 
     const result = await this.auctionRepository.findOne({
       where: { auctionId },
