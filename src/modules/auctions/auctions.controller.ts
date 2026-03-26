@@ -104,6 +104,13 @@ export class AuctionsController {
     return result;
   }
 
+  @Get('users/:userId/won-paintings')
+  @ApiOperation({ summary: 'Lấy danh sách tranh đấu giá thắng theo userId' })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  async getWonPaintingsByUserId(@Param('userId') userId: string) {
+    return await this.auctionsService.getWonPaintingsByUserId(userId);
+  }
+
   @Get(':auctionId')
   @ApiOperation({ summary: 'Lấy chi tiết phiên đấu giá' })
   @ApiResponse({ status: 200, description: 'Lấy chi tiết thành công' })

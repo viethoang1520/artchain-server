@@ -330,6 +330,37 @@ export class AuctionsService {
     return auction;
   }
 
+  async getWonPaintingsByUserId(userId: string): Promise<
+    {
+      auctionPaintingId: number;
+      auctionId: number;
+      auctionTitle: string;
+      auctionEndTime: Date;
+      finalBid: number | null;
+      painting: AuctionPainting['painting'];
+    }[]
+  > {
+    const wonAuctionPaintings = await this.auctionPaintingRepository
+      .createQueryBuilder('auctionPainting')
+      .leftJoinAndSelect('auctionPainting.auction', 'auction')
+      .leftJoinAndSelect('auctionPainting.painting', 'painting')
+      .where('auctionPainting.currentBidderId = :userId', { userId })
+      .andWhere('auction.status = :completedStatus', {
+        completedStatus: AuctionStatus.COMPLETED,
+      })
+      .orderBy('auction.endTime', 'DESC')
+      .getMany();
+
+    return wonAuctionPaintings.map((item) => ({
+      auctionPaintingId: item.auctionPaintingId,
+      auctionId: item.auctionId,
+      auctionTitle: item.auction?.title,
+      auctionEndTime: item.auction?.endTime,
+      finalBid: item.currentBid,
+      painting: item.painting,
+    }));
+  }
+
   async getBidHistory(
     auctionPaintingId: number,
     queryDto: GetBidHistoryDto,

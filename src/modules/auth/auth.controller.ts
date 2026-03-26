@@ -1,11 +1,18 @@
-import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
 
 @Controller('/api/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
   @Post('login')
   async login(@Body() loginDto: LoginDTO): Promise<{ access_token: string }> {
     try {
@@ -21,6 +28,17 @@ export class AuthController {
       return await this.authService.register(registerDto);
     } catch (error) {
       throw new BadRequestException(error.message || 'Registration failed');
+    }
+  }
+
+  @Get('confirm-email')
+  async confirmEmail(@Query('token') token: string): Promise<any> {
+    try {
+      return await this.authService.confirmEmail(token);
+    } catch (error) {
+      throw new BadRequestException(
+        error.message || 'Email confirmation failed',
+      );
     }
   }
 }
