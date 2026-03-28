@@ -104,6 +104,13 @@ export class AuctionsController {
     return result;
   }
 
+  @Get('users/:userId/won-paintings')
+  @ApiOperation({ summary: 'Lấy danh sách tranh đấu giá thắng theo userId' })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  async getWonPaintingsByUserId(@Param('userId') userId: string) {
+    return await this.auctionsService.getWonPaintingsByUserId(userId);
+  }
+
   @Get(':auctionId')
   @ApiOperation({ summary: 'Lấy chi tiết phiên đấu giá' })
   @ApiResponse({ status: 200, description: 'Lấy chi tiết thành công' })
@@ -199,5 +206,27 @@ export class AuctionsController {
       updateStatusDto,
       userId,
     );
+  }
+
+  @Patch(':auctionId/end')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kết thúc phiên đấu giá' })
+  @ApiResponse({
+    status: 200,
+    description: 'Kết thúc phiên đấu giá thành công',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Phiên đấu giá không ở trạng thái đang diễn ra',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền kết thúc phiên đấu giá',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy phiên đấu giá' })
+  async endAuction(@Param('auctionId') auctionId: number, @Request() req: any) {
+    const userId = req.user.sub;
+    return await this.auctionsService.endAuction(auctionId, userId);
   }
 }

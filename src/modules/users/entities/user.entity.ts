@@ -60,6 +60,24 @@ export class User {
   @Column({ name: 'status', type: 'int', default: UserStatus.ACTIVE })
   status: UserStatus;
 
+  @Column({ name: 'email_verified_at', type: 'timestamp', nullable: true })
+  emailVerifiedAt: Date | null;
+
+  @Column({
+    name: 'email_verification_token_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  emailVerificationTokenHash: string | null;
+
+  @Column({
+    name: 'email_verification_token_expires_at',
+    type: 'timestamp',
+    nullable: true,
+  })
+  emailVerificationTokenExpiresAt: Date | null;
+
   @Column({
     name: 'created_at',
     type: 'timestamp',
