@@ -6,11 +6,10 @@ export class UpdateAuctionStatusDto {
   @ApiProperty({
     description: 'Trạng thái mới của phiên đấu giá',
     enum: AuctionStatus,
-    example: AuctionStatus.ONGOING,
+    example: AuctionStatus.LIVE,
   })
   @IsEnum(AuctionStatus, {
-    message:
-      'Status phải là một trong các giá trị: PENDING, ONGOING, COMPLETED, CANCELLED',
+    message: 'Status phải là một trong các giá trị: DRAFT, UPCOMING, LIVE, END',
   })
   @IsNotEmpty({ message: 'Status không được để trống' })
   status: AuctionStatus;

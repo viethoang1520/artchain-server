@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not } from 'typeorm';
+import { Repository, IsNull, Not, In, LessThanOrEqual } from 'typeorm';
 import {
   Auction,
   AuctionPainting,
@@ -58,7 +58,7 @@ export class AuctionsService {
       startTime: start,
       endTime: end,
       auctioneerId: auctioneerId || userId,
-      status: AuctionStatus.PENDING,
+      status: AuctionStatus.DRAFT,
     });
 
     return await this.auctionRepository.save(auction);
@@ -75,9 +75,9 @@ export class AuctionsService {
       throw new NotFoundException('Không tìm thấy phiên đấu giá');
     }
 
-    if (auction.status !== AuctionStatus.PENDING) {
+    if (auction.status !== AuctionStatus.DRAFT) {
       throw new BadRequestException(
-        'Chỉ có thể thêm tranh vào phiên đấu giá đang chờ',
+        'Chỉ có thể thêm tranh vào phiên đấu giá ở trạng thái nháp',
       );
     }
 
@@ -98,6 +98,32 @@ export class AuctionsService {
       throw new BadRequestException('Tranh đã được thêm vào phiên đấu giá này');
     }
 
+    const blockedPainting = await this.auctionPaintingRepository.findOne({
+      where: [
+        {
+          paintingId: addPaintingDto.paintingId,
+          isSold: true,
+        },
+        {
+          paintingId: addPaintingDto.paintingId,
+          auction: {
+            status: In([
+              AuctionStatus.DRAFT,
+              AuctionStatus.UPCOMING,
+              AuctionStatus.LIVE,
+            ]),
+          },
+        },
+      ],
+      relations: ['auction'],
+    });
+
+    if (blockedPainting) {
+      throw new BadRequestException(
+        'Tranh đã/đang được đấu giá, không thể thêm vào phiên mới',
+      );
+    }
+
     const auctionPainting = this.auctionPaintingRepository.create({
       auctionId,
       paintingId: addPaintingDto.paintingId,
@@ -110,6 +136,11 @@ export class AuctionsService {
     });
 
     const saved = await this.auctionPaintingRepository.save(auctionPainting);
+
+    await this.paintingRepository.update(
+      { paintingId: addPaintingDto.paintingId },
+      { status: 'IN_AUCTION' },
+    );
 
     const paintingWithRelations = await this.auctionPaintingRepository.findOne({
       where: { auctionPaintingId: saved.auctionPaintingId },
@@ -185,11 +216,20 @@ export class AuctionsService {
 
     const auction = auctionPainting.auction;
 
-    if (auction.status !== AuctionStatus.ONGOING) {
+    const now = new Date();
+    if (
+      auction.status === AuctionStatus.UPCOMING &&
+      now >= auction.startTime &&
+      now <= auction.endTime
+    ) {
+      auction.status = AuctionStatus.LIVE;
+      await this.auctionRepository.save(auction);
+    }
+
+    if (auction.status !== AuctionStatus.LIVE) {
       throw new BadRequestException('Phiên đấu giá không đang diễn ra');
     }
 
-    const now = new Date();
     if (now < auction.startTime || now > auction.endTime) {
       throw new BadRequestException('Phiên đấu giá không trong thời gian');
     }
@@ -279,6 +319,15 @@ export class AuctionsService {
       limit = 10,
     } = queryDto;
 
+    const now = new Date();
+    await this.auctionRepository.update(
+      {
+        status: AuctionStatus.UPCOMING,
+        startTime: LessThanOrEqual(now),
+      },
+      { status: AuctionStatus.LIVE },
+    );
+
     const queryBuilder = this.auctionRepository
       .createQueryBuilder('auction')
       .leftJoinAndSelect('auction.auctioneer', 'auctioneer')
@@ -288,6 +337,11 @@ export class AuctionsService {
     if (status) {
       queryBuilder.andWhere('auction.status = :status', { status });
     }
+    // else {
+    //   queryBuilder.andWhere('auction.status != :draftStatus', {
+    //     draftStatus: AuctionStatus.DRAFT,
+    //   });
+    // }
 
     if (startFrom) {
       queryBuilder.andWhere('auction.startTime >= :startFrom', {
@@ -344,6 +398,16 @@ export class AuctionsService {
       throw new NotFoundException('Không tìm thấy phiên đấu giá');
     }
 
+    const now = new Date();
+    if (
+      auction.status === AuctionStatus.UPCOMING &&
+      now >= auction.startTime &&
+      now <= auction.endTime
+    ) {
+      auction.status = AuctionStatus.LIVE;
+      await this.auctionRepository.save(auction);
+    }
+
     return auction;
   }
 
@@ -363,7 +427,7 @@ export class AuctionsService {
       .leftJoinAndSelect('auctionPainting.painting', 'painting')
       .where('auctionPainting.currentBidderId = :userId', { userId })
       .andWhere('auction.status = :completedStatus', {
-        completedStatus: AuctionStatus.COMPLETED,
+        completedStatus: AuctionStatus.END,
       })
       .orderBy('auction.endTime', 'DESC')
       .getMany();
@@ -535,13 +599,10 @@ export class AuctionsService {
     }
 
     const validTransitions: Record<AuctionStatus, AuctionStatus[]> = {
-      [AuctionStatus.PENDING]: [AuctionStatus.ONGOING, AuctionStatus.CANCELLED],
-      [AuctionStatus.ONGOING]: [
-        AuctionStatus.COMPLETED,
-        AuctionStatus.CANCELLED,
-      ],
-      [AuctionStatus.COMPLETED]: [],
-      [AuctionStatus.CANCELLED]: [],
+      [AuctionStatus.DRAFT]: [AuctionStatus.UPCOMING],
+      [AuctionStatus.UPCOMING]: [AuctionStatus.LIVE],
+      [AuctionStatus.LIVE]: [AuctionStatus.END],
+      [AuctionStatus.END]: [],
     };
 
     if (!validTransitions[auction.status].includes(status)) {
@@ -550,18 +611,15 @@ export class AuctionsService {
       );
     }
 
-    if (status === AuctionStatus.ONGOING) {
+    if (status === AuctionStatus.LIVE) {
       const now = new Date();
-      if (now < auction.startTime) {
-        throw new BadRequestException(
-          'Không thể bắt đầu đấu giá trước thời gian khởi đầu',
-        );
-      }
       if (now > auction.endTime) {
         throw new BadRequestException(
           'Không thể bắt đầu đấu giá sau thời gian kết thúc',
         );
       }
+
+      auction.startTime = now;
     }
 
     auction.status = status;
@@ -600,14 +658,14 @@ export class AuctionsService {
       );
     }
 
-    if (auction.status !== AuctionStatus.ONGOING) {
+    if (auction.status !== AuctionStatus.LIVE) {
       throw new BadRequestException(
         'Chỉ có thể kết thúc phiên đấu giá đang diễn ra',
       );
     }
 
     const now = new Date();
-    auction.status = AuctionStatus.COMPLETED;
+    auction.status = AuctionStatus.END;
     auction.endTime = now;
     await this.auctionRepository.save(auction);
 
@@ -628,9 +686,22 @@ export class AuctionsService {
         soldPaintings.map((item) =>
           this.paintingRepository.update(
             { paintingId: item.paintingId },
-            { ownerId: item.currentBidderId },
+            { ownerId: item.currentBidderId, status: 'SOLD' },
           ),
         ),
+      );
+    }
+
+    const unsoldPaintings = await this.auctionPaintingRepository.find({
+      where: { auctionId, isSold: false },
+    });
+
+    if (unsoldPaintings.length > 0) {
+      await this.paintingRepository.update(
+        {
+          paintingId: In(unsoldPaintings.map((item) => item.paintingId)),
+        },
+        { status: 'RE_OPEN' },
       );
     }
 
