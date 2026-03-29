@@ -1,8 +1,11 @@
+import { Wallet } from 'src/modules/wallets/entities';
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 
 export enum OrderStatus {
@@ -61,4 +64,8 @@ export class Order {
   status: string;
   @CreateDateColumn()
   createdAt: Date;
+
+    @ManyToOne(() => Wallet, (wallet) => wallet.walletId)
+    @JoinColumn({ name: 'walletId' })
+    wallet: Wallet;
 }

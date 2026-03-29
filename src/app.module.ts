@@ -24,7 +24,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { AuctionsModule } from './modules/auctions/auctions.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
-import { OrdersModule } from './modules/orders/orders.module';
 import { AiModule } from './modules/ai/ai.module';
 
 @Module({
@@ -52,7 +51,7 @@ import { AiModule } from './modules/ai/ai.module';
     WebsocketModule,
     AuctionsModule,
     WalletsModule,
-    OrdersModule,
+    // OrdersModule,
     AiModule,
   ],
   controllers: [AppController],

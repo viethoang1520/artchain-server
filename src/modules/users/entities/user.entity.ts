@@ -18,7 +18,7 @@ import { AuctionPainting } from '../../auctions/entities/auction-painting.entity
 import { BidHistory } from '../../auctions/entities/bid-history.entity';
 import { AuctionParticipant } from '../../auctions/entities/auction-participant.entity';
 import { Wallet } from '../../wallets/entities/wallet.entity';
-import { Order } from '../../orders/entities/order.entity';
+// import { Order } from '../../orders/entities/order.entity';
 import { Transaction } from '../../payments/entities/transaction.entity';
 
 export enum UserRole {
@@ -137,8 +137,8 @@ export class User {
   @OneToMany(() => Wallet, (wallet) => wallet.user)
   wallets: Wallet[];
 
-  @OneToMany(() => Order, (order) => order.user)
-  orders: Order[];
+  // @OneToMany(() => Order, (order) => order.user)
+  // orders: Order[];
 
   @OneToMany(() => Transaction, (transaction) => transaction.user)
   transactions: Transaction[];
