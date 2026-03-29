@@ -25,6 +25,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
 import { AuctionsModule } from './modules/auctions/auctions.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { OrdersModule } from './modules/orders/orders.module';
     AuctionsModule,
     WalletsModule,
     OrdersModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
