@@ -130,6 +130,7 @@ export class AuctionsService {
       basePrice: addPaintingDto.basePrice,
       ceilPrice: addPaintingDto.ceilPrice,
       bidStep: addPaintingDto.bidStep,
+      auctionDurationMinutes: addPaintingDto.auctionDurationMinutes ?? null,
       currentBid: addPaintingDto.basePrice,
       isSold: false,
       revoked: 0,

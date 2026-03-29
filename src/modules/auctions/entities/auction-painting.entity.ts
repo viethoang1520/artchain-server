@@ -27,6 +27,14 @@ export class AuctionPainting {
   paintingId: string;
 
   @Column({
+    type: 'int',
+    name: 'auction_duration_minutes',
+    nullable: true,
+    comment: 'Thời gian đấu giá cho bức tranh (phút)',
+  })
+  auctionDurationMinutes: number | null;
+
+  @Column({
     type: 'bigint',
     name: 'base_price',
     nullable: false,
