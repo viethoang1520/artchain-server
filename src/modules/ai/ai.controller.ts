@@ -5,7 +5,7 @@ type CheckValidSubmissionBody = {
   base64: string;
 };
 
-@Controller('ai')
+@Controller('api/ai')
 export class AiController {
   constructor(private readonly aiService: AiService) { }
 
