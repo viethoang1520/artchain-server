@@ -7,6 +7,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Auction } from './auction.entity';
 import { Painting } from '../../paintings/entities/paintings.entity';
@@ -14,6 +15,7 @@ import { User } from '../../users/entities/user.entity';
 import { BidHistory } from './bid-history.entity';
 
 @Entity('auction_paintings')
+@Index('idx_auction_paintings_painting_id', ['paintingId'])
 export class AuctionPainting {
   @PrimaryGeneratedColumn({ name: 'auction_painting_id' })
   auctionPaintingId: number;
@@ -98,7 +100,9 @@ export class AuctionPainting {
   @JoinColumn({ name: 'auction_id' })
   auction: Auction;
 
-  @ManyToOne(() => Painting, { eager: true })
+  @ManyToOne(() => Painting, (painting) => painting.auctionPaintings, {
+    eager: true,
+  })
   @JoinColumn({ name: 'painting_id' })
   painting: Painting;
 

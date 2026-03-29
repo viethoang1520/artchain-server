@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from '../auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { User } from '../users/entities/user.entity';
 import { Notifications } from './entities/notification.entity';
@@ -11,7 +12,16 @@ import { NotificationsService } from './notifications.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([PushToken, User, Notifications]),
-    AuthModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: configService.get<string | number>('JWT_EXPIRATION'),
+        },
+      }),
+    }),
     FirebaseModule,
   ],
   providers: [NotificationsService],

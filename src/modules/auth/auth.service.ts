@@ -6,12 +6,15 @@ import {
 import { LoginDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
 import { Repository } from 'typeorm';
-import { User, UserRole } from '../users/entities/user.entity';
+import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
+import { EmailsService } from '../emails/emails.service';
+import { ConfigService } from '@nestjs/config';
+import { createHash, randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -23,7 +26,29 @@ export class AuthService {
     @InjectRepository(Examiner)
     private examinerRepository: Repository<Examiner>,
     private jwtService: JwtService,
+    private readonly emailsService: EmailsService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private buildAppUrl(): string {
+    const explicit =
+      this.configService.get<string>('APP_URL') ||
+      this.configService.get<string>('SERVER_URL');
+    if (explicit) return explicit.replace(/\/$/, '');
+
+    const portRaw = this.configService.get<string>('PORT') || '3000';
+    const port = Number(portRaw) || 3000;
+    return `http://localhost:${port}`;
+  }
+
+  private generateEmailVerificationToken(): {
+    token: string;
+    tokenHash: string;
+  } {
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    return { token, tokenHash };
+  }
 
   async login(loginDto: LoginDTO) {
     const { username, password } = loginDto;
@@ -32,9 +57,14 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    
-    const isActive = user.status === 1;
+
+    const isActive = user.status === UserStatus.ACTIVE;
     if (!isActive) {
+      if (!user.emailVerifiedAt) {
+        throw new UnauthorizedException(
+          'Please verify your email before logging in',
+        );
+      }
       throw new UnauthorizedException('User account is banned or inactive');
     }
     const isMatch = await bcrypt.compare(password, user.password);
@@ -53,7 +83,7 @@ export class AuthService {
   async register(registerDto: RegisterDTO) {
     const {
       username,
-      email,
+      email: emailRaw,
       password,
       fullName,
       role,
@@ -63,12 +93,21 @@ export class AuthService {
       grade,
     } = registerDto;
 
+    const email = (emailRaw || '').trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+
     const existingUser = await this.userRepo.findOne({
       where: [{ email }, { username }],
     });
     if (existingUser) {
       throw new BadRequestException('User already exists');
     }
+
+    const { token, tokenHash } = this.generateEmailVerificationToken();
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User();
     newUser.username = username;
@@ -76,6 +115,10 @@ export class AuthService {
     newUser.fullName = fullName;
     newUser.email = email;
     newUser.role = role as UserRole;
+    newUser.status = UserStatus.INACTIVE;
+    newUser.emailVerifiedAt = null;
+    newUser.emailVerificationTokenHash = tokenHash;
+    newUser.emailVerificationTokenExpiresAt = tokenExpiresAt;
     await this.userRepo.save(newUser);
 
     if (role === UserRole.COMPETITOR) {
@@ -93,7 +136,53 @@ export class AuthService {
       examiner.examinerId = newUser.userId;
       await this.examinerRepository.save(examiner);
     }
+
+    const confirmUrl = `${this.buildAppUrl()}/api/auth/confirm-email?token=${token}`;
+    await this.emailsService.sendMail({
+      to: [email],
+      subject: 'Confirm your ArtChain account',
+      text:
+        `Hi ${fullName || username},\n\n` +
+        `Please confirm your email to activate your account by clicking the link below:\n` +
+        `${confirmUrl}\n\n` +
+        `This link will expire in 24 hours.\n\n` +
+        `If you did not create this account, you can ignore this email.`,
+    });
+
     const { password: _, ...result } = newUser;
-    return result;
+    return {
+      ...result,
+      requiresEmailConfirmation: true,
+    };
+  }
+
+  async confirmEmail(token: string) {
+    const raw = (token || '').trim();
+    if (!raw) {
+      throw new BadRequestException('Token is required');
+    }
+    const tokenHash = createHash('sha256').update(raw).digest('hex');
+
+    const user = await this.userRepo.findOne({
+      where: { emailVerificationTokenHash: tokenHash },
+    });
+    if (!user) {
+      throw new BadRequestException('Invalid verification token');
+    }
+
+    if (
+      !user.emailVerificationTokenExpiresAt ||
+      user.emailVerificationTokenExpiresAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    user.status = UserStatus.ACTIVE;
+    user.emailVerifiedAt = new Date();
+    user.emailVerificationTokenHash = null;
+    user.emailVerificationTokenExpiresAt = null;
+    await this.userRepo.save(user);
+
+    return { message: 'Email confirmed. Your account is now active.' };
   }
 }

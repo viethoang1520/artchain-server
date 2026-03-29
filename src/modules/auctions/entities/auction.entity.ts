@@ -13,10 +13,10 @@ import { AuctionPainting } from './auction-painting.entity';
 import { AuctionParticipant } from './auction-participant.entity';
 
 export enum AuctionStatus {
-  PENDING = 'PENDING',
-  ONGOING = 'ONGOING',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
+  DRAFT = 'DRAFT',
+  UPCOMING = 'UPCOMING',
+  LIVE = 'LIVE',
+  END = 'END',
 }
 
 @Entity('auctions')
@@ -37,7 +37,7 @@ export class Auction {
     type: 'enum',
     enum: AuctionStatus,
     name: 'status',
-    default: AuctionStatus.PENDING,
+    default: AuctionStatus.DRAFT,
   })
   status: AuctionStatus;
 

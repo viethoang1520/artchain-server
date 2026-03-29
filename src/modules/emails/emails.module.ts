@@ -32,5 +32,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
   ],
   controllers: [EmailsController],
   providers: [EmailsService],
+  exports: [EmailsService],
 })
 export class EmailsModule {}
