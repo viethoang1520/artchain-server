@@ -21,10 +21,6 @@ export class CampaignsService {
     private readonly transactionRepository: Repository<Transaction>,
   ) {}
 
-  create(createCampaignDto: CreateCampaignDto) {
-    return 'This action adds a new campaign';
-  }
-
   async getAllCampaigns(page: number = 1, limit: number = 10, status?: string) {
     const skip = (page - 1) * limit;
 
@@ -140,19 +136,4 @@ export class CampaignsService {
     };
   }
 
-  findAll() {
-    return `This action returns all campaigns`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} campaign`;
-  }
-
-  update(id: number, updateCampaignDto: UpdateCampaignDto) {
-    return `This action updates a #${id} campaign`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} campaign`;
-  }
 }
