@@ -34,4 +34,13 @@ export class AddPaintingToAuctionDto {
   @IsNumber()
   @Min(0)
   bidStep: number;
+
+  @ApiProperty({
+    example: 15,
+    description: 'Thời gian đấu giá cho bức tranh (phút)',
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  auctionDurationMinutes: number;
 }
