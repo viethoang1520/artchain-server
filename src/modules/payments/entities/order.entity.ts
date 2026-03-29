@@ -32,8 +32,8 @@ export class Order {
 
   @Column({
     type: 'decimal', precision: 12, scale: 2, transformer: {
-      to: (value: number) => value, // khi lưu
-      from: (value: string) => parseFloat(value), // khi đọc
+      to: (value: number) => value, 
+      from: (value: string) => parseFloat(value), 
     },
   })
   amount: number;
