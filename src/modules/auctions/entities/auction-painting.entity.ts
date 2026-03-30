@@ -14,6 +14,12 @@ import { Painting } from '../../paintings/entities/paintings.entity';
 import { User } from '../../users/entities/user.entity';
 import { BidHistory } from './bid-history.entity';
 
+export enum AuctionPaintingStatus {
+  WAITING = 'WAITING',
+  LIVE = 'LIVE',
+  END = 'END',
+}
+
 @Entity('auction_paintings')
 @Index('idx_auction_paintings_painting_id', ['paintingId'])
 export class AuctionPainting {
@@ -33,6 +39,22 @@ export class AuctionPainting {
     comment: 'Thời gian đấu giá cho bức tranh (phút)',
   })
   auctionDurationMinutes: number | null;
+
+  @Column({
+    type: 'timestamp',
+    name: 'auction_painting_start_time',
+    nullable: true,
+    comment: 'Thời điểm bắt đầu đấu giá của bức tranh',
+  })
+  auctionStartTime: Date | null;
+
+  @Column({
+    type: 'timestamp',
+    name: 'auction_painting_end_time',
+    nullable: true,
+    comment: 'Thời điểm kết thúc đấu giá của bức tranh',
+  })
+  auctionEndTime: Date | null;
 
   @Column({
     type: 'bigint',
@@ -83,6 +105,14 @@ export class AuctionPainting {
 
   @Column({ name: 'current_bidder_id', type: 'uuid', nullable: true })
   currentBidderId: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: AuctionPaintingStatus,
+    name: 'status',
+    default: AuctionPaintingStatus.WAITING,
+  })
+  status: AuctionPaintingStatus;
 
   @Column({
     type: 'boolean',

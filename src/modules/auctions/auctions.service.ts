@@ -3,9 +3,19 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not, In, LessThanOrEqual } from 'typeorm';
+import {
+  Repository,
+  IsNull,
+  Not,
+  In,
+  LessThanOrEqual,
+  DataSource,
+  EntityManager,
+} from 'typeorm';
 import {
   Auction,
   AuctionPainting,
@@ -13,6 +23,7 @@ import {
   BidHistory,
 } from './entities';
 import { AuctionStatus } from './entities/auction.entity';
+import { AuctionPaintingStatus } from './entities/auction-painting.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import {
   CreateAuctionDto,
@@ -26,6 +37,10 @@ import {
 
 @Injectable()
 export class AuctionsService {
+  private static readonly ANTI_SNIPING_WINDOW_MS = 10_000;
+  private static readonly ANTI_SNIPING_EXTENSION_MS = 60_000;
+  private readonly logger = new Logger(AuctionsService.name);
+
   constructor(
     @InjectRepository(Auction)
     private readonly auctionRepository: Repository<Auction>,
@@ -37,6 +52,7 @@ export class AuctionsService {
     private readonly bidHistoryRepository: Repository<BidHistory>,
     @InjectRepository(Painting)
     private readonly paintingRepository: Repository<Painting>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createAuction(
@@ -131,6 +147,9 @@ export class AuctionsService {
       ceilPrice: addPaintingDto.ceilPrice,
       bidStep: addPaintingDto.bidStep,
       auctionDurationMinutes: addPaintingDto.auctionDurationMinutes ?? null,
+      auctionStartTime: null,
+      auctionEndTime: null,
+      status: AuctionPaintingStatus.WAITING,
       currentBid: addPaintingDto.basePrice,
       isSold: false,
       revoked: 0,
@@ -206,107 +225,204 @@ export class AuctionsService {
     bidderFullName: string | null;
   }> {
     const { auctionPaintingId, bidAmount } = placeBidDto;
+    return await this.dataSource.transaction(async (manager) => {
+      const auctionPaintingRepo = manager.getRepository(AuctionPainting);
+      const auctionRepo = manager.getRepository(Auction);
+      const participantRepo = manager.getRepository(AuctionParticipant);
+      const bidHistoryRepo = manager.getRepository(BidHistory);
+      const paintingRepo = manager.getRepository(Painting);
 
-    const auctionPainting = await this.auctionPaintingRepository.findOne({
-      where: { auctionPaintingId },
-      relations: ['auction', 'painting'],
+      const auctionPainting = await auctionPaintingRepo.findOne({
+        where: { auctionPaintingId },
+      });
+
+      if (!auctionPainting) {
+        throw new NotFoundException('Không tìm thấy tranh trong phiên đấu giá');
+      }
+
+      const auction = await auctionRepo.findOne({
+        where: { auctionId: auctionPainting.auctionId },
+      });
+
+      if (!auction) {
+        throw new NotFoundException('Không tìm thấy phiên đấu giá');
+      }
+
+      const now = new Date();
+
+      if (
+        auction.status === AuctionStatus.UPCOMING &&
+        now >= auction.startTime
+      ) {
+        auction.status = AuctionStatus.LIVE;
+        await auctionRepo.save(auction);
+      }
+
+      if (auction.status !== AuctionStatus.LIVE) {
+        throw new BadRequestException('Phiên đấu giá không đang diễn ra');
+      }
+
+      if (now < auction.startTime) {
+        throw new BadRequestException('Phiên đấu giá chưa bắt đầu');
+      }
+
+      const activePainting = await this.ensureActivePaintingForAuction(
+        manager,
+        auction,
+        now,
+      );
+
+      if (!activePainting) {
+        throw new BadRequestException(
+          'Phiên đấu giá không còn tranh để đấu giá',
+        );
+      }
+
+      if (activePainting.auctionPaintingId !== auctionPaintingId) {
+        throw new BadRequestException(
+          `Hiện tại chỉ có thể đấu giá tranh #${activePainting.auctionPaintingId}`,
+        );
+      }
+
+      let paintingEndTime =
+        activePainting.auctionEndTime ||
+        this.getInitialAuctionPaintingEndTime(
+          auction,
+          activePainting.auctionDurationMinutes,
+          now,
+        );
+
+      if (!activePainting.auctionEndTime) {
+        activePainting.auctionEndTime = paintingEndTime;
+      }
+
+      if (now >= paintingEndTime) {
+        throw new BadRequestException('Đã quá thời gian đấu giá của bức tranh');
+      }
+
+      if (activePainting.isSold) {
+        throw new BadRequestException('Tranh đã được bán');
+      }
+
+      if (activePainting.status !== AuctionPaintingStatus.LIVE) {
+        throw new BadRequestException(
+          'Tranh hiện tại không ở trạng thái đang đấu giá',
+        );
+      }
+
+      const participant = await participantRepo.findOne({
+        where: { auctionId: auction.auctionId, userId },
+        relations: ['user'],
+      });
+
+      if (!participant) {
+        throw new ForbiddenException(
+          'Bạn phải tham gia phiên đấu giá trước khi đặt giá',
+        );
+      }
+
+      const currentBid = activePainting.currentBid || activePainting.basePrice;
+      const minBid = currentBid + activePainting.bidStep;
+
+      if (bidAmount < minBid) {
+        throw new BadRequestException(
+          `Giá đặt phải ít nhất ${minBid.toLocaleString('vi-VN')} VNĐ`,
+        );
+      }
+
+      if (activePainting.ceilPrice && bidAmount > activePainting.ceilPrice) {
+        throw new BadRequestException(
+          `Giá đặt không được vượt quá giá trần ${activePainting.ceilPrice.toLocaleString('vi-VN')} VNĐ`,
+        );
+      }
+
+      await bidHistoryRepo.update(
+        {
+          auctionPaintingId: activePainting.auctionPaintingId,
+          status: 'ACTIVE',
+        },
+        { status: 'OUTBID' },
+      );
+
+      const bidHistory = bidHistoryRepo.create({
+        auctionPaintingId: activePainting.auctionPaintingId,
+        bidderId: userId,
+        bidAmount,
+        status: 'ACTIVE',
+      });
+      await bidHistoryRepo.save(bidHistory);
+
+      const hitCeilPrice =
+        activePainting.ceilPrice !== null &&
+        bidAmount === activePainting.ceilPrice;
+
+      activePainting.currentBid = bidAmount;
+      activePainting.currentBidderId = userId;
+
+      const remainingMs = paintingEndTime.getTime() - now.getTime();
+      if (
+        !hitCeilPrice &&
+        remainingMs <= AuctionsService.ANTI_SNIPING_WINDOW_MS
+      ) {
+        paintingEndTime = new Date(
+          paintingEndTime.getTime() + AuctionsService.ANTI_SNIPING_EXTENSION_MS,
+        );
+        activePainting.auctionEndTime = paintingEndTime;
+      }
+
+      if (hitCeilPrice) {
+        activePainting.isSold = true;
+        activePainting.status = AuctionPaintingStatus.END;
+        if (!activePainting.auctionStartTime) {
+          activePainting.auctionStartTime = now;
+        }
+        activePainting.auctionEndTime = now;
+      }
+
+      await auctionPaintingRepo.save(activePainting);
+
+      if (hitCeilPrice) {
+        await paintingRepo.update(
+          { paintingId: activePainting.paintingId },
+          { ownerId: userId, status: 'SOLD' },
+        );
+
+        await this.ensureActivePaintingForAuction(manager, auction, now);
+      }
+
+      return {
+        bidHistory,
+        auctionPainting: activePainting,
+        bidderFullName: participant.user?.fullName || null,
+      };
     });
+  }
+
+  async placeBidByAuctionAndPainting(
+    auctionId: number,
+    paintingId: string,
+    bidAmount: number,
+    userId: string,
+  ): Promise<{
+    bidHistory: BidHistory;
+    auctionPainting: AuctionPainting;
+    bidderFullName: string | null;
+  }> {
+    const auctionPainting = await this.auctionPaintingRepository.findOne({
+      where: { auctionId, paintingId },
+    });
+
     if (!auctionPainting) {
       throw new NotFoundException('Không tìm thấy tranh trong phiên đấu giá');
     }
 
-    const auction = auctionPainting.auction;
-
-    const now = new Date();
-    if (
-      auction.status === AuctionStatus.UPCOMING &&
-      now >= auction.startTime &&
-      now <= auction.endTime
-    ) {
-      auction.status = AuctionStatus.LIVE;
-      await this.auctionRepository.save(auction);
-    }
-
-    if (auction.status !== AuctionStatus.LIVE) {
-      throw new BadRequestException('Phiên đấu giá không đang diễn ra');
-    }
-
-    if (now < auction.startTime || now > auction.endTime) {
-      throw new BadRequestException('Phiên đấu giá không trong thời gian');
-    }
-
-    if (auctionPainting.isSold) {
-      throw new BadRequestException('Tranh đã được bán');
-    }
-
-    const participant = await this.auctionParticipantRepository.findOne({
-      where: { auctionId: auction.auctionId, userId },
-      relations: ['user'],
-    });
-    if (!participant) {
-      throw new ForbiddenException(
-        'Bạn phải tham gia phiên đấu giá trước khi đặt giá',
-      );
-    }
-
-    const currentBid = auctionPainting.currentBid || auctionPainting.basePrice;
-    const minBid = currentBid + auctionPainting.bidStep;
-
-    if (bidAmount < minBid) {
-      throw new BadRequestException(
-        `Giá đặt phải ít nhất ${minBid.toLocaleString('vi-VN')} VNĐ`,
-      );
-    }
-
-    // Kiểm tra giá trần
-    if (auctionPainting.ceilPrice && bidAmount > auctionPainting.ceilPrice) {
-      throw new BadRequestException(
-        `Giá đặt không được vượt quá giá trần ${auctionPainting.ceilPrice.toLocaleString('vi-VN')} VNĐ`,
-      );
-    }
-
-    // Cập nhật bid histories cũ thành OUTBID
-    await this.bidHistoryRepository.update(
+    return await this.placeBid(
       {
-        auctionPaintingId,
-        status: 'ACTIVE',
+        auctionPaintingId: auctionPainting.auctionPaintingId,
+        bidAmount,
       },
-      { status: 'OUTBID' },
+      userId,
     );
-
-    // Tạo bid history mới
-    const bidHistory = this.bidHistoryRepository.create({
-      auctionPaintingId,
-      bidderId: userId,
-      bidAmount,
-      status: 'ACTIVE',
-    });
-    await this.bidHistoryRepository.save(bidHistory);
-
-    // Cập nhật auction painting
-    const hitCeilPrice =
-      auctionPainting.ceilPrice !== null &&
-      bidAmount === auctionPainting.ceilPrice;
-
-    auctionPainting.currentBid = bidAmount;
-    auctionPainting.currentBidderId = userId;
-    if (hitCeilPrice) {
-      auctionPainting.isSold = true;
-    }
-    await this.auctionPaintingRepository.save(auctionPainting);
-
-    if (hitCeilPrice) {
-      await this.paintingRepository.update(
-        { paintingId: auctionPainting.paintingId },
-        { ownerId: userId },
-      );
-    }
-
-    return {
-      bidHistory,
-      auctionPainting,
-      bidderFullName: participant.user?.fullName || null,
-    };
   }
 
   async getAuctions(queryDto: QueryAuctionDto) {
@@ -417,7 +533,7 @@ export class AuctionsService {
       auctionPaintingId: number;
       auctionId: number;
       auctionTitle: string;
-      auctionEndTime: Date;
+      auctionEndTime: Date | null;
       finalBid: number | null;
       painting: AuctionPainting['painting'];
     }[]
@@ -437,10 +553,101 @@ export class AuctionsService {
       auctionPaintingId: item.auctionPaintingId,
       auctionId: item.auctionId,
       auctionTitle: item.auction?.title,
-      auctionEndTime: item.auction?.endTime,
+      auctionEndTime: item.auctionEndTime,
       finalBid: item.currentBid,
       painting: item.painting,
     }));
+  }
+
+  private getInitialAuctionPaintingEndTime(
+    auction: Auction,
+    auctionDurationMinutes: number | null | undefined,
+    referenceTime: Date = auction.startTime,
+  ): Date {
+    if (auctionDurationMinutes && auctionDurationMinutes > 0) {
+      return new Date(
+        referenceTime.getTime() + auctionDurationMinutes * 60 * 1000,
+      );
+    }
+
+    return auction.endTime;
+  }
+
+  private async ensureActivePaintingForAuction(
+    manager: EntityManager,
+    auction: Auction,
+    now: Date,
+  ): Promise<AuctionPainting | null> {
+    const auctionPaintingRepo = manager.getRepository(AuctionPainting);
+    const paintingRepo = manager.getRepository(Painting);
+
+    let currentLivePainting = await auctionPaintingRepo
+      .createQueryBuilder('auctionPainting')
+      .where('auctionPainting.auctionId = :auctionId', {
+        auctionId: auction.auctionId,
+      })
+      .andWhere('auctionPainting.status = :liveStatus', {
+        liveStatus: AuctionPaintingStatus.LIVE,
+      })
+      .orderBy('auctionPainting.createdAt', 'ASC')
+      .addOrderBy('auctionPainting.auctionPaintingId', 'ASC')
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (
+      currentLivePainting &&
+      currentLivePainting.auctionEndTime &&
+      now >= currentLivePainting.auctionEndTime
+    ) {
+      currentLivePainting.status = AuctionPaintingStatus.END;
+
+      if (currentLivePainting.currentBidderId) {
+        currentLivePainting.isSold = true;
+        await paintingRepo.update(
+          { paintingId: currentLivePainting.paintingId },
+          { ownerId: currentLivePainting.currentBidderId, status: 'SOLD' },
+        );
+      } else {
+        await paintingRepo.update(
+          { paintingId: currentLivePainting.paintingId },
+          { status: 'RE_OPEN' },
+        );
+      }
+
+      await auctionPaintingRepo.save(currentLivePainting);
+      currentLivePainting = null;
+    }
+
+    if (currentLivePainting) {
+      return currentLivePainting;
+    }
+
+    const nextWaitingPainting = await auctionPaintingRepo
+      .createQueryBuilder('auctionPainting')
+      .where('auctionPainting.auctionId = :auctionId', {
+        auctionId: auction.auctionId,
+      })
+      .andWhere('auctionPainting.status = :waitingStatus', {
+        waitingStatus: AuctionPaintingStatus.WAITING,
+      })
+      .orderBy('auctionPainting.createdAt', 'ASC')
+      .addOrderBy('auctionPainting.auctionPaintingId', 'ASC')
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (!nextWaitingPainting) {
+      return null;
+    }
+
+    nextWaitingPainting.status = AuctionPaintingStatus.LIVE;
+    nextWaitingPainting.auctionStartTime = now;
+    nextWaitingPainting.auctionEndTime = this.getInitialAuctionPaintingEndTime(
+      auction,
+      nextWaitingPainting.auctionDurationMinutes,
+      now,
+    );
+
+    return await auctionPaintingRepo.save(nextWaitingPainting);
   }
 
   async getBidHistory(
@@ -497,6 +704,33 @@ export class AuctionsService {
     };
   }
 
+  async getBidHistoryByAuctionAndPainting(
+    auctionId: number,
+    paintingId: string,
+    queryDto: GetBidHistoryDto,
+  ): Promise<{
+    data: BidHistory[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+    };
+  }> {
+    const auctionPainting = await this.auctionPaintingRepository.findOne({
+      where: { auctionId, paintingId },
+    });
+
+    if (!auctionPainting) {
+      throw new NotFoundException('Không tìm thấy tranh trong phiên đấu giá');
+    }
+
+    return await this.getBidHistory(
+      auctionPainting.auctionPaintingId,
+      queryDto,
+    );
+  }
+
   async getAuctionBidHistory(
     auctionId: number,
     queryDto: GetBidHistoryDto,
@@ -527,7 +761,7 @@ export class AuctionsService {
     const auctionPaintings = await this.auctionPaintingRepository.find({
       where: { auctionId },
       relations: ['painting'],
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'ASC', auctionPaintingId: 'ASC' },
     });
 
     const result: {
@@ -612,6 +846,8 @@ export class AuctionsService {
       );
     }
 
+    let liveStartedAt: Date | null = null;
+
     if (status === AuctionStatus.LIVE) {
       const now = new Date();
       if (now > auction.endTime) {
@@ -621,10 +857,27 @@ export class AuctionsService {
       }
 
       auction.startTime = now;
+      liveStartedAt = now;
     }
 
     auction.status = status;
     const updatedAuction = await this.auctionRepository.save(auction);
+
+    if (status === AuctionStatus.LIVE) {
+      const activePainting = await this.dataSource.transaction(
+        async (manager) => {
+          return await this.ensureActivePaintingForAuction(
+            manager,
+            updatedAuction,
+            liveStartedAt || new Date(),
+          );
+        },
+      );
+
+      if (!activePainting) {
+        throw new BadRequestException('Phiên đấu giá chưa có tranh để bắt đầu');
+      }
+    }
 
     const result = await this.auctionRepository.findOne({
       where: { auctionId },
@@ -680,7 +933,7 @@ export class AuctionsService {
     if (soldPaintings.length > 0) {
       await this.auctionPaintingRepository.update(
         { auctionId, currentBidderId: Not(IsNull()) },
-        { isSold: true },
+        { isSold: true, status: AuctionPaintingStatus.END },
       );
 
       await Promise.all(
@@ -698,6 +951,11 @@ export class AuctionsService {
     });
 
     if (unsoldPaintings.length > 0) {
+      await this.auctionPaintingRepository.update(
+        { auctionId, isSold: false },
+        { status: AuctionPaintingStatus.END },
+      );
+
       await this.paintingRepository.update(
         {
           paintingId: In(unsoldPaintings.map((item) => item.paintingId)),
@@ -721,5 +979,34 @@ export class AuctionsService {
     }
 
     return result;
+  }
+
+  @Cron('*/2 * * * * *', {
+    name: 'rotate-auction-paintings',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  async handleAuctionPaintingRotation() {
+    const now = new Date();
+
+    try {
+      const liveAuctions = await this.auctionRepository.find({
+        where: { status: AuctionStatus.LIVE },
+      });
+
+      if (liveAuctions.length === 0) {
+        return;
+      }
+
+      for (const auction of liveAuctions) {
+        await this.dataSource.transaction(async (manager) => {
+          await this.ensureActivePaintingForAuction(manager, auction, now);
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `rotate-auction-paintings failed: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 }

@@ -1,12 +1,14 @@
 export const AUCTION_EVENTS = {
   // Client to Server Events
   JOIN_AUCTION: 'joinAuction',
+  JOIN_PAINTING: 'joinPainting',
   PLACE_BID: 'placeBid',
   LEAVE_AUCTION: 'leaveAuction',
   GET_AUCTION_STATUS: 'getAuctionStatus',
 
   // Server to Client Events
   JOINED_AUCTION: 'joinedAuction',
+  JOINED_PAINTING: 'joinedPainting',
   USER_JOINED: 'userJoined',
   NEW_BID: 'newBid',
   BID_PLACED: 'bidPlaced',
