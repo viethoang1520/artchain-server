@@ -309,7 +309,7 @@ export class AwardsService {
 
     return {
       success: true,
-      message: 'Award updated successfully',
+      message: 'Cập nhật giải thưởng thành công',
       data: updatedAward,
     };
   }
@@ -320,7 +320,7 @@ export class AwardsService {
     });
 
     if (!award) {
-      throw new NotFoundException(`Award with ID ${id} not found`);
+      throw new NotFoundException(`Giải thưởng với ID ${id} không tìm thấy`);
     }
 
     const contestId = award.contestId;
@@ -344,7 +344,7 @@ export class AwardsService {
 
     return {
       success: true,
-      message: 'Award deleted successfully',
+      message: 'Cập nhật giải thưởng thành công',
     };
   }
 }

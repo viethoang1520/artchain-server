@@ -1,10 +1,8 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
   Param,
-  Delete,
   Put,
   Req,
   UseGuards,
@@ -15,11 +13,9 @@ import { GetSubmissionsDto } from './dto/get-submissions.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   ApiBearerAuth,
-  ApiBody,
   ApiOperation,
   ApiParam,
   ApiResponse,
-  ApiTags,
 } from '@nestjs/swagger';
 
 @Controller('api/users')
