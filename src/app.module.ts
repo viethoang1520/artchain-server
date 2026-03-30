@@ -51,7 +51,6 @@ import { AiModule } from './modules/ai/ai.module';
     WebsocketModule,
     AuctionsModule,
     WalletsModule,
-    // OrdersModule,
     AiModule,
   ],
   controllers: [AppController],
