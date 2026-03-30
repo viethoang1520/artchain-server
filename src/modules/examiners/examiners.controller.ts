@@ -26,7 +26,7 @@ export class ExaminersController {
       const examinerId = req.user.sub || req.user.userId;
       return await this.staffService.getSchedulesByExaminer(examinerId);
     } catch (error) {
-      throw new BadRequestException(error.message || 'Failed to get schedules');
+      throw new BadRequestException(error.message || 'Không thể lấy lịch trình của giám khảo');
     }
   }
 }
