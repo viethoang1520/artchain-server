@@ -64,13 +64,13 @@ export class ExhibitionsService {
 
       return {
         success: true,
-        message: 'Exhibition created successfully',
+        message: 'Triển lãm được tạo thành công',
         data: savedExhibition,
       };
     } catch (error) {
       if (error.code === '22021') {
         throw new BadRequestException(
-          'Invalid characters detected in input. Please remove special characters or emojis.',
+          'Đã phát hiện ký tự không hợp lệ trong đầu vào. Vui lòng loại bỏ các ký tự đặc biệt hoặc biểu tượng cảm xúc.',
         );
       }
       throw error;
@@ -104,7 +104,7 @@ export class ExhibitionsService {
     });
 
     if (!exhibition) {
-      throw new NotFoundException(`Exhibition with ID ${id} not found`);
+      throw new NotFoundException(`Triển lãm với ID ${id} không tìm thấy`);
     }
 
     // Enrich painting data with competitor and award information
@@ -183,7 +183,7 @@ export class ExhibitionsService {
     });
 
     if (!exhibition) {
-      throw new NotFoundException(`Exhibition with ID ${id} not found`);
+      throw new NotFoundException(`Triển lãm với ID ${id} không tìm thấy`);
     }
 
     const updatedExhibition = this.exhibitionRepository.merge(
@@ -196,7 +196,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Exhibition updated successfully',
+      message: 'Triển lãm được cập nhật thành công',
       data: savedExhibition,
     };
   }
@@ -218,7 +218,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Exhibition deleted successfully',
+      message: 'Triển lãm đã được xóa thành công',
     };
   }
 
@@ -232,7 +232,7 @@ export class ExhibitionsService {
 
     if (!exhibition) {
       throw new NotFoundException(
-        `Exhibition with ID ${exhibitionId} not found`,
+        `Triển lãm với ID ${exhibitionId} không tìm thấy`,
       );
     }
 
@@ -242,7 +242,7 @@ export class ExhibitionsService {
     });
 
     if (paintings.length !== addPaintingsDto.paintingIds.length) {
-      throw new BadRequestException('Some paintings do not exist');
+      throw new BadRequestException('Một số tác phẩm không tồn tại');
     }
 
     // Check for duplicates
@@ -256,7 +256,7 @@ export class ExhibitionsService {
     if (existingPaintings.length > 0) {
       const duplicateIds = existingPaintings.map((ep) => ep.paintingId);
       throw new BadRequestException(
-        `Some paintings are already in this exhibition: ${duplicateIds.join(', ')}`,
+        `Một số tác phẩm đã có trong triển lãm này: ${duplicateIds.join(', ')}`,
       );
     }
 
@@ -294,7 +294,7 @@ export class ExhibitionsService {
 
     if (!exhibitionPainting) {
       throw new NotFoundException(
-        `Painting ${paintingId} not found in exhibition ${exhibitionId}`,
+        `Tác phẩm ${paintingId} không tìm thấy trong triển lãm ${exhibitionId}`,
       );
     }
 
@@ -315,7 +315,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Painting removed from exhibition successfully',
+      message: 'Tác phẩm đã được xóa khỏi triển lãm thành công',
     };
   }
 
@@ -326,7 +326,7 @@ export class ExhibitionsService {
 
     if (!exhibition) {
       throw new NotFoundException(
-        `Exhibition with ID ${exhibitionId} not found`,
+        `Triển lãm với ID ${exhibitionId} không tìm thấy`,
       );
     }
 
@@ -345,7 +345,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Exhibition paintings retrieved successfully',
+      message: 'Tác phẩm trong triển lãm được lấy thành công',
       data: paintings,
       count: paintings.length,
     };
@@ -361,7 +361,7 @@ export class ExhibitionsService {
 
     if (!exhibition) {
       throw new NotFoundException(
-        `Exhibition with ID ${exhibitionId} not found`,
+        `Triển lãm với ID ${exhibitionId} không tìm thấy`,
       );
     }
 
@@ -372,7 +372,7 @@ export class ExhibitionsService {
       );
       return {
         success: true,
-        message: 'No paintings to update',
+        message: 'Không có tác phẩm nào để cập nhật',
       };
     }
 
@@ -384,7 +384,7 @@ export class ExhibitionsService {
     });
 
     if (paintings.length !== updatePaintingDto.data.length) {
-      throw new BadRequestException('Some paintings do not exist');
+      throw new BadRequestException('Một số tác phẩm không tồn tại');
     }
 
     const results = await Promise.allSettled(
@@ -396,7 +396,7 @@ export class ExhibitionsService {
 
         if (!exhibitionPainting) {
           throw new NotFoundException(
-            `Painting ${item.paintingId} not found in exhibition ${exhibitionId}`,
+            `Tác phẩm ${item.paintingId} không tìm thấy trong triển lãm ${exhibitionId}`,
           );
         }
 

@@ -55,21 +55,21 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({ where: { username } });
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Thông tin đăng nhập không chính xác');
     }
 
     const isActive = user.status === UserStatus.ACTIVE;
     if (!isActive) {
       if (!user.emailVerifiedAt) {
         throw new UnauthorizedException(
-          'Please verify your email before logging in',
+          'Vui lòng xác minh email của bạn trước khi đăng nhập',
         );
       }
-      throw new UnauthorizedException('User account is banned or inactive');
+      throw new UnauthorizedException('Tài khoản người dùng đã bị cấm hoặc không hoạt động');
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Thông tin đăng nhập không chính xác');
     }
 
     const payload = { sub: user.userId, username: user.username };
@@ -102,7 +102,7 @@ export class AuthService {
       where: [{ email }, { username }],
     });
     if (existingUser) {
-      throw new BadRequestException('User already exists');
+      throw new BadRequestException('Người dùng đã tồn tại với email hoặc tên đăng nhập này');
     }
 
     const { token, tokenHash } = this.generateEmailVerificationToken();
@@ -140,13 +140,13 @@ export class AuthService {
     const confirmUrl = `${this.buildAppUrl()}/api/auth/confirm-email?token=${token}`;
     await this.emailsService.sendMail({
       to: [email],
-      subject: 'Confirm your ArtChain account',
+      subject: 'Xác nhận thông tin đăng ký tài khoản',
       text:
-        `Hi ${fullName || username},\n\n` +
-        `Please confirm your email to activate your account by clicking the link below:\n` +
+        `Xin chào ${fullName || username},\n\n` +
+        `Vui lòng xác nhận email của bạn để kích hoạt tài khoản bằng cách nhấn vào liên kết dưới đây:\n` +
         `${confirmUrl}\n\n` +
-        `This link will expire in 24 hours.\n\n` +
-        `If you did not create this account, you can ignore this email.`,
+        `Liên kết này sẽ hết hạn sau 24 giờ.\n\n` +
+        `Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.`,
     });
 
     const { password: _, ...result } = newUser;
@@ -183,6 +183,6 @@ export class AuthService {
     user.emailVerificationTokenExpiresAt = null;
     await this.userRepo.save(user);
 
-    return { message: 'Email confirmed. Your account is now active.' };
+    return { message: 'Email đã được xác nhận. Tài khoản của bạn đã được kích hoạt.' };
   }
 }
