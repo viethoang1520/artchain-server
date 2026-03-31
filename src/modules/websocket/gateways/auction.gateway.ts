@@ -34,6 +34,7 @@ export class AuctionGateway
     bidderFullName: string | null;
     currentBid: number | null;
     currentBidderId: string | null;
+    paintingAuctionEndTime: Date | null;
     timestamp: Date;
   }) {
     if (!AuctionGateway.io) {
@@ -50,6 +51,7 @@ export class AuctionGateway
         userName: payload.bidderFullName, // Ensure userName is included
         currentBid: payload.currentBid,
         currentBidderId: payload.currentBidderId,
+        paintingAuctionEndTime: payload.paintingAuctionEndTime,
         timestamp: payload.timestamp,
       });
   }
@@ -124,6 +126,7 @@ export class AuctionGateway
         userName: result.bidderFullName,
         currentBid: result.auctionPainting.currentBid,
         currentBidderId: result.auctionPainting.currentBidderId,
+        paintingAuctionEndTime: result.auctionPainting.auctionEndTime,
         timestamp: result.bidHistory.bidTime,
       });
 

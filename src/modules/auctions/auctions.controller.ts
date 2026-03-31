@@ -98,6 +98,42 @@ export class AuctionsController {
       bidderFullName: result.bidderFullName,
       currentBid: result.auctionPainting.currentBid,
       currentBidderId: result.auctionPainting.currentBidderId,
+      paintingAuctionEndTime: result.auctionPainting.auctionEndTime,
+      timestamp: result.bidHistory.bidTime,
+    });
+
+    return result;
+  }
+
+  @Post(':auctionId/:paintingId/bids')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đặt giá theo phiên và tranh' })
+  @ApiResponse({ status: 201, description: 'Đặt giá thành công' })
+  async placeBidByAuctionAndPainting(
+    @Param('auctionId') auctionId: number,
+    @Param('paintingId') paintingId: string,
+    @Body('bidAmount') bidAmount: number,
+    @Request() req: any,
+  ) {
+    const userId = req.user.sub;
+    const result = await this.auctionsService.placeBidByAuctionAndPainting(
+      auctionId,
+      paintingId,
+      bidAmount,
+      userId,
+    );
+
+    AuctionGateway.broadcastNewBid({
+      auctionId: result.auctionPainting.auctionId,
+      auctionPaintingId: result.auctionPainting.auctionPaintingId,
+      paintingId: result.auctionPainting.paintingId,
+      bidAmount,
+      bidderId: userId,
+      bidderFullName: result.bidderFullName,
+      currentBid: result.auctionPainting.currentBid,
+      currentBidderId: result.auctionPainting.currentBidderId,
+      paintingAuctionEndTime: result.auctionPainting.auctionEndTime,
       timestamp: result.bidHistory.bidTime,
     });
 
@@ -165,6 +201,23 @@ export class AuctionsController {
   ) {
     return await this.auctionsService.getBidHistory(
       auctionPaintingId,
+      queryDto,
+    );
+  }
+
+  @Get(':auctionId/:paintingId/bid-history')
+  @ApiOperation({
+    summary: 'Lấy lịch sử giá của một tranh theo phiên đấu giá',
+  })
+  @ApiResponse({ status: 200, description: 'Lấy lịch sử giá thành công' })
+  async getBidHistoryByAuctionAndPainting(
+    @Param('auctionId') auctionId: number,
+    @Param('paintingId') paintingId: string,
+    @Query() queryDto: GetBidHistoryDto,
+  ) {
+    return await this.auctionsService.getBidHistoryByAuctionAndPainting(
+      auctionId,
+      paintingId,
       queryDto,
     );
   }
