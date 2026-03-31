@@ -7,5 +7,6 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [AiController],
   providers: [AiService],
   imports: [ConfigModule],
+  exports: [AiService],
 })
 export class AiModule {}
