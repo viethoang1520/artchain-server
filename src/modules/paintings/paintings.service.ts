@@ -23,11 +23,13 @@ import {
 } from './dto/preliminary-review.dto';
 import { Award } from '../awards/entities/award.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class PaintingsService {
   constructor(
     private readonly firebaseService: FirebaseService,
+    private readonly aiService: AiService,
     @InjectRepository(Painting)
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
@@ -235,6 +237,16 @@ export class PaintingsService {
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
+
+    const validationResult = await this.aiService.checkValidSubmission(
+      file.buffer.toString('base64'),
+    );
+
+    if (!validationResult || validationResult.valid !== true) {
+      const reason = validationResult?.reason || 'Hình ảnh không hợp lệ.';
+      throw new BadRequestException(`Ảnh không hợp lệ: ${reason}`);
+    }
+
     const existingSubmission = await this.paintingRepository.findOne({
       where: {
         competitorId: data.competitorId,
@@ -247,6 +259,7 @@ export class PaintingsService {
         'You have already submitted a painting for this round and contest.',
       );
     }
+
     const bucket = this.firebaseService.getStorage().bucket();
     const fileName = `uploads/${Date.now()}-${file.originalname}`;
     const fileUpload = bucket.file(fileName);

@@ -52,6 +52,7 @@ Rules:
 - Must contain meaningful content
 - No NSFW, violence, illegal content
 - No pure text screenshot
+- Please send reason in Vietnamese
 
 Return ONLY JSON:
 {
