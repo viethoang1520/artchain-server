@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  OneToOne,
 } from 'typeorm';
 import { Evaluation } from './evaluation.entity';
 import { Award } from '../../awards/entities/award.entity';
@@ -16,6 +17,7 @@ import { ExhibitionPainting } from '../../exhibitions/entities/exhibition-painti
 import { Round } from '../../contests/entities/round.entity';
 import { AuctionPainting } from '../../auctions/entities/auction-painting.entity';
 import { Vote } from '../../votes/entities/vote.entity';
+import { Nft } from './nft.entity';
 
 @Entity('paintings')
 export class Painting {
@@ -91,6 +93,11 @@ export class Painting {
     (auctionPainting) => auctionPainting.painting,
   )
   auctionPaintings: AuctionPainting[];
+
+  @OneToOne(() => Nft, (nft) => nft.transactionHash)
+  @JoinColumn({ name: 'nft' })
+  nft: Nft;
+
 
   @OneToMany(() => Vote, (vote) => vote.painting)
   votes: Vote[];

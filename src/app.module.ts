@@ -25,6 +25,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
 import { AuctionsModule } from './modules/auctions/auctions.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { AiModule } from './modules/ai/ai.module';
+import { NftModule } from './modules/nft/nft.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AiModule } from './modules/ai/ai.module';
     AuctionsModule,
     WalletsModule,
     AiModule,
+    NftModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,12 +2,17 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { NftService } from './nft.service';
 import { MintNftDto } from './dto/mint-nft.dto';
 
-@Controller('nft')
+@Controller('/api/nft')
 export class NftController {
   constructor(private readonly nftService: NftService) {}
 
-  @Post('/mint-nft')
+  @Post('/mint')
   mintNFT(@Body() mintNftDto: MintNftDto) {
-    return this.nftService.mint(mintNftDto);
+    try {
+      return this.nftService.mint(mintNftDto);
+    } catch (error) {
+      console.log('error: ', error);
+    }
+    
   }
 }
