@@ -238,7 +238,7 @@ export class PaintingsService {
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
     const { ignoreAiCheck, competitorId, contestId, roundId } = data;
-    if (ignoreAiCheck !== true) {
+    if (ignoreAiCheck !== 'true') {
       const validationResult = await this.aiService.checkValidSubmission(
         file.buffer.toString('base64'),
       );
