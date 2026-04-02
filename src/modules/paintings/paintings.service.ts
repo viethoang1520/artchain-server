@@ -48,7 +48,7 @@ export class PaintingsService {
     private readonly scheduleRepository: Repository<Schedule>,
     @InjectRepository(Contest)
     private readonly contestRepository: Repository<Contest>,
-  ) {}
+  ) { }
 
   async getPaintingsByContestId(
     contestId: number,
@@ -144,22 +144,22 @@ export class PaintingsService {
               ...painting,
               competitor: competitor
                 ? {
-                    competitorId: competitor.competitorId,
-                    birthday: competitor.birthday,
-                    schoolName: competitor.schoolName,
-                    ward: competitor.ward,
-                    grade: competitor.grade,
-                    guardianId: competitor.guardianId,
-                  }
+                  competitorId: competitor.competitorId,
+                  birthday: competitor.birthday,
+                  schoolName: competitor.schoolName,
+                  ward: competitor.ward,
+                  grade: competitor.grade,
+                  guardianId: competitor.guardianId,
+                }
                 : null,
               user: user
                 ? {
-                    userId: user.userId,
-                    username: user.username,
-                    email: user.email,
-                    fullName: user.fullName,
-                    phone: user.phone,
-                  }
+                  userId: user.userId,
+                  username: user.username,
+                  email: user.email,
+                  fullName: user.fullName,
+                  phone: user.phone,
+                }
                 : null,
             };
           }),
@@ -208,22 +208,22 @@ export class PaintingsService {
           ...painting,
           competitor: competitor
             ? {
-                competitorId: competitor.competitorId,
-                birthday: competitor.birthday,
-                schoolName: competitor.schoolName,
-                ward: competitor.ward,
-                grade: competitor.grade,
-                guardianId: competitor.guardianId,
-              }
+              competitorId: competitor.competitorId,
+              birthday: competitor.birthday,
+              schoolName: competitor.schoolName,
+              ward: competitor.ward,
+              grade: competitor.grade,
+              guardianId: competitor.guardianId,
+            }
             : null,
           user: user
             ? {
-                userId: user.userId,
-                username: user.username,
-                email: user.email,
-                fullName: user.fullName,
-                phone: user.phone,
-              }
+              userId: user.userId,
+              username: user.username,
+              email: user.email,
+              fullName: user.fullName,
+              phone: user.phone,
+            }
             : null,
         };
       }),
@@ -237,21 +237,22 @@ export class PaintingsService {
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
+    const { ignoreAiCheck, competitorId, contestId, roundId } = data;
+    if (ignoreAiCheck !== true) {
+      const validationResult = await this.aiService.checkValidSubmission(
+        file.buffer.toString('base64'),
+      );
 
-    const validationResult = await this.aiService.checkValidSubmission(
-      file.buffer.toString('base64'),
-    );
-
-    if (!validationResult || validationResult.valid !== true) {
-      const reason = validationResult?.reason || 'Hình ảnh không hợp lệ.';
-      throw new BadRequestException(`Ảnh không hợp lệ: ${reason}`);
+      if (!validationResult || validationResult.valid !== true) {
+        const reason = validationResult?.reason || 'Hình ảnh không hợp lệ.';
+        throw new BadRequestException(`Ảnh không hợp lệ: ${reason}`);
+      }
     }
-
     const existingSubmission = await this.paintingRepository.findOne({
       where: {
-        competitorId: data.competitorId,
-        contestId: data.contestId,
-        roundId: data.roundId,
+        competitorId,
+        contestId,
+        roundId,
       },
     });
     if (existingSubmission) {
