@@ -38,10 +38,7 @@ export class NftService {
       }
 
       if (painting.nft) {
-        return {
-          success: false,
-          message: 'Bức tranh này đã được mint NFT trước đó.',
-        };
+        throw new Error('Bức tranh này đã được mint NFT trước đó.');
       }
 
       const imageUrl = painting.image_url as string;
