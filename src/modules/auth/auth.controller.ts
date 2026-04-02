@@ -5,10 +5,12 @@ import {
   Get,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDTO } from './dto/login.dto';
 import { RegisterDTO } from './dto/register.dto';
+import { Response } from 'express';
 
 @Controller('/api/auth')
 export class AuthController {
@@ -32,9 +34,13 @@ export class AuthController {
   }
 
   @Get('confirm-email')
-  async confirmEmail(@Query('token') token: string): Promise<any> {
+  async confirmEmail(
+    @Query('token') token: string,
+    @Res() res: Response,
+  ): Promise<void> {
     try {
-      return await this.authService.confirmEmail(token);
+      await this.authService.confirmEmail(token);
+      res.redirect('https://artchain.io.vn/auth');
     } catch (error) {
       throw new BadRequestException(
         error.message || 'Email confirmation failed',

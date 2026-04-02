@@ -15,6 +15,9 @@ import { Examiner } from '../examiners/entities/examiners.entity';
 import { EmailsService } from '../emails/emails.service';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
+import { access, readFile } from 'fs/promises';
+import { constants } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class AuthService {
@@ -50,6 +53,61 @@ export class AuthService {
     return { token, tokenHash };
   }
 
+  private escapeHtml(value: string): string {
+    return (value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private async getConfirmEmailTemplatePath(): Promise<string> {
+    const candidates = [
+      join(
+        process.cwd(),
+        'dist',
+        'modules',
+        'emails',
+        'templates',
+        'confirm-email.html',
+      ),
+      join(
+        process.cwd(),
+        'src',
+        'modules',
+        'emails',
+        'templates',
+        'confirm-email.html',
+      ),
+      join(__dirname, '..', 'emails', 'templates', 'confirm-email.html'),
+    ];
+
+    for (const filePath of candidates) {
+      try {
+        await access(filePath, constants.F_OK);
+        return filePath;
+      } catch {
+      }
+    }
+
+    throw new BadRequestException(
+      'Không tìm thấy file template email xác nhận',
+    );
+  }
+
+  private async buildConfirmEmailHtml(
+    userName: string,
+    confirmUrl: string,
+  ): Promise<string> {
+    const templatePath = await this.getConfirmEmailTemplatePath();
+    const template = await readFile(templatePath, 'utf8');
+
+    return template
+      .replace(/{{USER_NAME}}/g, this.escapeHtml(userName))
+      .replace(/{{CONFIRM_URL}}/g, confirmUrl);
+  }
+
   async login(loginDto: LoginDTO) {
     const { username, password } = loginDto;
 
@@ -65,7 +123,9 @@ export class AuthService {
           'Vui lòng xác minh email của bạn trước khi đăng nhập',
         );
       }
-      throw new UnauthorizedException('Tài khoản người dùng đã bị cấm hoặc không hoạt động');
+      throw new UnauthorizedException(
+        'Tài khoản người dùng đã bị cấm hoặc không hoạt động',
+      );
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -102,7 +162,9 @@ export class AuthService {
       where: [{ email }, { username }],
     });
     if (existingUser) {
-      throw new BadRequestException('Người dùng đã tồn tại với email hoặc tên đăng nhập này');
+      throw new BadRequestException(
+        'Người dùng đã tồn tại với email hoặc tên đăng nhập này',
+      );
     }
 
     const { token, tokenHash } = this.generateEmailVerificationToken();
@@ -138,15 +200,18 @@ export class AuthService {
     }
 
     const confirmUrl = `${this.buildAppUrl()}/api/auth/confirm-email?token=${token}`;
+    const displayName = fullName || username;
+    const html = await this.buildConfirmEmailHtml(displayName, confirmUrl);
     await this.emailsService.sendMail({
       to: [email],
       subject: 'Xác nhận thông tin đăng ký tài khoản',
       text:
-        `Xin chào ${fullName || username},\n\n` +
+        `Xin chào ${displayName},\n\n` +
         `Vui lòng xác nhận email của bạn để kích hoạt tài khoản bằng cách nhấn vào liên kết dưới đây:\n` +
         `${confirmUrl}\n\n` +
         `Liên kết này sẽ hết hạn sau 24 giờ.\n\n` +
         `Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.`,
+      html,
     });
 
     const { password: _, ...result } = newUser;
@@ -174,7 +239,7 @@ export class AuthService {
       !user.emailVerificationTokenExpiresAt ||
       user.emailVerificationTokenExpiresAt.getTime() < Date.now()
     ) {
-      throw new BadRequestException('Verification token has expired');
+      throw new BadRequestException('Đã hết hạn token xác minh email');
     }
 
     user.status = UserStatus.ACTIVE;
@@ -183,6 +248,8 @@ export class AuthService {
     user.emailVerificationTokenExpiresAt = null;
     await this.userRepo.save(user);
 
-    return { message: 'Email đã được xác nhận. Tài khoản của bạn đã được kích hoạt.' };
+    return {
+      message: 'Email đã được xác nhận. Tài khoản của bạn đã được kích hoạt.',
+    };
   }
 }
