@@ -559,6 +559,78 @@ export class AuctionsService {
     }));
   }
 
+  async getWonPaintingDetailByUserIdAndPaintingId(
+    userId: string,
+    paintingId: string,
+  ): Promise<{
+    auctionPaintingId: number;
+    paintingId: string;
+    auctionId: number;
+    auctionTitle: string;
+    auctionStartTime: Date | null;
+    auctionEndTime: Date | null;
+    finalBid: number | null;
+    winnerId: string | null;
+    painting: AuctionPainting['painting'];
+    bidHistories: {
+      bidHistoryId: number;
+      bidAmount: number;
+      bidTime: Date;
+      status: string;
+      bidder: {
+        userId: string;
+        fullName: string;
+      } | null;
+    }[];
+  }> {
+    const wonPainting = await this.auctionPaintingRepository
+      .createQueryBuilder('auctionPainting')
+      .leftJoinAndSelect('auctionPainting.auction', 'auction')
+      .leftJoinAndSelect('auctionPainting.painting', 'painting')
+      .where('auctionPainting.paintingId = :paintingId', {
+        paintingId,
+      })
+      .andWhere('auctionPainting.currentBidderId = :userId', { userId })
+      .andWhere('auction.status = :completedStatus', {
+        completedStatus: AuctionStatus.END,
+      })
+      .getOne();
+
+    if (!wonPainting) {
+      throw new NotFoundException('Không tìm thấy tranh thắng đấu giá');
+    }
+
+    const bidHistories = await this.bidHistoryRepository.find({
+      where: { auctionPaintingId: wonPainting.auctionPaintingId },
+      relations: ['bidder'],
+      order: { bidTime: 'DESC' },
+    });
+
+    return {
+      auctionPaintingId: wonPainting.auctionPaintingId,
+      paintingId: wonPainting.paintingId,
+      auctionId: wonPainting.auctionId,
+      auctionTitle: wonPainting.auction?.title,
+      auctionStartTime: wonPainting.auctionStartTime,
+      auctionEndTime: wonPainting.auctionEndTime,
+      finalBid: wonPainting.currentBid,
+      winnerId: wonPainting.currentBidderId,
+      painting: wonPainting.painting,
+      bidHistories: bidHistories.map((item) => ({
+        bidHistoryId: item.bidHistoryId,
+        bidAmount: item.bidAmount,
+        bidTime: item.bidTime,
+        status: item.status,
+        bidder: item.bidder
+          ? {
+              userId: item.bidder.userId,
+              fullName: item.bidder.fullName,
+            }
+          : null,
+      })),
+    };
+  }
+
   private getInitialAuctionPaintingEndTime(
     auction: Auction,
     auctionDurationMinutes: number | null | undefined,

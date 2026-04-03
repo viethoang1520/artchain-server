@@ -48,7 +48,7 @@ export class PaintingsService {
     private readonly scheduleRepository: Repository<Schedule>,
     @InjectRepository(Contest)
     private readonly contestRepository: Repository<Contest>,
-  ) { }
+  ) {}
 
   async getPaintingsByContestId(
     contestId: number,
@@ -144,22 +144,22 @@ export class PaintingsService {
               ...painting,
               competitor: competitor
                 ? {
-                  competitorId: competitor.competitorId,
-                  birthday: competitor.birthday,
-                  schoolName: competitor.schoolName,
-                  ward: competitor.ward,
-                  grade: competitor.grade,
-                  guardianId: competitor.guardianId,
-                }
+                    competitorId: competitor.competitorId,
+                    birthday: competitor.birthday,
+                    schoolName: competitor.schoolName,
+                    ward: competitor.ward,
+                    grade: competitor.grade,
+                    guardianId: competitor.guardianId,
+                  }
                 : null,
               user: user
                 ? {
-                  userId: user.userId,
-                  username: user.username,
-                  email: user.email,
-                  fullName: user.fullName,
-                  phone: user.phone,
-                }
+                    userId: user.userId,
+                    username: user.username,
+                    email: user.email,
+                    fullName: user.fullName,
+                    phone: user.phone,
+                  }
                 : null,
             };
           }),
@@ -208,22 +208,22 @@ export class PaintingsService {
           ...painting,
           competitor: competitor
             ? {
-              competitorId: competitor.competitorId,
-              birthday: competitor.birthday,
-              schoolName: competitor.schoolName,
-              ward: competitor.ward,
-              grade: competitor.grade,
-              guardianId: competitor.guardianId,
-            }
+                competitorId: competitor.competitorId,
+                birthday: competitor.birthday,
+                schoolName: competitor.schoolName,
+                ward: competitor.ward,
+                grade: competitor.grade,
+                guardianId: competitor.guardianId,
+              }
             : null,
           user: user
             ? {
-              userId: user.userId,
-              username: user.username,
-              email: user.email,
-              fullName: user.fullName,
-              phone: user.phone,
-            }
+                userId: user.userId,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                phone: user.phone,
+              }
             : null,
         };
       }),
@@ -532,13 +532,34 @@ export class PaintingsService {
     };
   }
 
+  async getPaintingDetail(paintingId: string): Promise<Painting> {
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId },
+      relations: [
+        'contest',
+        'award',
+        'competitor',
+        'competitor.user',
+        'competitor.guardian',
+        'auctionPaintings.auction',
+        'nft',
+      ],
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Không tìm thấy tranh có ID ${paintingId}`);
+    }
+
+    return painting;
+  }
+
   async getPaintingEvaluations(paintingId: string): Promise<any[]> {
     const painting = await this.paintingRepository.findOne({
       where: { paintingId },
     });
 
     if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+      throw new NotFoundException(`Không tìm thấy tranh có ID ${paintingId}`);
     }
 
     const evaluations = await this.evaluationRepository.find({

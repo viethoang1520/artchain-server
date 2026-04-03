@@ -35,6 +35,7 @@ export class NftService {
     );
     const competitor = await this.competitorRepository.findOne({
       where: { competitorId: painting.competitor_id },
+      relations: ['user'],
     });
 
     if (!painting || !painting.image_url) {

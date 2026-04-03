@@ -17,8 +17,7 @@ import { ExhibitionPainting } from '../../exhibitions/entities/exhibition-painti
 import { Round } from '../../contests/entities/round.entity';
 import { AuctionPainting } from '../../auctions/entities/auction-painting.entity';
 import { Vote } from '../../votes/entities/vote.entity';
-import { Nft } from 'src/modules/nft/entities/nft.entity';
-
+import { Nft } from '../../nft/entities/nft.entity';
 
 @Entity('paintings')
 export class Painting {

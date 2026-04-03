@@ -12,6 +12,7 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { Award } from '../awards/entities/award.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { Contest } from '../contests/entities/contests.entity';
+
 import { AiModule } from '../ai/ai.module';
 import { Nft } from '../nft/entities/nft.entity';
 
