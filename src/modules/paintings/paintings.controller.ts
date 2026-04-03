@@ -75,6 +75,18 @@ export class PaintingsController {
     }
   }
 
+  @Get(':paintingId')
+  @ApiOperation({
+    summary: 'Lấy chi tiết một painting',
+  })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'ID của painting',
+  })
+  async getPaintingDetail(@Param('paintingId') paintingId: string) {
+    return await this.paintingsService.getPaintingDetail(paintingId);
+  }
+
   @Post('upload')
   @ApiOperation({ summary: 'Upload tranh vẽ với thông tin' })
   @ApiConsumes('multipart/form-data')
