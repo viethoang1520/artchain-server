@@ -10,6 +10,7 @@ import { Nft } from './entities/nft.entity';
 type MintApiResponse = {
   transaction_hash: string;
   cid: string;
+  token_id?: string | null;
 };
 
 @Injectable()
@@ -26,7 +27,7 @@ export class NftService {
 
   async mint(
     mintNftDto: MintNftDto,
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; data: any }> {
     const { receiver, paintingId } = mintNftDto;
     const [painting] = await this.paintingRepository.query(
       'SELECT painting_id, competitor_id, image_url, title, description, nft FROM paintings WHERE painting_id = $1',
@@ -72,11 +73,12 @@ export class NftService {
 
     const data = (await response.json()) as MintApiResponse;
     console.log('data: ', data);
-    const { transaction_hash, cid } = data;
+    const { transaction_hash, cid, token_id } = data;
 
     await this.nftRepository.save({
       transactionHash: transaction_hash,
       cid,
+      tokenId: token_id ?? undefined,
     });
 
     await this.paintingRepository.query(
@@ -86,6 +88,11 @@ export class NftService {
 
     return {
       success: true,
+      data: {
+        transactionHash: transaction_hash,
+        cid,
+        tokenId: token_id ?? null,
+      },
       message: `NFT minted successfully. tx: ${transaction_hash}, cid: ${cid}`,
     };
   }
