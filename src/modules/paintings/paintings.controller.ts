@@ -124,7 +124,7 @@ export class PaintingsController {
     try {
       return this.paintingsService.uploadFile(file, data);
     } catch (error) {
-      throw new BadRequestException(error.message || 'File upload failed');
+      throw new BadRequestException(error.message || 'Nộp tranh thất bại');
     }
   }
 
