@@ -24,7 +24,7 @@ export class NftService {
   async mint(
     mintNftDto: MintNftDto,
   ): Promise<{ success: boolean; message: string }> {
-    try {
+
       const { receiver, paintingId } = mintNftDto;
       const [painting] = await this.paintingRepository.query(
         'SELECT painting_id, image_url, nft FROM paintings WHERE painting_id = $1',
@@ -80,12 +80,6 @@ export class NftService {
         success: true,
         message: `NFT minted successfully. tx: ${transaction_hash}, cid: ${cid}`,
       };
-    } catch (error) {
-      console.error('Error occurred while minting NFT:', error);
-      return {
-        success: false,
-        message: 'Failed to mint NFT.',
-      };
-    }
+
   }
 }

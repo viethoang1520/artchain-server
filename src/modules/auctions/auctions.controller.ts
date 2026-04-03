@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiParam,
 } from '@nestjs/swagger';
 import { AuctionsService } from './auctions.service';
 import {
@@ -145,6 +146,28 @@ export class AuctionsController {
   @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
   async getWonPaintingsByUserId(@Param('userId') userId: string) {
     return await this.auctionsService.getWonPaintingsByUserId(userId);
+  }
+
+  @Get('users/:userId/won-paintings/painting/:paintingId')
+  @ApiOperation({ summary: 'Lấy chi tiết 1 tranh đấu giá thắng theo userId' })
+  @ApiParam({
+    name: 'userId',
+    description: 'ID người dùng đã thắng đấu giá',
+  })
+  @ApiParam({
+    name: 'paintingId',
+    description: 'ID tranh',
+  })
+  @ApiResponse({ status: 200, description: 'Lấy chi tiết thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy dữ liệu' })
+  async getWonPaintingDetailByUserIdAndPaintingId(
+    @Param('userId') userId: string,
+    @Param('paintingId') paintingId: string,
+  ) {
+    return await this.auctionsService.getWonPaintingDetailByUserIdAndPaintingId(
+      userId,
+      paintingId,
+    );
   }
 
   @Get(':auctionId')
