@@ -16,18 +16,48 @@ export class GuardiansService {
     private readonly competitorRepository: Repository<Competitor>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-  ) {}
-  assignStudentToGuardian(studentData: Array<RegisterDTO>, guardianId: string) {
-    studentData.forEach(async (student) => {
-      const createdStudent = await this.authService.register(student);
-      await this.competitorRepository.update(
-        { competitorId: createdStudent.userId },
-        { guardianId: guardianId },
-      );
-    });
+  ) { }
+  async assignStudentToGuardian(
+    studentData: Array<RegisterDTO>,
+    guardianId: string,
+  ) {
+    const failedStudents: Array<{ student: string; reason: string }> = [];
+    let successCount = 0;
+
+    for (const student of studentData) {
+      try {
+        const createdStudent = await this.authService.register(student);
+
+        await this.competitorRepository.update(
+          { competitorId: createdStudent.userId },
+          { guardianId: guardianId },
+        );
+
+        successCount += 1;
+      } catch (error) {
+        failedStudents.push({
+          student: student.username || student.email || 'unknown',
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'Unknown error while creating student',
+        });
+      }
+    }
+
+    const failureCount = failedStudents.length;
     return {
-      success: true,
-      message: 'Students assigned to guardian successfully',
+      success: failureCount === 0,
+      message:
+        failureCount === 0
+          ? 'Tất cả học sinh đã được đăng ký và gán thành công.'
+          : `Đã thêm ${successCount}/${studentData.length} học sinh. ${failureCount} học sinh đã thêm thất bại.`,
+      summary: {
+        total: studentData.length,
+        successCount,
+        failureCount,
+      },
+      failedStudents,
     };
   }
 

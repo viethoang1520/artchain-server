@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  JoinColumn,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -88,6 +89,9 @@ export class User {
   @Column({ name: 'position_level', nullable: true })
   positionLevel: string;
 
+  @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
+  walletId: string | null;
+
   @OneToMany(() => PushToken, (token) => token.user)
   pushTokens: PushToken[];
 
@@ -134,8 +138,10 @@ export class User {
   @OneToMany(() => Vote, (vote) => vote.user)
   votes: Vote[];
 
-  @OneToMany(() => Wallet, (wallet) => wallet.user)
-  wallets: Wallet[];
+
+  @OneToOne(() => Wallet, { nullable: true })
+  @JoinColumn({ name: 'wallet_id', referencedColumnName: 'walletId' })
+  wallet: Wallet | null;
 
   // @OneToMany(() => Order, (order) => order.user)
   // orders: Order[];

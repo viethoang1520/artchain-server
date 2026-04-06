@@ -84,7 +84,7 @@ export class PaymentsService {
   }
 
   async createWalletTopupPayment(
-    walletId: number,
+    walletId: string,
     userId: string,
     totalAmount: number,
   ): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
@@ -145,7 +145,7 @@ export class PaymentsService {
   }
 
   async createNewOrder(
-    orderRef: { sponsorId?: number; walletId?: number; orderType: OrderType },
+    orderRef: { sponsorId?: number; walletId?: string; orderType: OrderType },
     orderCode: number,
     totalAmount: number,
     description: string,

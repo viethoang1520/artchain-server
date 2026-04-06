@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -7,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { CreateWalletDto } from './dto/create-wallet.dto';
+import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
 import { Wallet } from './entities';
 
 @Injectable()
@@ -21,31 +23,47 @@ export class WalletsService {
   async createWallet(createWalletDto: CreateWalletDto) {
     const { accountId } = createWalletDto;
 
-    const user = await this.usersRepository.findOne({
-      where: { userId: accountId as unknown as string },
-    });
+    const savedWallet = await this.walletsRepository.manager.transaction(
+      async (transactionManager) => {
+        const userRepository = transactionManager.getRepository(User);
+        const walletRepository = transactionManager.getRepository(Wallet);
 
-    if (!user) {
-      throw new NotFoundException(`User with ID ${accountId} not found`);
-    }
+        const user = await userRepository.findOne({
+          where: { userId: accountId },
+        });
 
-    const existingWallet = await this.walletsRepository.findOne({
-      where: { accountId: accountId as unknown as string },
-    });
+        if (!user) {
+          throw new NotFoundException(`User with ID ${accountId} not found`);
+        }
 
-    if (existingWallet) {
-      throw new ConflictException(
-        `Wallet already exists for user ${accountId}`,
-      );
-    }
+        if (user.walletId) {
+          throw new ConflictException(`User ${accountId} already has a wallet`);
+        }
 
-    const wallet = this.walletsRepository.create({
-      accountId: accountId as unknown as string,
-      balance: 0,
-      user,
-    });
+        const existingWallet = await walletRepository.findOne({
+          where: { accountId },
+        });
 
-    const savedWallet = await this.walletsRepository.save(wallet);
+        if (existingWallet) {
+          throw new ConflictException(
+            `Wallet already exists for user ${accountId}`,
+          );
+        }
+
+        const wallet = walletRepository.create({
+          accountId,
+          balance: 0,
+          user,
+        });
+
+        const createdWallet = await walletRepository.save(wallet);
+
+        user.walletId = createdWallet.walletId;
+        await userRepository.save(user);
+
+        return createdWallet;
+      },
+    );
 
     return {
       success: true,
@@ -53,4 +71,46 @@ export class WalletsService {
       data: savedWallet,
     };
   }
+
+  async withdraw(withdrawWalletDto: WithdrawWalletDto) {
+    const { accountId, amount } = withdrawWalletDto;
+
+    if (amount <= 0) {
+      throw new BadRequestException('Số tiền rút phải lớn hơn 0');
+    }
+
+    const updatedWallet = await this.walletsRepository.manager.transaction(
+      async (transactionManager) => {
+        const walletRepository = transactionManager.getRepository(Wallet);
+
+        const wallet = await walletRepository
+          .createQueryBuilder('wallet')
+          .setLock('pessimistic_write')
+          .where('wallet.account_id = :accountId', { accountId })
+          .getOne();
+
+        if (!wallet) {
+          throw new NotFoundException(`Wallet for user ${accountId} not found`);
+        }
+
+        const currentBalance = Number(wallet.balance);
+        const withdrawAmount = Number(amount);
+
+        if (currentBalance < withdrawAmount) {
+          throw new BadRequestException('Số dư không đủ để thực hiện giao dịch');
+        }
+
+        wallet.balance = Number((currentBalance - withdrawAmount).toFixed(2));
+
+        return walletRepository.save(wallet);
+      },
+    );
+
+    return {
+      success: true,
+      message: 'Rút tiền thành công',
+      data: updatedWallet,
+    };
+  }
+
 }
