@@ -256,12 +256,16 @@ export class AuctionGateway
         `[EMIT:${AUCTION_EVENTS.JOINED_AUCTION}] socketId=${socket.id} auctionId=${auctionId} userId=${userId} participantCount=${participantCount}`,
       );
 
+      const auctionStatus =
+        await this.auctionsService.getAuctionRealtimeStatus(auctionId);
+
       socket.emit(AUCTION_EVENTS.JOINED_AUCTION, {
         success: true,
         auctionId,
         message: 'Đã tham gia phiên đấu giá',
         participant,
         participantCount,
+        auctionStatus,
       });
 
       AuctionGateway.logger.log(
@@ -277,6 +281,40 @@ export class AuctionGateway
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
+
+      socket.emit(AUCTION_EVENTS.ERROR, {
+        success: false,
+        message: errorMessage,
+      });
+    }
+  }
+
+  @SubscribeMessage(AUCTION_EVENTS.GET_AUCTION_STATUS)
+  async handleGetAuctionStatus(
+    @MessageBody() data: { auctionId: number },
+    @ConnectedSocket() socket: Socket,
+  ) {
+    const { auctionId } = data;
+
+    try {
+      const auctionStatus =
+        await this.auctionsService.getAuctionRealtimeStatus(auctionId);
+
+      AuctionGateway.logger.log(
+        `[EMIT:${AUCTION_EVENTS.AUCTION_STATUS}] socketId=${socket.id} auctionId=${auctionId}`,
+      );
+
+      socket.emit(AUCTION_EVENTS.AUCTION_STATUS, {
+        success: true,
+        ...auctionStatus,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      AuctionGateway.logger.error(
+        `[EMIT:${AUCTION_EVENTS.ERROR}] socketId=${socket.id} auctionId=${auctionId} message=${errorMessage}`,
+      );
 
       socket.emit(AUCTION_EVENTS.ERROR, {
         success: false,
