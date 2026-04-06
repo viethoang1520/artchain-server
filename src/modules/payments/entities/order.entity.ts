@@ -27,16 +27,16 @@ export class Order {
   @Column({ nullable: true })
   sponsorId: number;
 
-  @Column({ nullable: true })
-  walletId: number;
+  @Column({ type: 'uuid', nullable: true })
+  walletId: string;
 
   @Column({ type: 'varchar', length: 50, unique: true })
   orderCode: number;
 
   @Column({
     type: 'decimal', precision: 12, scale: 2, transformer: {
-      to: (value: number) => value, 
-      from: (value: string) => parseFloat(value), 
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
     },
   })
   amount: number;
@@ -65,7 +65,7 @@ export class Order {
   @CreateDateColumn()
   createdAt: Date;
 
-    @ManyToOne(() => Wallet, (wallet) => wallet.walletId)
-    @JoinColumn({ name: 'walletId' })
-    wallet: Wallet;
+  @ManyToOne(() => Wallet, (wallet) => wallet.walletId)
+  @JoinColumn({ name: 'walletId' })
+  wallet: Wallet;
 }

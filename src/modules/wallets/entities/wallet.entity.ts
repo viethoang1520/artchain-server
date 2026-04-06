@@ -4,8 +4,8 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
   JoinColumn,
+  OneToOne,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -17,10 +17,10 @@ export enum WalletStatus {
 
 @Entity('wallets')
 export class Wallet {
-  @PrimaryGeneratedColumn({ name: 'wallet_id' })
-  walletId: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'wallet_id' })
+  walletId: string;
 
-  @Column({ name: 'account_id', type: 'uuid', nullable: false })
+  @Column({ name: 'account_id', type: 'uuid', nullable: false, unique: true })
   accountId: string;
 
   @Column({
@@ -50,7 +50,7 @@ export class Wallet {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => User, (user) => user.wallets)
+  @OneToOne(() => User)
   @JoinColumn({ name: 'account_id' })
   user: User;
 }

@@ -26,7 +26,7 @@ export class UsersService {
     private contestsRepository: Repository<Contest>,
     @InjectRepository(Award)
     private awardsRepository: Repository<Award>,
-  ) {}
+  ) { }
 
   async submissions(userId: string) {
     const mySubmissions = await this.paintingsRepository.find({
@@ -66,11 +66,22 @@ export class UsersService {
 
     const user = await this.usersRepository.findOne({
       where: { userId },
+      relations: ['wallet'],
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    const wallet = user.wallet
+      ? {
+        walletId: user.wallet.walletId,
+        balance: Number(user.wallet.balance),
+        currency: user.wallet.currency,
+        status: user.wallet.status,
+      }
+      : null;
+
     userRole = user.role;
     if (userRole === UserRole.COMPETITOR) {
       const competitor = await this.competitorsRepository.findOne({
@@ -86,6 +97,7 @@ export class UsersService {
         ward: competitor?.ward,
         grade: competitor?.grade,
         role: user.role,
+        wallet,
       };
       return competitorProfile;
     } else if (userRole === UserRole.EXAMINER) {
@@ -99,6 +111,7 @@ export class UsersService {
         phone: user.phone,
         specialization: examiner?.specialization,
         role: user.role,
+        wallet,
       };
       return examinerProfile;
     } else if (
@@ -112,6 +125,7 @@ export class UsersService {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        wallet,
       };
       return guardianProfile;
     }
