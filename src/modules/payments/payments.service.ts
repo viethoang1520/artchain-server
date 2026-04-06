@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Transaction, TransactionStatus } from './entities/transaction.entity';
 import { Repository } from 'typeorm/repository/Repository';
@@ -24,6 +29,30 @@ export class PaymentsService {
     private sponsorRepository: Repository<Sponsor>,
     private configService: ConfigService
   ) { }
+
+  private getClientBaseUrl(): string {
+    const explicit =
+      this.configService.get<string>('CLIENT_URL') ||
+      this.configService.get<string>('APP_URL') ||
+      this.configService.get<string>('SERVER_URL');
+
+    if (!explicit) {
+      throw new InternalServerErrorException(
+        'Missing CLIENT_URL/APP_URL/SERVER_URL configuration',
+      );
+    }
+
+    return explicit.replace(/\/$/, '');
+  }
+
+  private getPaymentRedirectUrls(): { returnUrl: string; cancelUrl: string } {
+    const baseUrl = this.getClientBaseUrl();
+    return {
+      returnUrl: `${baseUrl}/payment/success`,
+      cancelUrl: `${baseUrl}/payment/cancel`,
+    };
+  }
+
   async createPayment(sponsorId: number, totalAmount: number, campaignId: number): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -54,8 +83,7 @@ export class PaymentsService {
         orderCode: orderCode,
         amount: parseFloat(totalAmount.toString()),
         description: `THANH TOAN TAI TRO ${orderCode}`,
-        returnUrl: `${this.configService.get('CLIENT_URL')}/payment/success`,
-        cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
+        ...this.getPaymentRedirectUrls(),
       }
       const createdOrder = await this.createNewOrder(
         {
@@ -88,6 +116,10 @@ export class PaymentsService {
     userId: string,
     totalAmount: number,
   ): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
+    if (totalAmount <= 0) {
+      throw new BadRequestException('Số tiền nạp phải lớn hơn 0');
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -98,6 +130,10 @@ export class PaymentsService {
       });
       if (!wallet) {
         throw new Error('Wallet not found');
+      }
+
+      if (wallet.accountId !== userId) {
+        throw new BadRequestException('Ví không thuộc về người dùng hiện tại');
       }
 
       const description = `NAP TIEN VI ${orderCode}`;
@@ -113,8 +149,7 @@ export class PaymentsService {
         orderCode,
         amount: parseFloat(totalAmount.toString()),
         description,
-        returnUrl: `${this.configService.get('CLIENT_URL')}/payment/success`,
-        cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
+        ...this.getPaymentRedirectUrls(),
       };
 
       const createdOrder = await this.createNewOrder(
@@ -144,6 +179,25 @@ export class PaymentsService {
     }
   }
 
+  async createWalletTopupPaymentByUser(
+    userId: string,
+    totalAmount: number,
+  ): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
+    if (totalAmount <= 0) {
+      throw new BadRequestException('Số tiền nạp phải lớn hơn 0');
+    }
+
+    const wallet = await this.dataSource.manager.findOne(Wallet, {
+      where: { accountId: userId },
+    });
+
+    if (!wallet) {
+      throw new NotFoundException('Không tìm thấy ví của người dùng');
+    }
+
+    return this.createWalletTopupPayment(wallet.walletId, userId, totalAmount);
+  }
+
   async createNewOrder(
     orderRef: { sponsorId?: number; walletId?: string; orderType: OrderType },
     orderCode: number,
@@ -152,6 +206,7 @@ export class PaymentsService {
     transactionId: string,
     manager: EntityManager,
   ) {
+    const redirectUrls = this.getPaymentRedirectUrls();
     const newOrder = manager.create(Order, {
       sponsorId: orderRef.sponsorId,
       walletId: orderRef.walletId,
