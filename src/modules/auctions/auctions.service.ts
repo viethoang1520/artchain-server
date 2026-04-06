@@ -528,6 +528,70 @@ export class AuctionsService {
     return auction;
   }
 
+  async getAuctionRealtimeStatus(auctionId: number): Promise<{
+    auctionId: number;
+    auctionStatus: AuctionStatus;
+    serverTime: Date;
+    paintings: Array<{
+      auctionPaintingId: number;
+      paintingId: string;
+      status: AuctionPaintingStatus;
+      currentBid: number | null;
+      currentBidderId: string | null;
+      auctionStartTime: Date | null;
+      auctionEndTime: Date | null;
+      isSold: boolean;
+      revoked: number;
+    }>;
+  }> {
+    const now = new Date();
+
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    if (
+      auction.status === AuctionStatus.UPCOMING &&
+      now >= auction.startTime &&
+      now <= auction.endTime
+    ) {
+      auction.status = AuctionStatus.LIVE;
+      await this.auctionRepository.save(auction);
+    }
+
+    if (auction.status === AuctionStatus.LIVE) {
+      await this.dataSource.transaction(async (manager) => {
+        await this.ensureActivePaintingForAuction(manager, auction, now);
+      });
+    }
+
+    const paintings = await this.auctionPaintingRepository.find({
+      where: { auctionId },
+      order: { createdAt: 'ASC', auctionPaintingId: 'ASC' },
+    });
+
+    return {
+      auctionId,
+      auctionStatus: auction.status,
+      serverTime: now,
+      paintings: paintings.map((item) => ({
+        auctionPaintingId: item.auctionPaintingId,
+        paintingId: item.paintingId,
+        status: item.status,
+        currentBid: item.currentBid,
+        currentBidderId: item.currentBidderId,
+        auctionStartTime: item.auctionStartTime,
+        auctionEndTime: item.auctionEndTime,
+        isSold: item.isSold,
+        revoked: item.revoked,
+      })),
+    };
+  }
+
   async getWonPaintingsByUserId(userId: string): Promise<
     {
       auctionPaintingId: number;
@@ -1075,9 +1139,13 @@ export class AuctionsService {
         });
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
       this.logger.error(
-        `rotate-auction-paintings failed: ${error.message}`,
-        error.stack,
+        `rotate-auction-paintings failed: ${errorMessage}`,
+        errorStack,
       );
     }
   }
