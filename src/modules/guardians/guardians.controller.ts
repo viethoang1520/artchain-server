@@ -17,7 +17,7 @@ import { GetSubmissionsDto } from './dto/get-submissions.dto';
 @ApiTags('Guardians')
 @Controller('api/guardians')
 export class GuardiansController {
-  constructor(private readonly guardiansService: GuardiansService) {}
+  constructor(private readonly guardiansService: GuardiansService) { }
 
   @Post('assign-competitors')
   @ApiOperation({
@@ -115,14 +115,10 @@ export class GuardiansController {
   assignStudentToGuardian(
     @Body() body: { studentData: Array<RegisterDTO>; guardianId: string },
   ) {
-    try {
-      return this.guardiansService.assignStudentToGuardian(
-        body.studentData,
-        body.guardianId,
-      );
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
+    return this.guardiansService.assignStudentToGuardian(
+      body.studentData,
+      body.guardianId,
+    );
   }
 
   @Get('competitors/:guardianId')
@@ -281,7 +277,7 @@ export class GuardiansController {
       return {
         success: false,
         message: 'Error occurred while fetching competitor submissions',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
