@@ -25,6 +25,11 @@ import {
 import { AuctionStatus } from './entities/auction.entity';
 import { AuctionPaintingStatus } from './entities/auction-painting.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
+import { Wallet, WalletStatus } from '../wallets/entities/wallet.entity';
+import {
+  Transaction,
+  TransactionStatus,
+} from '../payments/entities/transaction.entity';
 import {
   CreateAuctionDto,
   PlaceBidDto,
@@ -336,6 +341,11 @@ export class AuctionsService {
         );
       }
 
+      const bidderWallet = await this.getActiveWalletForUpdate(manager, userId);
+      if (Number(bidderWallet.balance) < Number(bidAmount)) {
+        throw new BadRequestException('Số dư ví không đủ để đặt giá');
+      }
+
       await bidHistoryRepo.update(
         {
           auctionPaintingId: activePainting.auctionPaintingId,
@@ -382,6 +392,13 @@ export class AuctionsService {
       await auctionPaintingRepo.save(activePainting);
 
       if (hitCeilPrice) {
+        await this.debitWinnerWallet(
+          manager,
+          userId,
+          bidAmount,
+          activePainting.auctionPaintingId,
+        );
+
         await paintingRepo.update(
           { paintingId: activePainting.paintingId },
           { ownerId: userId, status: 'SOLD' },
@@ -738,6 +755,13 @@ export class AuctionsService {
       currentLivePainting.status = AuctionPaintingStatus.END;
 
       if (currentLivePainting.currentBidderId) {
+        await this.debitWinnerWallet(
+          manager,
+          currentLivePainting.currentBidderId,
+          Number(currentLivePainting.currentBid ?? 0),
+          currentLivePainting.auctionPaintingId,
+        );
+
         currentLivePainting.isSold = true;
         await paintingRepo.update(
           { paintingId: currentLivePainting.paintingId },
@@ -1055,50 +1079,70 @@ export class AuctionsService {
     }
 
     const now = new Date();
-    auction.status = AuctionStatus.END;
-    auction.endTime = now;
-    await this.auctionRepository.save(auction);
+    await this.dataSource.transaction(async (manager) => {
+      const auctionRepo = manager.getRepository(Auction);
+      const auctionPaintingRepo = manager.getRepository(AuctionPainting);
+      const paintingRepo = manager.getRepository(Painting);
 
-    const soldPaintings = await this.auctionPaintingRepository.find({
-      where: {
-        auctionId,
-        currentBidderId: Not(IsNull()),
-      },
-    });
+      auction.status = AuctionStatus.END;
+      auction.endTime = now;
+      await auctionRepo.save(auction);
 
-    if (soldPaintings.length > 0) {
-      await this.auctionPaintingRepository.update(
-        { auctionId, currentBidderId: Not(IsNull()) },
-        { isSold: true, status: AuctionPaintingStatus.END },
-      );
-
-      await Promise.all(
-        soldPaintings.map((item) =>
-          this.paintingRepository.update(
-            { paintingId: item.paintingId },
-            { ownerId: item.currentBidderId, status: 'SOLD' },
-          ),
-        ),
-      );
-    }
-
-    const unsoldPaintings = await this.auctionPaintingRepository.find({
-      where: { auctionId, isSold: false },
-    });
-
-    if (unsoldPaintings.length > 0) {
-      await this.auctionPaintingRepository.update(
-        { auctionId, isSold: false },
-        { status: AuctionPaintingStatus.END },
-      );
-
-      await this.paintingRepository.update(
-        {
-          paintingId: In(unsoldPaintings.map((item) => item.paintingId)),
+      const soldPaintings = await auctionPaintingRepo.find({
+        where: {
+          auctionId,
+          currentBidderId: Not(IsNull()),
+          isSold: false,
         },
-        { status: 'RE_OPEN' },
-      );
-    }
+      });
+
+      if (soldPaintings.length > 0) {
+        for (const item of soldPaintings) {
+          if (!item.currentBidderId) {
+            continue;
+          }
+
+          await this.debitWinnerWallet(
+            manager,
+            item.currentBidderId,
+            Number(item.currentBid ?? 0),
+            item.auctionPaintingId,
+          );
+        }
+
+        await auctionPaintingRepo.update(
+          { auctionId, currentBidderId: Not(IsNull()), isSold: false },
+          { isSold: true, status: AuctionPaintingStatus.END },
+        );
+
+        await Promise.all(
+          soldPaintings.map((item) =>
+            paintingRepo.update(
+              { paintingId: item.paintingId },
+              { ownerId: item.currentBidderId, status: 'SOLD' },
+            ),
+          ),
+        );
+      }
+
+      const unsoldPaintings = await auctionPaintingRepo.find({
+        where: { auctionId, isSold: false },
+      });
+
+      if (unsoldPaintings.length > 0) {
+        await auctionPaintingRepo.update(
+          { auctionId, isSold: false },
+          { status: AuctionPaintingStatus.END },
+        );
+
+        await paintingRepo.update(
+          {
+            paintingId: In(unsoldPaintings.map((item) => item.paintingId)),
+          },
+          { status: 'RE_OPEN' },
+        );
+      }
+    });
 
     const result = await this.auctionRepository.findOne({
       where: { auctionId },
@@ -1148,5 +1192,76 @@ export class AuctionsService {
         errorStack,
       );
     }
+  }
+
+  private async getActiveWalletForUpdate(
+    manager: EntityManager,
+    accountId: string,
+  ): Promise<Wallet> {
+    const wallet = await manager
+      .getRepository(Wallet)
+      .createQueryBuilder('wallet')
+      .setLock('pessimistic_write')
+      .where('wallet.account_id = :accountId', { accountId })
+      .andWhere('wallet.status = :status', { status: WalletStatus.ACTIVE })
+      .getOne();
+
+    if (!wallet) {
+      throw new BadRequestException('Ví không tồn tại hoặc không hoạt động');
+    }
+
+    return wallet;
+  }
+
+  private async debitWinnerWallet(
+    manager: EntityManager,
+    accountId: string,
+    amount: number,
+    auctionPaintingId: number,
+  ): Promise<void> {
+    const debitAmount = Number(amount || 0);
+    if (debitAmount <= 0) {
+      throw new BadRequestException(
+        `Không thể trừ tiền cho tranh #${auctionPaintingId} vì giá cuối không hợp lệ`,
+      );
+    }
+
+    const paymentNote = `Thanh toan dau gia tranh #${auctionPaintingId}`;
+    const wallet = await this.getActiveWalletForUpdate(manager, accountId);
+
+    const existingAuctionPayment = await manager
+      .getRepository(Transaction)
+      .findOne({
+        where: {
+          userId: accountId,
+          status: TransactionStatus.SUCCESS,
+          note: paymentNote,
+        },
+      });
+
+    // Idempotency guard: avoid double charging the same winner for one painting.
+    if (existingAuctionPayment) {
+      return;
+    }
+
+    const currentBalance = Number(wallet.balance);
+
+    if (currentBalance < debitAmount) {
+      throw new BadRequestException(
+        `Số dư ví không đủ để thanh toán tranh #${auctionPaintingId}`,
+      );
+    }
+
+    wallet.balance = Number((currentBalance - debitAmount).toFixed(2));
+    await manager.getRepository(Wallet).save(wallet);
+
+    const transaction = manager.getRepository(Transaction).create({
+      userId: accountId,
+      amount: debitAmount,
+      paymentDate: new Date(),
+      status: TransactionStatus.SUCCESS,
+      note: paymentNote,
+    });
+    await manager.getRepository(Transaction).save(transaction);
   }
 }
