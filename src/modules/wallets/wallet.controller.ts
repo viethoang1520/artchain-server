@@ -42,8 +42,8 @@ export class WalletsController {
     type: 'string',
     format: 'uuid',
   })
-  @ApiResponse({ status: 200, description: 'Transaction history retrieved' })
-  @ApiResponse({ status: 404, description: 'Wallet not found' })
+  @ApiResponse({ status: 200, description: 'Lịch sử giao dịch được lấy thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy ví' })
   getTransactionHistory(
     @Param('accountId', ParseUUIDPipe) accountId: string,
     @Query() queryDto: TransactionHistoryQueryDto,
