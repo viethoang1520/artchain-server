@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +13,8 @@ import {
   Transaction,
   TransactionStatus,
 } from '../payments/entities/transaction.entity';
+import { User } from '../users/entities/user.entity';
+import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
 export class CampaignsService {
@@ -19,7 +25,127 @@ export class CampaignsService {
     private readonly sponsorRepository: Repository<Sponsor>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+    private readonly firebaseService: FirebaseService,
   ) {}
+
+  async createCampaignByStaff(data: {
+    createCampaignDto: CreateCampaignDto;
+    staffId: string;
+    imageFile?: Express.Multer.File;
+  }) {
+    const user = await this.usersRepository.findOne({
+      where: { userId: data.staffId },
+    });
+    const role = user?.role;
+    if (role !== 'STAFF' && role !== 'ADMIN') {
+      throw new BadRequestException(
+        'Only staff or admin users can create campaigns',
+      );
+    }
+
+    let imageUrl: string | undefined;
+
+    if (data.imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `campaigns/${Date.now()}-${data.imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(data.imageFile.buffer, {
+          metadata: { contentType: data.imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
+        throw new BadRequestException(`Failed to upload image: ${message}`);
+      }
+    }
+
+    const campaignData: any = {
+      ...data.createCampaignDto,
+      staffId: data.staffId,
+    };
+
+    if (imageUrl) {
+      campaignData.image = imageUrl;
+    }
+
+    const campaign = this.campaignRepository.create(campaignData);
+    await this.campaignRepository.save(campaign);
+
+    return {
+      success: true,
+      message: 'Campaign created successfully',
+      data: campaign,
+    };
+  }
+
+  async updateCampaignByStaff(
+    campaignId: number,
+    updateCampaignDto: UpdateCampaignDto,
+    imageFile?: Express.Multer.File,
+    staffId?: string,
+  ) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+
+    if (staffId) {
+      const user = await this.usersRepository.findOne({
+        where: { userId: staffId },
+      });
+      const role = user?.role;
+      if (role !== 'STAFF' && role !== 'ADMIN') {
+        throw new BadRequestException(
+          'Only staff or admin users can update campaigns',
+        );
+      }
+    }
+
+    let imageUrl: string | undefined;
+
+    if (imageFile) {
+      try {
+        const bucket = this.firebaseService.getStorage().bucket();
+        const fileName = `campaigns/${Date.now()}-${imageFile.originalname}`;
+        const fileUpload = bucket.file(fileName);
+
+        await fileUpload.save(imageFile.buffer, {
+          metadata: { contentType: imageFile.mimetype },
+        });
+
+        await fileUpload.makePublic();
+        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
+        throw new BadRequestException(`Failed to upload image: ${message}`);
+      }
+    }
+
+    const updateData: any = { ...updateCampaignDto };
+    if (imageUrl) {
+      updateData.image = imageUrl;
+    }
+
+    const updatedCampaign = this.campaignRepository.merge(campaign, updateData);
+    await this.campaignRepository.save(updatedCampaign);
+
+    return {
+      success: true,
+      message: 'Campaign updated successfully',
+      data: updatedCampaign,
+    };
+  }
 
   async getAllCampaigns(page: number = 1, limit: number = 10, status?: string) {
     const skip = (page - 1) * limit;
@@ -135,5 +261,4 @@ export class CampaignsService {
       },
     };
   }
-
 }

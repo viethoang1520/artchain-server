@@ -22,7 +22,7 @@ import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
-import { Campaign } from '../campaigns/entities/campaign.entity';
+import { CampaignsService } from '../campaigns/campaigns.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
@@ -50,8 +50,6 @@ export class StaffService {
     private contestExaminersRepository: Repository<ContestExaminer>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
-    @InjectRepository(Campaign)
-    private campaignsRepository: Repository<Campaign>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     @InjectRepository(Schedule)
@@ -63,6 +61,7 @@ export class StaffService {
     @InjectRepository(Evaluation)
     private evaluationsRepository: Repository<Evaluation>,
     private firebaseService: FirebaseService,
+    private campaignsService: CampaignsService,
     private walletsService: WalletsService,
   ) {}
 
@@ -1269,123 +1268,21 @@ export class StaffService {
     staffId: string;
     imageFile?: Express.Multer.File;
   }) {
-    const user = await this.usersRepository.findOne({
-      where: { userId: data.staffId },
-    });
-    const role = user?.role;
-    if (role !== 'STAFF' && role !== 'ADMIN') {
-      throw new BadRequestException(
-        'Only staff or admin users can create campaigns',
-      );
-    }
-
-    let imageUrl: string | undefined = undefined;
-
-    // Upload image to Firebase Storage if provided
-    if (data.imageFile) {
-      try {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `campaigns/${Date.now()}-${data.imageFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(data.imageFile.buffer, {
-          metadata: { contentType: data.imageFile.mimetype },
-        });
-
-        await fileUpload.makePublic();
-        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      } catch (error) {
-        throw new BadRequestException(
-          `Failed to upload image: ${error.message}`,
-        );
-      }
-    }
-
-    const campaignData: any = {
-      ...data.createCampaignDto,
-      staffId: data.staffId,
-    };
-
-    if (imageUrl) {
-      campaignData.image = imageUrl;
-    }
-
-    const campaign = this.campaignsRepository.create(campaignData);
-    await this.campaignsRepository.save(campaign);
-    return {
-      success: true,
-      message: 'Campaign created successfully',
-      data: campaign,
-    };
+    return this.campaignsService.createCampaignByStaff(data);
   }
 
   async updateCampaign(
     campaignId: number,
-    updateCampaignDto: any,
+    updateCampaignDto: UpdateCampaignDto,
     imageFile?: Express.Multer.File,
     staffId?: string,
   ) {
-    // Find existing campaign
-    const campaign = await this.campaignsRepository.findOne({
-      where: { campaignId },
-    });
-
-    if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
-    }
-
-    // Verify staff permission
-    if (staffId) {
-      const user = await this.usersRepository.findOne({
-        where: { userId: staffId },
-      });
-      const role = user?.role;
-      if (role !== 'STAFF' && role !== 'ADMIN') {
-        throw new BadRequestException(
-          'Only staff or admin users can update campaigns',
-        );
-      }
-    }
-
-    let imageUrl: string | undefined = undefined;
-
-    // Upload new image to Firebase Storage if provided
-    if (imageFile) {
-      try {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `campaigns/${Date.now()}-${imageFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(imageFile.buffer, {
-          metadata: { contentType: imageFile.mimetype },
-        });
-
-        await fileUpload.makePublic();
-        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      } catch (error) {
-        throw new BadRequestException(
-          `Failed to upload image: ${error.message}`,
-        );
-      }
-    }
-
-    // Merge update data
-    const updateData: any = { ...updateCampaignDto };
-    if (imageUrl) {
-      updateData.image = imageUrl;
-    }
-
-    const updatedCampaign = this.campaignsRepository.merge(
-      campaign,
-      updateData,
+    return this.campaignsService.updateCampaignByStaff(
+      campaignId,
+      updateCampaignDto,
+      imageFile,
+      staffId,
     );
-    await this.campaignsRepository.save(updatedCampaign);
-
-    return {
-      success: true,
-      message: 'Campaign updated successfully',
-      data: updatedCampaign,
-    };
   }
 
   async getAllExaminers() {
