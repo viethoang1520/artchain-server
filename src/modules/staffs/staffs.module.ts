@@ -16,6 +16,7 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { Award } from '../awards/entities/award.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
   imports: [
@@ -30,11 +31,12 @@ import { Evaluation } from '../paintings/entities/evaluation.entity';
       Schedule,
       Competitor,
       Award,
-      Evaluation
+      Evaluation,
     ]),
     AuthModule,
     PostsModule,
     FirebaseModule,
+    WalletsModule,
   ],
   controllers: [StaffController],
   providers: [StaffService],

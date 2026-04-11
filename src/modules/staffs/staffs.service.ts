@@ -31,6 +31,10 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { Award } from '../awards/entities/award.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { WalletsService } from '../wallets/wallet.service';
+import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
+import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
+import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
 import { create } from 'domain';
 
 @Injectable()
@@ -59,7 +63,60 @@ export class StaffService {
     @InjectRepository(Evaluation)
     private evaluationsRepository: Repository<Evaluation>,
     private firebaseService: FirebaseService,
+    private walletsService: WalletsService,
   ) {}
+
+  async getWithdrawRequests(
+    staffId: string,
+    queryDto: QueryWithdrawRequestDto,
+  ) {
+    return this.walletsService.getWithdrawRequestsForStaff(staffId, queryDto);
+  }
+
+  async approveWithdrawRequest(
+    staffId: string,
+    requestId: string,
+    approveDto: ApproveWithdrawRequestDto,
+  ) {
+    return this.walletsService.approveWithdrawRequest(
+      staffId,
+      requestId,
+      approveDto,
+    );
+  }
+
+  async uploadWithdrawProofImage(file: Express.Multer.File): Promise<string> {
+    if (!file) {
+      throw new BadRequestException('Thiếu file ảnh chứng từ chuyển khoản');
+    }
+
+    const bucket = this.firebaseService.getStorage().bucket();
+    const fileName = `wallet-withdraw/proofs/${Date.now()}-${file.originalname}`;
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(file.buffer, {
+      metadata: { contentType: file.mimetype },
+    });
+
+    const [url] = await fileUpload.getSignedUrl({
+      action: 'read',
+      expires: '03-09-2491',
+    });
+
+    return url;
+  }
+
+  async rejectWithdrawRequest(
+    staffId: string,
+    requestId: string,
+    rejectDto: RejectWithdrawRequestDto,
+  ) {
+    return this.walletsService.rejectWithdrawRequest(
+      staffId,
+      requestId,
+      rejectDto,
+    );
+  }
 
   async createContest(
     createContestDto: CreateContestDto,
