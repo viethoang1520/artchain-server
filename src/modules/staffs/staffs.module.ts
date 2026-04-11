@@ -10,13 +10,14 @@ import { Painting } from '../paintings/entities/paintings.entity';
 import { AuthModule } from '../auth/auth.module';
 import { PostsModule } from '../posts/posts.module';
 import { User } from '../users/entities/user.entity';
-import { Schedule } from '../schedules/entities/schedule.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { Award } from '../awards/entities/award.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
 import { WalletsModule } from '../wallets/wallets.module';
 import { CampaignsModule } from '../campaigns/campaigns.module';
+import { SchedulesModule } from '../schedules/schedules.module';
+import { ContestsModule } from '../contests/contests.module';
 
 @Module({
   imports: [
@@ -27,14 +28,15 @@ import { CampaignsModule } from '../campaigns/campaigns.module';
       Examiner,
       Painting,
       User,
-      Schedule,
       Competitor,
       Award,
       Evaluation,
     ]),
     AuthModule,
     PostsModule,
+    ContestsModule,
     CampaignsModule,
+    SchedulesModule,
     FirebaseModule,
     WalletsModule,
   ],
