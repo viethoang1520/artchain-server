@@ -9,6 +9,7 @@ import {
   Param,
   Query,
   ParseIntPipe,
+  ParseUUIDPipe,
   UseGuards,
   Request,
   UploadedFile,
@@ -57,6 +58,9 @@ import { ContestStatus } from '../contests/entities/contests.entity';
 import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
 import { AcceptMultipleSubmissionsDto } from './dto/accept-multiple-submissions.dto';
 import { UpdateOriginalSubmissionStatusDto } from './dto/update-original-submission-status.dto';
+import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
+import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
+import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -66,6 +70,94 @@ export class StaffController {
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
   ) {}
+
+  @Get('wallet-withdraw-requests')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Staff xem danh sách yêu cầu rút tiền ví' })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  getWalletWithdrawRequests(
+    @Request() req: any,
+    @Query() queryDto: QueryWithdrawRequestDto,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.getWithdrawRequests(staffId, queryDto);
+  }
+
+  @Patch('wallet-withdraw-requests/:requestId/approve')
+  @UseGuards(AuthGuard)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Staff duyệt yêu cầu rút tiền ví' })
+  @ApiParam({ name: 'requestId', type: 'string', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        proofImage: {
+          type: 'string',
+          format: 'binary',
+          description: 'Ảnh chứng từ chuyển khoản',
+        },
+        proofImageUrl: {
+          type: 'string',
+          description: 'URL ảnh chứng từ (khi không upload file)',
+          example: 'https://cdn.example.com/proofs/withdraw-1.jpg',
+        },
+        staffNote: {
+          type: 'string',
+          description: 'Ghi chú của staff',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Duyệt yêu cầu thành công' })
+  @UseInterceptors(FileInterceptor('proofImage', { storage: memoryStorage() }))
+  async approveWalletWithdrawRequest(
+    @Request() req: any,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() approveDto: ApproveWithdrawRequestDto,
+    @UploadedFile() proofImage?: Express.Multer.File,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+
+    const nextApproveDto: ApproveWithdrawRequestDto = { ...approveDto };
+
+    if (proofImage) {
+      nextApproveDto.proofImageUrl =
+        await this.staffService.uploadWithdrawProofImage(proofImage);
+    }
+
+    if (!nextApproveDto.proofImageUrl) {
+      throw new BadRequestException(
+        'Vui lòng upload ảnh chứng từ hoặc truyền proofImageUrl',
+      );
+    }
+
+    return this.staffService.approveWithdrawRequest(
+      staffId,
+      requestId,
+      nextApproveDto,
+    );
+  }
+
+  @Patch('wallet-withdraw-requests/:requestId/reject')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Staff từ chối yêu cầu rút tiền ví và hoàn tiền',
+  })
+  @ApiParam({ name: 'requestId', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Từ chối yêu cầu thành công' })
+  rejectWalletWithdrawRequest(
+    @Request() req: any,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() rejectDto: RejectWithdrawRequestDto,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.rejectWithdrawRequest(
+      staffId,
+      requestId,
+      rejectDto,
+    );
+  }
 
   @Post('contests')
   @UseGuards(AuthGuard)
