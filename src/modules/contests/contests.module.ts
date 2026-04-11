@@ -13,6 +13,7 @@ import { Schedule } from '../schedules/entities/schedule.entity';
 import { Award } from '../awards/entities/award.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { Competitor } from '../competitors/entities/competitors.entity';
       Award,
       Painting,
       Competitor,
+      Evaluation,
     ]),
     AuthModule,
   ],

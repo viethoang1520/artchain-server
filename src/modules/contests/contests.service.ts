@@ -20,6 +20,7 @@ import { Competitor } from '../competitors/entities/competitors.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { Award } from '../awards/entities/award.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
 import { CreateRoundDto } from './dto/create-round.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -44,6 +45,8 @@ export class ContestsService {
     private awardRepository: Repository<Award>,
     @InjectRepository(Painting)
     private paintingRepository: Repository<Painting>,
+    @InjectRepository(Evaluation)
+    private evaluationsRepository: Repository<Evaluation>,
   ) {}
 
   async findAll(query: GetContestDto) {
@@ -887,6 +890,384 @@ export class ContestsService {
       data: {
         roundId,
         contestId,
+      },
+    };
+  }
+
+  async createRound2WithTables(
+    contestId: number,
+    date: string,
+    numberOfTables?: number,
+  ) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    if (!date) {
+      throw new BadRequestException('Date is required for ROUND_2');
+    }
+
+    const tablesToCreate = numberOfTables || contest.numberOfTablesRound2 || 4;
+
+    if (tablesToCreate < 3 || tablesToCreate > 6) {
+      throw new BadRequestException(
+        'Number of tables must be between 3 and 6 (A-Z)',
+      );
+    }
+
+    const round2Date = new Date(date);
+    if (isNaN(round2Date.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    const existingRound2 = await this.roundsRepository.findOne({
+      where: {
+        contestId,
+        name: 'ROUND_2',
+      },
+    });
+
+    if (existingRound2) {
+      throw new BadRequestException(
+        `ROUND_2 has already been created for contest ${contestId}. Cannot create duplicate ROUND_2.`,
+      );
+    }
+
+    const qualifiedData = await this.getRound2QualifiedPaintings(contestId);
+
+    const qualifiedCompetitors = qualifiedData.data.qualified.filter(
+      (p) => p.status === 'ORIGINAL_SUBMITTED',
+    );
+
+    if (qualifiedCompetitors.length === 0) {
+      throw new BadRequestException(
+        'No competitors have submitted original paintings yet. Cannot create ROUND_2.',
+      );
+    }
+
+    if (qualifiedCompetitors.length < tablesToCreate) {
+      throw new BadRequestException(
+        `Need at least ${tablesToCreate} competitors who submitted originals to create ${tablesToCreate} tables. Only ${qualifiedCompetitors.length} competitors submitted originals.`,
+      );
+    }
+
+    const topCompetitors = qualifiedCompetitors.map((p) => ({
+      competitorId: p.competitorId,
+      avgScore: p.avgScore,
+      evaluationCount: 1,
+    }));
+
+    const tableNames: string[] = [];
+    for (let i = 0; i < tablesToCreate; i++) {
+      tableNames.push(String.fromCharCode(65 + i));
+    }
+
+    const tables: string[][] = Array(tablesToCreate)
+      .fill(null)
+      .map(() => []);
+
+    for (let i = 0; i < topCompetitors.length; i++) {
+      const group = Math.floor(i / tablesToCreate);
+      const positionInGroup = i % tablesToCreate;
+
+      let tableIndex;
+      if (group % 2 === 0) {
+        tableIndex = positionInGroup;
+      } else {
+        tableIndex = tablesToCreate - 1 - positionInGroup;
+      }
+
+      tables[tableIndex].push(topCompetitors[i].competitorId);
+    }
+
+    const createdRounds: Round[] = [];
+    const createdPaintings: Painting[] = [];
+
+    for (let i = 0; i < tablesToCreate; i++) {
+      const round = this.roundsRepository.create({
+        contestId,
+        name: 'ROUND_2',
+        table: tableNames[i],
+        startDate: round2Date,
+        endDate: round2Date,
+        status: 'DRAFT',
+      });
+
+      const savedRound = await this.roundsRepository.save(round);
+      createdRounds.push(savedRound);
+
+      for (const competitorId of tables[i]) {
+        const user = await this.userRepository.findOne({
+          where: { userId: competitorId },
+        });
+        const competitorName = user?.fullName || competitorId;
+
+        const painting = this.paintingRepository.create({
+          competitorId,
+          contestId,
+          roundId: savedRound.roundId,
+          title: `Bảng ${tableNames[i]} - ${competitorName}`,
+          description: `Tranh cho Vòng 2, Bảng ${tableNames[i]}. Đang chờ giám khảo tải lên.`,
+          status: 'ACCEPTED',
+        });
+
+        const savedPainting = await this.paintingRepository.save(painting);
+        createdPaintings.push(savedPainting);
+      }
+    }
+
+    const paintingsByTable: { [key: string]: Painting[] } = {};
+    const tableDistribution: any = {};
+
+    for (let i = 0; i < tablesToCreate; i++) {
+      const tableName = `Table ${tableNames[i]}`;
+      paintingsByTable[tableName] = createdPaintings.filter(
+        (p) => p.roundId === createdRounds[i].roundId,
+      );
+
+      tableDistribution[tableName] = {
+        roundId: createdRounds[i].roundId,
+        competitors: tables[i],
+        count: tables[i].length,
+        paintings: paintingsByTable[tableName].map((p) => ({
+          paintingId: p.paintingId,
+          competitorId: p.competitorId,
+          status: p.status,
+        })),
+      };
+    }
+
+    return {
+      success: true,
+      message: `ROUND_2 created successfully with ${tablesToCreate} tables using seeding based on average scores`,
+      data: {
+        rounds: createdRounds,
+        seedingInfo: topCompetitors.map((comp, index) => ({
+          seed: index + 1,
+          competitorId: comp.competitorId,
+          avgScore: comp.avgScore,
+          evaluationCount: comp.evaluationCount,
+        })),
+        tableDistribution,
+        numberOfTables: tablesToCreate,
+        totalCompetitors: topCompetitors.length,
+        qualifiedWithOriginals: qualifiedCompetitors.length,
+        totalPaintingsCreated: createdPaintings.length,
+      },
+    };
+  }
+
+  private async calculateCompetitorScores(
+    passedPaintings: Painting[],
+    contestId: number,
+  ) {
+    const uniqueCompetitorIds = [
+      ...new Set(passedPaintings.map((p) => p.competitorId)),
+    ];
+
+    const competitorScores = await Promise.all(
+      uniqueCompetitorIds.map(async (competitorId) => {
+        const competitorPaintings = passedPaintings.filter(
+          (p) => p.competitorId === competitorId && p.contestId === contestId,
+        );
+
+        const paintingIds = competitorPaintings.map((p) => p.paintingId);
+        const evaluations = await this.evaluationsRepository.find({
+          where: paintingIds.map((paintingId) => ({ paintingId })),
+        });
+
+        let avgScore = 0;
+        if (evaluations.length > 0) {
+          const totalScore = evaluations.reduce(
+            (sum, evaluation) => sum + (evaluation.scoreRound1 || 0),
+            0,
+          );
+          avgScore = totalScore / evaluations.length;
+        }
+
+        return {
+          competitorId,
+          avgScore,
+          evaluationCount: evaluations.length,
+        };
+      }),
+    );
+
+    competitorScores.sort((a, b) => b.avgScore - a.avgScore);
+
+    return competitorScores;
+  }
+
+  async getRound2QualifiedPaintings(contestId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    if (!contest.round2Quantity) {
+      throw new BadRequestException(
+        'This contest does not have round_2_quantity configured',
+      );
+    }
+
+    const round1 = await this.roundsRepository.findOne({
+      where: { contestId, name: 'ROUND_1' },
+    });
+
+    if (!round1) {
+      throw new NotFoundException('ROUND_1 not found for this contest');
+    }
+
+    const paintings = await this.paintingRepository.find({
+      where: {
+        contestId,
+        roundId: round1.roundId,
+        status: In(['ACCEPTED', 'ORIGINAL_SUBMITTED']),
+      },
+    });
+
+    const competitorScores = await this.calculateCompetitorScores(
+      paintings,
+      contestId,
+    );
+
+    const competitorsWithDetails = await Promise.all(
+      competitorScores.map(async (compScore) => {
+        const competitor = await this.userRepository.findOne({
+          where: { userId: compScore.competitorId },
+        });
+
+        const competitorPaintings = paintings.filter(
+          (p) => p.competitorId === compScore.competitorId,
+        );
+
+        const paintingsWithScores = await Promise.all(
+          competitorPaintings.map(async (painting) => {
+            const evaluations = await this.evaluationsRepository.find({
+              where: { paintingId: painting.paintingId },
+            });
+
+            if (evaluations.length === 0) return null;
+
+            const totalScore = evaluations.reduce((sum, evaluation) => {
+              return sum + (evaluation.scoreRound1 || 0);
+            }, 0);
+
+            const avgScore = totalScore / evaluations.length;
+
+            return {
+              paintingId: painting.paintingId,
+              title: painting.title,
+              imageUrl: painting.imageUrl,
+              status: painting.status,
+              avgScore: Number(avgScore.toFixed(2)),
+              submissionDate: painting.submissionDate,
+            };
+          }),
+        );
+
+        const validPaintings = paintingsWithScores.filter((p) => p !== null);
+        const bestPainting = validPaintings.sort((a, b) => {
+          if (b.avgScore !== a.avgScore) {
+            return b.avgScore - a.avgScore;
+          }
+          const dateA = a.submissionDate
+            ? new Date(a.submissionDate).getTime()
+            : Infinity;
+          const dateB = b.submissionDate
+            ? new Date(b.submissionDate).getTime()
+            : Infinity;
+          return dateA - dateB;
+        })[0];
+
+        const hasSubmittedOriginal = competitorPaintings.some(
+          (p) => p.status === 'ORIGINAL_SUBMITTED',
+        );
+
+        return {
+          competitorId: compScore.competitorId,
+          competitorName: competitor?.fullName || 'Unknown',
+          competitorEmail: competitor?.email || null,
+          avgScore: Number(compScore.avgScore.toFixed(2)),
+          evaluationCount: compScore.evaluationCount,
+          painting: bestPainting || null,
+          status: hasSubmittedOriginal
+            ? 'ORIGINAL_SUBMITTED'
+            : competitorPaintings[0]?.status || 'ACCEPTED',
+          hasSubmittedOriginal,
+        };
+      }),
+    );
+
+    const qualifiedCompetitors = competitorsWithDetails.slice(
+      0,
+      contest.round2Quantity,
+    );
+
+    const notSubmittedCount = qualifiedCompetitors.filter(
+      (c) => !c.hasSubmittedOriginal,
+    ).length;
+
+    return {
+      success: true,
+      message: 'Qualified list shows top competitors who passed ROUND_1.',
+      data: {
+        contestId,
+        contestTitle: contest.title,
+        round2Quantity: contest.round2Quantity,
+        qualified: qualifiedCompetitors,
+        summary: {
+          totalQualified: qualifiedCompetitors.length,
+          submitted: qualifiedCompetitors.filter((c) => c.hasSubmittedOriginal)
+            .length,
+          notSubmitted: notSubmittedCount,
+        },
+      },
+    };
+  }
+
+  async updateOriginalSubmissionStatus(
+    contestId: number,
+    paintingId: string,
+    hasSubmittedOriginal: boolean,
+  ) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId, contestId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+    }
+
+    painting.status = hasSubmittedOriginal
+      ? 'ORIGINAL_SUBMITTED'
+      : 'NOT_SUBMITTED_ORIGINAL';
+    await this.paintingRepository.save(painting);
+
+    return {
+      success: true,
+      message: hasSubmittedOriginal
+        ? 'Original submission status updated successfully'
+        : 'Painting marked as not submitted original',
+      data: {
+        paintingId,
+        status: painting.status,
+        hasSubmittedOriginal,
       },
     };
   }
