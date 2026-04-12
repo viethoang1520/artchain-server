@@ -35,5 +35,6 @@ import { Nft } from '../nft/entities/nft.entity';
   ],
   controllers: [PaintingsController],
   providers: [PaintingsService],
+  exports: [PaintingsService],
 })
 export class PaintingsModule {}

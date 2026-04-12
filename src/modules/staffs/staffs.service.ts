@@ -1,12 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Examiner } from '../examiners/entities/examiners.entity';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
@@ -20,12 +12,13 @@ import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { ContestsService } from '../contests/contests.service';
-import { User, UserRole } from '../users/entities/user.entity';
 import { SchedulesService } from '../schedules/schedules.service';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
 import { FirebaseService } from '../firebase/firebase.service';
 import { WalletsService } from '../wallets/wallet.service';
+import { PaintingsService } from '../paintings/paintings.service';
+import { ExaminersService } from '../examiners/examiners.service';
 import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
 import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
 import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
@@ -33,15 +26,11 @@ import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request
 @Injectable()
 export class StaffService {
   constructor(
-    @InjectRepository(Painting)
-    private paintingsRepository: Repository<Painting>,
-    @InjectRepository(Examiner)
-    private examinersRepository: Repository<Examiner>,
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
     private firebaseService: FirebaseService,
     private campaignsService: CampaignsService,
     private contestsService: ContestsService,
+    private paintingsService: PaintingsService,
+    private examinersService: ExaminersService,
     private schedulesService: SchedulesService,
     private walletsService: WalletsService,
   ) {}
@@ -169,139 +158,15 @@ export class StaffService {
   }
 
   async getAllSubmissions(queryDto: GetAllSubmissionsDto) {
-    const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
-    const skip = (page - 1) * limit;
-
-    const queryBuilder =
-      this.paintingsRepository.createQueryBuilder('painting');
-
-    if (contestId) {
-      queryBuilder.where('painting.contest_id = :contestId', { contestId });
-    }
-
-    if (roundId) {
-      queryBuilder.andWhere('painting.round_id = :roundId', { roundId });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('painting.status = :status', { status });
-    }
-
-    queryBuilder
-      .orderBy('painting.submission_date', 'DESC')
-      .skip(skip)
-      .take(limit);
-
-    const [paintings, total] = await queryBuilder.getManyAndCount();
-
-    const paintingsWithCompetitor = await Promise.all(
-      paintings.map(async (painting) => {
-        let competitorInfo: any = null;
-        if (painting.competitorId) {
-          const competitor = await this.usersRepository.findOne({
-            where: { userId: painting.competitorId },
-          });
-
-          if (competitor) {
-            competitorInfo = {
-              competitorId: competitor.userId,
-              fullName: competitor.fullName || null,
-              email: competitor.email || null,
-              phone: competitor.phone || null,
-              username: competitor.username || null,
-            };
-          }
-        }
-
-        return {
-          ...painting,
-          competitor: competitorInfo,
-        };
-      }),
-    );
-
-    const totalPages = Math.ceil(total / limit);
-    const hasNextPage = page < totalPages;
-    const hasPreviousPage = page > 1;
-
-    return {
-      success: true,
-      data: paintingsWithCompetitor,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage,
-        hasPreviousPage,
-        contestId,
-        roundId,
-        status,
-      },
-    };
+    return this.paintingsService.getAllSubmissionsByStaff(queryDto);
   }
 
   async getSubmission(paintingId: string) {
-    const painting = await this.paintingsRepository.findOne({
-      where: { paintingId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Submission with ID ${paintingId} not found`);
-    }
-
-    let competitorInfo;
-    if (painting.competitorId) {
-      const competitor = await this.usersRepository.findOne({
-        where: { userId: painting.competitorId },
-      });
-
-      if (competitor) {
-        competitorInfo = {
-          competitorId: competitor.userId,
-          fullName: competitor.fullName,
-          email: competitor.email,
-          phone: competitor.phone,
-          username: competitor.username,
-        };
-      }
-    }
-
-    return {
-      success: true,
-      data: {
-        ...painting,
-        competitor: competitorInfo,
-      },
-    };
+    return this.paintingsService.getSubmissionByStaff(paintingId);
   }
 
   async reviewSubmission(paintingId: string, reviewDto: ReviewSubmissionDto) {
-    const painting = await this.paintingsRepository.findOne({
-      where: { paintingId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Submission with ID ${paintingId} not found`);
-    }
-
-    // if (reviewDto.status === 'REJECTED' && !reviewDto.reason) {
-    //   throw new BadRequestException(
-    //     'Reason is required when rejecting a submission',
-    //   );
-    // }
-    painting.status = reviewDto.status;
-
-    const updatedPainting = await this.paintingsRepository.save(painting);
-
-    return {
-      success: true,
-      message: `Submission ${reviewDto.status.toLowerCase()} successfully`,
-      data: {
-        ...updatedPainting,
-        // rejectionReason: reviewDto.reason,
-      },
-    };
+    return this.paintingsService.reviewSubmissionByStaff(paintingId, reviewDto);
   }
 
   async acceptSubmission(paintingId: string) {
@@ -309,46 +174,7 @@ export class StaffService {
   }
 
   async acceptMultipleSubmissions(paintingIds: string[]) {
-    const results: {
-      successful: Array<{ paintingId: string; status: string }>;
-      failed: Array<{ paintingId: string; error: string }>;
-    } = {
-      successful: [],
-      failed: [],
-    };
-
-    // Process each painting
-    for (const paintingId of paintingIds) {
-      try {
-        await this.reviewSubmission(paintingId, { status: 'ACCEPTED' });
-        results.successful.push({
-          paintingId,
-          status: 'ACCEPTED',
-        });
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown error occurred';
-        results.failed.push({
-          paintingId,
-          error: message,
-        });
-      }
-    }
-
-    const successCount = results.successful.length;
-    const failureCount = results.failed.length;
-    const total = paintingIds.length;
-
-    return {
-      success: true,
-      message: `Processed ${total} submissions: ${successCount} accepted, ${failureCount} failed`,
-      data: results,
-      meta: {
-        total,
-        successCount,
-        failureCount,
-      },
-    };
+    return this.paintingsService.acceptMultipleSubmissionsByStaff(paintingIds);
   }
 
   async rejectSubmission(paintingId: string, reason: string) {
@@ -412,35 +238,7 @@ export class StaffService {
   }
 
   async getAllExaminers() {
-    const examiners = await this.usersRepository.find({
-      where: { role: UserRole.EXAMINER },
-    });
-
-    const examinersWithDetails = await Promise.all(
-      examiners.map(async (user) => {
-        const examinerDetails = await this.examinersRepository.findOne({
-          where: { examinerId: user.userId },
-        });
-
-        return {
-          examinerId: user.userId,
-          fullName: user.fullName,
-          email: user.email,
-          phone: user.phone,
-          status: user.status,
-          specialization: examinerDetails?.specialization || null,
-          assignedScheduleId: examinerDetails?.assignedScheduleId || null,
-        };
-      }),
-    );
-
-    return {
-      success: true,
-      data: examinersWithDetails,
-      meta: {
-        total: examinersWithDetails.length,
-      },
-    };
+    return this.examinersService.getAllExaminers();
   }
 
   async createSchedule(createScheduleDto: CreateScheduleDto) {
