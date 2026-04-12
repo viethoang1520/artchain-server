@@ -14,6 +14,7 @@ import { Award } from '../awards/entities/award.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { Evaluation } from '../paintings/entities/evaluation.entity';
       Evaluation,
     ]),
     AuthModule,
+    FirebaseModule,
   ],
   controllers: [ContestsController],
   providers: [ContestsService, ContestCronService],

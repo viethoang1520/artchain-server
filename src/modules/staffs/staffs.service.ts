@@ -5,17 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Contest, ContestStatus } from '../contests/entities/contests.entity';
-import { Round } from '../contests/entities/round.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
-import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
 import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
-import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto';
 import { GetAllSubmissionsDto } from '../paintings/dto/get-all-submissions.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
@@ -28,34 +24,21 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { SchedulesService } from '../schedules/schedules.service';
 import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
 import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import { FirebaseService } from '../firebase/firebase.service';
-import { Award } from '../awards/entities/award.entity';
 import { WalletsService } from '../wallets/wallet.service';
 import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
 import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
 import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
-import { create } from 'domain';
 
 @Injectable()
 export class StaffService {
   constructor(
-    @InjectRepository(Contest)
-    private contestsRepository: Repository<Contest>,
-    @InjectRepository(Round)
-    private roundsRepository: Repository<Round>,
     @InjectRepository(Painting)
     private paintingsRepository: Repository<Painting>,
-    @InjectRepository(ContestExaminer)
-    private contestExaminersRepository: Repository<ContestExaminer>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-    @InjectRepository(Competitor)
-    private competitorsRepository: Repository<Competitor>,
-    @InjectRepository(Award)
-    private awardsRepository: Repository<Award>,
     private firebaseService: FirebaseService,
     private campaignsService: CampaignsService,
     private contestsService: ContestsService,
@@ -120,91 +103,11 @@ export class StaffService {
     bannerFile?: Express.Multer.File,
     ruleFile?: Express.Multer.File,
   ) {
-    try {
-      let bannerUrl: string | undefined = createContestDto.bannerUrl;
-      let ruleUrl: string | undefined = createContestDto.ruleUrl;
-
-      if (bannerFile) {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(bannerFile.buffer, {
-          metadata: { contentType: bannerFile.mimetype },
-        });
-
-        const [url] = await fileUpload.getSignedUrl({
-          action: 'read',
-          expires: '03-09-2491',
-        });
-
-        bannerUrl = url;
-      }
-
-      if (ruleFile) {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `contests/rules/${Date.now()}-${ruleFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(ruleFile.buffer, {
-          metadata: { contentType: ruleFile.mimetype },
-        });
-
-        const [url] = await fileUpload.getSignedUrl({
-          action: 'read',
-          expires: '03-09-2491',
-        });
-
-        ruleUrl = url;
-      }
-
-      const contest = this.contestsRepository.create({
-        title: createContestDto.title,
-        description: createContestDto.description,
-        bannerUrl,
-        ruleUrl,
-        numOfAward: createContestDto.numOfAward,
-        round2Quantity: createContestDto.round2Quantity,
-        numberOfTablesRound2: createContestDto.numberOfTablesRound2,
-        startDate: createContestDto.startDate,
-        endDate: createContestDto.endDate,
-        status: createContestDto.status || ContestStatus.DRAFT,
-        createdBy: createContestDto.createdBy,
-      });
-
-      const savedContest = await this.contestsRepository.save(contest);
-
-      // Create rounds if provided
-      const savedRounds: Round[] = [];
-      if (createContestDto.rounds && createContestDto.rounds.length > 0) {
-        for (const roundDto of createContestDto.rounds) {
-          const round = this.roundsRepository.create({
-            contestId: savedContest.contestId,
-            name: roundDto.name,
-            table: roundDto.table,
-            startDate: roundDto.startDate,
-            endDate: roundDto.endDate,
-            submissionDeadline: roundDto.submissionDeadline,
-            resultAnnounceDate: roundDto.resultAnnounceDate,
-            sendOriginalDeadline: roundDto.sendOriginalDeadline,
-            status: roundDto.status || 'DRAFT',
-          });
-          const savedRound = await this.roundsRepository.save(round);
-          savedRounds.push(savedRound);
-        }
-      }
-
-      return {
-        success: true,
-        message: 'Contest created successfully',
-        data: {
-          contest: savedContest,
-          rounds: savedRounds,
-        },
-      };
-    } catch (error) {
-      throw error;
-    }
+    return this.contestsService.createContestByStaff(
+      createContestDto,
+      bannerFile,
+      ruleFile,
+    );
   }
 
   async updateContest(
@@ -213,122 +116,12 @@ export class StaffService {
     bannerFile?: Express.Multer.File,
     ruleFile?: Express.Multer.File,
   ) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId: id },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${id} not found`);
-    }
-
-    if (contest.status !== 'DRAFT') {
-      const allowedFields = ['round2Quantity', 'numberOfTablesRound2'];
-      const updateFields = Object.keys(updateContestDto).filter(
-        (key) => key !== 'rounds' && updateContestDto[key] !== undefined,
-      );
-      const hasDisallowedUpdates = updateFields.some(
-        (field) => !allowedFields.includes(field),
-      );
-
-      if (hasDisallowedUpdates || bannerFile || ruleFile) {
-        throw new BadRequestException(
-          `Cannot update contest. Contest has been published (status: ${contest.status}). Only round2Quantity and numberOfTablesRound2 can be updated for published contests.`,
-        );
-      }
-    }
-
-    try {
-      let bannerUrl: string | undefined = updateContestDto.bannerUrl;
-      let ruleUrl: string | undefined = updateContestDto.ruleUrl;
-
-      // Upload new banner file to Firebase if provided
-      if (bannerFile) {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `contests/banners/${Date.now()}-${bannerFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(bannerFile.buffer, {
-          metadata: { contentType: bannerFile.mimetype },
-        });
-
-        await fileUpload.makePublic();
-        bannerUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      }
-
-      // Upload new rule file to Firebase if provided
-      if (ruleFile) {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `contests/rules/${Date.now()}-${ruleFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(ruleFile.buffer, {
-          metadata: { contentType: ruleFile.mimetype },
-        });
-
-        await fileUpload.makePublic();
-        ruleUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      }
-
-      // Update Round 1 if round data is provided
-      if (updateContestDto.rounds && updateContestDto.rounds.length > 0) {
-        const roundData = updateContestDto.rounds[0];
-
-        // Find existing Round 1
-        const existingRound = await this.roundsRepository.findOne({
-          where: { contestId: id, name: 'ROUND_1' },
-        });
-
-        if (existingRound) {
-          // Update existing Round 1
-          const updatedRound = this.roundsRepository.merge(
-            existingRound,
-            roundData,
-          );
-          await this.roundsRepository.save(updatedRound);
-        } else {
-          // Create new Round 1 if it doesn't exist
-          const newRound = this.roundsRepository.create({
-            ...roundData,
-            contestId: id,
-            name: roundData.name || 'ROUND_1',
-          });
-          await this.roundsRepository.save(newRound);
-        }
-      }
-
-      // Merge updated data with contest (excluding rounds)
-      const { rounds: roundsData, ...contestData } = updateContestDto;
-      const updatedData = {
-        ...contestData,
-        ...(bannerUrl && { bannerUrl }),
-        ...(ruleUrl && { ruleUrl }),
-      };
-
-      const updatedContest = this.contestsRepository.merge(
-        contest,
-        updatedData,
-      );
-      const savedContest = await this.contestsRepository.save(updatedContest);
-
-      // Fetch rounds separately
-      const rounds = await this.roundsRepository.find({
-        where: { contestId: id },
-        order: { roundId: 'ASC' },
-      });
-
-      return {
-        success: true,
-        message: 'Contest updated successfully',
-        data: {
-          ...savedContest,
-          rounds,
-        },
-      };
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to update contest: ${error.message}`,
-      );
-    }
+    return this.contestsService.updateContestByStaff(
+      id,
+      updateContestDto,
+      bannerFile,
+      ruleFile,
+    );
   }
 
   async publishContest(id: number) {
@@ -344,84 +137,7 @@ export class StaffService {
   }
 
   async getContest(id: number) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId: id },
-      relations: ['awards'],
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${id} not found`);
-    }
-
-    const contestWithAwards = await Promise.all(
-      contest.awards.map(async (award) => {
-        const paintings = await this.paintingsRepository.find({
-          where: { awardId: award.awardId, contestId: id },
-        });
-
-        const winners = await Promise.all(
-          paintings.map(async (painting) => {
-            const competitor = await this.competitorsRepository.findOne({
-              where: { competitorId: painting.competitorId },
-            });
-
-            const user = await this.usersRepository.findOne({
-              where: { userId: painting.competitorId },
-            });
-
-            return {
-              paintingId: painting.paintingId,
-              title: painting.title,
-              imageUrl: painting.imageUrl,
-              competitorId: painting.competitorId,
-              competitorName: user?.fullName || 'Unknown',
-              competitorEmail: user?.email || null,
-              competitorSchool: competitor?.schoolName || 'Unknown',
-              competitorGrade: competitor?.grade || 'Unknown',
-            };
-          }),
-        );
-
-        return {
-          ...award,
-          winners,
-          winnerCount: winners.length,
-        };
-      }),
-    );
-
-    const rounds = await this.roundsRepository.find({
-      where: { contestId: id },
-    });
-
-    const contestExaminers = await this.contestExaminersRepository.find({
-      where: { contestId: id },
-      relations: ['examiner'],
-    });
-
-    const examinersWithNames = await Promise.all(
-      contestExaminers.map(async (ce) => {
-        const user = await this.usersRepository.findOne({
-          where: { userId: ce.examinerId },
-        });
-
-        return {
-          ...ce,
-          examinerName: user?.fullName || 'Unknown',
-          examinerEmail: user?.email || null,
-        };
-      }),
-    );
-
-    return {
-      success: true,
-      data: {
-        ...contest,
-        awards: contestWithAwards,
-        rounds,
-        examiners: examinersWithNames,
-      },
-    };
+    return this.contestsService.getContestByStaff(id);
   }
 
   async createRound(contestId: number, createRoundDto: CreateRoundDto) {
@@ -610,9 +326,11 @@ export class StaffService {
           status: 'ACCEPTED',
         });
       } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred';
         results.failed.push({
           paintingId,
-          error: error.message || 'Unknown error occurred',
+          error: message,
         });
       }
     }
@@ -761,98 +479,11 @@ export class StaffService {
   }
 
   async assignAwardToPainting(paintingId: string, awardId: number) {
-    // Check if painting exists
-    const painting = await this.paintingsRepository.findOne({
-      where: { paintingId },
-      relations: ['award'],
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    // Check if painting already has an award
-    if (painting.awardId) {
-      throw new BadRequestException(
-        `Painting already has an award assigned (Award ID: ${painting.awardId})`,
-      );
-    }
-
-    // Check if award exists
-    const award = await this.awardsRepository.findOne({
-      where: { awardId },
-      relations: ['paintings'],
-    });
-
-    if (!award) {
-      throw new NotFoundException(`Award with ID ${awardId} not found`);
-    }
-
-    if (award.quantity) {
-      const paintingsWithAward = await this.paintingsRepository.count({
-        where: { awardId },
-      });
-
-      if (paintingsWithAward >= award.quantity) {
-        throw new BadRequestException(
-          `Award "${award.name}" has reached its maximum quantity (${award.quantity}). Cannot assign more paintings.`,
-        );
-      }
-    }
-
-    painting.awardId = awardId;
-    const updatedPainting = await this.paintingsRepository.save(painting);
-
-    const currentCount = await this.paintingsRepository.count({
-      where: { awardId },
-    });
-
-    return {
-      success: true,
-      message: 'Award assigned to painting successfully',
-      data: {
-        paintingId: updatedPainting.paintingId,
-        awardId: updatedPainting.awardId,
-        awardName: award.name,
-        awardRank: award.rank,
-        awardPrize: award.prize,
-      },
-      meta: {
-        currentAssignedCount: currentCount,
-        maxQuantity: award.quantity,
-        remainingSlots: award.quantity ? award.quantity - currentCount : null,
-      },
-    };
+    return this.contestsService.assignAwardToPainting(paintingId, awardId);
   }
 
   async unassignAwardFromPainting(paintingId: string) {
-    const painting = await this.paintingsRepository.findOne({
-      where: { paintingId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    if (!painting.awardId) {
-      throw new BadRequestException(
-        'Painting does not have any award assigned',
-      );
-    }
-
-    const previousAwardId = painting.awardId;
-
-    painting.awardId = null;
-    await this.paintingsRepository.save(painting);
-
-    return {
-      success: true,
-      message: 'Award unassigned from painting successfully',
-      data: {
-        paintingId: painting.paintingId,
-        previousAwardId,
-      },
-    };
+    return this.contestsService.unassignAwardFromPainting(paintingId);
   }
 
   async uploadRound2PaintingImage(
@@ -861,78 +492,12 @@ export class StaffService {
     title?: string,
     description?: string,
   ) {
-    // Validate painting exists
-    const painting = await this.paintingsRepository.findOne({
-      where: { paintingId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    // Validate painting is in ROUND_2
-    const round = await this.roundsRepository.findOne({
-      where: { roundId: painting.roundId },
-    });
-
-    if (!round || round.name !== 'ROUND_2') {
-      throw new BadRequestException(
-        'This painting is not in ROUND_2. Can only update ROUND_2 paintings.',
-      );
-    }
-
-    // Check if at least one field is provided
-    if (!imageFile && !title && !description) {
-      throw new BadRequestException(
-        'At least one field (image, title, or description) must be provided',
-      );
-    }
-
-    let imageUrl = painting.imageUrl;
-
-    // Upload image to Firebase Storage if provided
-    if (imageFile) {
-      try {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `paintings/round2/${Date.now()}-${imageFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(imageFile.buffer, {
-          metadata: { contentType: imageFile.mimetype },
-        });
-
-        await fileUpload.makePublic();
-        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        painting.imageUrl = imageUrl;
-      } catch (error) {
-        throw new BadRequestException(
-          `Failed to upload image: ${error.message}`,
-        );
-      }
-    }
-
-    // Update optional fields only if provided
-    if (title) {
-      painting.title = title;
-    }
-    if (description) {
-      painting.description = description;
-    }
-
-    await this.paintingsRepository.save(painting);
-
-    return {
-      success: true,
-      message: 'Round 2 painting updated successfully',
-      data: {
-        paintingId: painting.paintingId,
-        imageUrl: painting.imageUrl,
-        title: painting.title,
-        description: painting.description,
-        round: round.name,
-        table: round.table,
-      },
-    };
+    return this.contestsService.uploadRound2PaintingImage(
+      paintingId,
+      imageFile,
+      title,
+      description,
+    );
   }
 
   async getRound2QualifiedPaintings(contestId: number) {
