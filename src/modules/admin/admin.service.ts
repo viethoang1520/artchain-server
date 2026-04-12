@@ -250,9 +250,6 @@ export class AdminService {
     const endedContests = await this.contestsRepository.count({
       where: { status: ContestStatus.ENDED },
     });
-    const completedContests = await this.contestsRepository.count({
-      where: { status: ContestStatus.COMPLETED },
-    });
     const draftContests = await this.contestsRepository.count({
       where: { status: ContestStatus.DRAFT },
     });
@@ -407,7 +404,6 @@ export class AdminService {
           active: activeContests,
           upcoming: upcomingContests,
           ended: endedContests,
-          completed: completedContests,
           draft: draftContests,
         },
         paintings: {

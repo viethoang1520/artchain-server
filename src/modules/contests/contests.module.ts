@@ -12,6 +12,9 @@ import { User } from '../users/entities/user.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { Award } from '../awards/entities/award.entity';
 import { Painting } from '../paintings/entities/paintings.entity';
+import { Competitor } from '../competitors/entities/competitors.entity';
+import { Evaluation } from '../paintings/entities/evaluation.entity';
+import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
   imports: [
@@ -23,9 +26,12 @@ import { Painting } from '../paintings/entities/paintings.entity';
       User,
       Schedule,
       Award,
-      Painting
+      Painting,
+      Competitor,
+      Evaluation,
     ]),
     AuthModule,
+    FirebaseModule,
   ],
   controllers: [ContestsController],
   providers: [ContestsService, ContestCronService],

@@ -307,6 +307,17 @@ export class WalletsService {
       if (!wallet) {
         throw new NotFoundException('Không tìm thấy ví của người dùng');
       }
+      const requested = await requestRepo.find({
+        where: {
+          accountId,
+          status: WalletWithdrawRequestStatus.PENDING,
+        },
+      });
+      if (requested.length > 0) {
+        throw new BadRequestException(
+          'Bạn đã có một yêu cầu rút tiền đang chờ xử lý. Vui lòng đợi cho đến khi yêu cầu đó được xử lý trước khi gửi yêu cầu mới.',
+        );
+      }
 
       const bankAccount = await bankAccountRepo.findOne({
         where: {

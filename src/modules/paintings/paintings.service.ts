@@ -24,6 +24,8 @@ import {
 import { Award } from '../awards/entities/award.entity';
 import { Schedule } from '../schedules/entities/schedule.entity';
 import { AiService } from '../ai/ai.service';
+import { GetAllSubmissionsDto } from './dto/get-all-submissions.dto';
+import { ReviewSubmissionDto } from './dto/review-submission.dto';
 
 @Injectable()
 export class PaintingsService {
@@ -49,6 +51,180 @@ export class PaintingsService {
     @InjectRepository(Contest)
     private readonly contestRepository: Repository<Contest>,
   ) {}
+
+  async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
+    const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.paintingRepository.createQueryBuilder('painting');
+
+    if (contestId) {
+      queryBuilder.where('painting.contest_id = :contestId', { contestId });
+    }
+
+    if (roundId) {
+      queryBuilder.andWhere('painting.round_id = :roundId', { roundId });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('painting.status = :status', { status });
+    }
+
+    queryBuilder
+      .orderBy('painting.submission_date', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const [paintings, total] = await queryBuilder.getManyAndCount();
+
+    const paintingsWithCompetitor = await Promise.all(
+      paintings.map(async (painting) => {
+        let competitorInfo: any = null;
+        if (painting.competitorId) {
+          const competitor = await this.userRepository.findOne({
+            where: { userId: painting.competitorId },
+          });
+
+          if (competitor) {
+            competitorInfo = {
+              competitorId: competitor.userId,
+              fullName: competitor.fullName || null,
+              email: competitor.email || null,
+              phone: competitor.phone || null,
+              username: competitor.username || null,
+            };
+          }
+        }
+
+        return {
+          ...painting,
+          competitor: competitorInfo,
+        };
+      }),
+    );
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPreviousPage = page > 1;
+
+    return {
+      success: true,
+      data: paintingsWithCompetitor,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage,
+        hasPreviousPage,
+        contestId,
+        roundId,
+        status,
+      },
+    };
+  }
+
+  async getSubmissionByStaff(paintingId: string) {
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Submission with ID ${paintingId} not found`);
+    }
+
+    let competitorInfo;
+    if (painting.competitorId) {
+      const competitor = await this.userRepository.findOne({
+        where: { userId: painting.competitorId },
+      });
+
+      if (competitor) {
+        competitorInfo = {
+          competitorId: competitor.userId,
+          fullName: competitor.fullName,
+          email: competitor.email,
+          phone: competitor.phone,
+          username: competitor.username,
+        };
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        ...painting,
+        competitor: competitorInfo,
+      },
+    };
+  }
+
+  async reviewSubmissionByStaff(
+    paintingId: string,
+    reviewDto: ReviewSubmissionDto,
+  ) {
+    const painting = await this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+
+    if (!painting) {
+      throw new NotFoundException(`Submission with ID ${paintingId} not found`);
+    }
+
+    painting.status = reviewDto.status;
+
+    const updatedPainting = await this.paintingRepository.save(painting);
+
+    return {
+      success: true,
+      message: `Submission ${reviewDto.status.toLowerCase()} successfully`,
+      data: {
+        ...updatedPainting,
+      },
+    };
+  }
+
+  async acceptMultipleSubmissionsByStaff(paintingIds: string[]) {
+    const results: {
+      successful: Array<{ paintingId: string; status: string }>;
+      failed: Array<{ paintingId: string; error: string }>;
+    } = {
+      successful: [],
+      failed: [],
+    };
+
+    for (const paintingId of paintingIds) {
+      try {
+        await this.reviewSubmissionByStaff(paintingId, { status: 'ACCEPTED' });
+        results.successful.push({
+          paintingId,
+          status: 'ACCEPTED',
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred';
+        results.failed.push({
+          paintingId,
+          error: message,
+        });
+      }
+    }
+
+    const successCount = results.successful.length;
+    const failureCount = results.failed.length;
+    const total = paintingIds.length;
+
+    return {
+      success: true,
+      message: `Processed ${total} submissions: ${successCount} accepted, ${failureCount} failed`,
+      data: results,
+      meta: {
+        total,
+        successCount,
+        failureCount,
+      },
+    };
+  }
 
   async getPaintingsByContestId(
     contestId: number,
