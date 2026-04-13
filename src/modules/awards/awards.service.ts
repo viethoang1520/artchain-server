@@ -238,6 +238,13 @@ export class AwardsService {
     };
   }
 
+  async listByContestId(contestId: number) {
+    return this.awardRepository.find({
+      where: { contestId },
+      order: { rank: 'ASC' },
+    });
+  }
+
   async findOne(id: number) {
     const award = await this.awardRepository.findOne({
       where: { awardId: id },

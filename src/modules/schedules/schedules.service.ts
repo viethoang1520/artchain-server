@@ -209,4 +209,17 @@ export class SchedulesService {
       message: 'Schedule deleted successfully',
     };
   }
+
+  async findActiveScheduleByExaminerAndContest(
+    examinerId: string,
+    contestId: number,
+  ) {
+    return this.schedulesRepository.findOne({
+      where: {
+        examinerId,
+        contestId,
+        status: 'ACTIVE',
+      },
+    });
+  }
 }

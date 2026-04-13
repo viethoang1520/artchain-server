@@ -6,10 +6,11 @@ import { AuthModule } from '../auth/auth.module';
 import { User } from '../users/entities/user.entity';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { ExaminersService } from './examiners.service';
+import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Examiner, User]),
+    TypeOrmModule.forFeature([Examiner, User, ContestExaminer]),
     AuthModule,
     SchedulesModule,
   ],
