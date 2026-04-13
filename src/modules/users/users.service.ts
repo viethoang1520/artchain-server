@@ -26,7 +26,7 @@ export class UsersService {
     private contestsRepository: Repository<Contest>,
     @InjectRepository(Award)
     private awardsRepository: Repository<Award>,
-  ) { }
+  ) {}
 
   async submissions(userId: string) {
     const mySubmissions = await this.paintingsRepository.find({
@@ -58,6 +58,12 @@ export class UsersService {
     return submissionsWithContests;
   }
 
+  async findUserById(userId: string) {
+    return this.usersRepository.findOne({
+      where: { userId },
+    });
+  }
+
   async me(userId: string) {
     let userRole;
     if (!userId) {
@@ -75,11 +81,11 @@ export class UsersService {
 
     const wallet = user.wallet
       ? {
-        walletId: user.wallet.walletId,
-        balance: Number(user.wallet.balance),
-        currency: user.wallet.currency,
-        status: user.wallet.status,
-      }
+          walletId: user.wallet.walletId,
+          balance: Number(user.wallet.balance),
+          currency: user.wallet.currency,
+          status: user.wallet.status,
+        }
       : null;
 
     userRole = user.role;

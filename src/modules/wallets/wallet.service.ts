@@ -12,6 +12,8 @@ import {
   Transaction,
   TransactionStatus,
 } from '../payments/entities/transaction.entity';
+import { UsersService } from '../users/users.service';
+import { PaymentsService } from '../payments/payments.service';
 import { ApproveWithdrawRequestDto } from './dto/approve-withdraw-request.dto';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { CreateWalletDto } from './dto/create-wallet.dto';
@@ -33,20 +35,16 @@ export class WalletsService {
   constructor(
     @InjectRepository(Wallet)
     private readonly walletsRepository: Repository<Wallet>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
-    @InjectRepository(Transaction)
-    private readonly transactionsRepository: Repository<Transaction>,
     @InjectRepository(WalletWithdrawRequest)
     private readonly withdrawRequestsRepository: Repository<WalletWithdrawRequest>,
     @InjectRepository(BankAccount)
     private readonly bankAccountsRepository: Repository<BankAccount>,
+    private readonly usersService: UsersService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
-  private async ensureStaffUser(staffId: string): Promise<User> {
-    const staff = await this.usersRepository.findOne({
-      where: { userId: staffId },
-    });
+  private async ensureStaffUser(staffId: string) {
+    const staff = await this.usersService.findUserById(staffId);
 
     if (!staff) {
       throw new NotFoundException('Không tìm thấy user staff');
@@ -177,42 +175,15 @@ export class WalletsService {
     }
 
     const [transactions, total] =
-      await this.transactionsRepository.findAndCount({
-        where: whereCondition,
-        order: { paymentDate: 'DESC', createdAt: 'DESC' },
-        skip: (page - 1) * limit,
-        take: limit,
-      });
+      await this.paymentsService.getTransactionsByUser(
+        accountId,
+        page,
+        limit,
+        whereCondition.status,
+      );
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-    const monthlyStats = await this.transactionsRepository
-      .createQueryBuilder('transaction')
-      .select(
-        `COALESCE(SUM(CASE WHEN transaction.note ILIKE 'NAP TIEN VI%' THEN transaction.amount ELSE 0 END), 0)`,
-        'totalTopupThisMonth',
-      )
-      .addSelect(
-        `COALESCE(SUM(CASE WHEN transaction.note ILIKE 'Thanh toan dau gia tranh #%'
-          OR transaction.note ILIKE 'RUT TIEN VI%'
-          OR transaction.note ILIKE 'WITHDRAW_APPROVED #%'
-          THEN transaction.amount ELSE 0 END), 0)`,
-        'totalSpendThisMonth',
-      )
-      .where('transaction.userId = :accountId', { accountId })
-      .andWhere('transaction.status = :successStatus', {
-        successStatus: TransactionStatus.SUCCESS,
-      })
-      .andWhere('transaction.paymentDate >= :monthStart', { monthStart })
-      .andWhere('transaction.paymentDate < :nextMonthStart', {
-        nextMonthStart,
-      })
-      .getRawOne<{
-        totalTopupThisMonth: string;
-        totalSpendThisMonth: string;
-      }>();
+    const monthlyStats =
+      await this.paymentsService.getMonthlyWalletStats(accountId);
 
     return {
       success: true,
