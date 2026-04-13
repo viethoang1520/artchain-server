@@ -1,21 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
-import { Contest } from '../contests/entities/contests.entity';
-import { Examiner } from '../examiners/entities/examiners.entity';
-import { User } from '../users/entities/user.entity';
 import { Schedule } from './entities/schedule.entity';
 import { SchedulesService } from './schedules.service';
+import { UsersModule } from '../users/users.module';
+import { ExaminersModule } from '../examiners/examiners.module';
+import { ContestsModule } from '../contests/contests.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Schedule,
-      User,
-      Contest,
-      ContestExaminer,
-      Examiner,
-    ]),
+    TypeOrmModule.forFeature([Schedule]),
+    UsersModule,
+    forwardRef(() => ExaminersModule),
+    forwardRef(() => ContestsModule),
   ],
   providers: [SchedulesService],
   exports: [SchedulesService],

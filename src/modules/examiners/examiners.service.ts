@@ -124,4 +124,25 @@ export class ExaminersService {
   async removeAssignment(assignment: ContestExaminer) {
     return this.contestExaminersRepository.remove(assignment);
   }
+
+  async ensureExaminerAssignedSchedule(examinerId: string, scheduleId: number) {
+    let examiner = await this.examinersRepository.findOne({
+      where: { examinerId },
+    });
+
+    if (!examiner) {
+      examiner = this.examinersRepository.create({
+        examinerId,
+        assignedScheduleId: scheduleId,
+      });
+      return this.examinersRepository.save(examiner);
+    }
+
+    if (!examiner.assignedScheduleId) {
+      examiner.assignedScheduleId = scheduleId;
+      return this.examinersRepository.save(examiner);
+    }
+
+    return examiner;
+  }
 }

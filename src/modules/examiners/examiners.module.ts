@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ExaminersController } from './examiners.controller';
 import { Examiner } from './entities/examiners.entity';
@@ -12,7 +12,7 @@ import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
   imports: [
     TypeOrmModule.forFeature([Examiner, User, ContestExaminer]),
     AuthModule,
-    SchedulesModule,
+    forwardRef(() => SchedulesModule),
   ],
   controllers: [ExaminersController],
   providers: [ExaminersService],

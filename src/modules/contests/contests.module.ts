@@ -23,7 +23,7 @@ import { ContestsQueryService } from './contests-query.service';
     forwardRef(() => PaintingsModule),
     ExaminersModule,
     CompetitorsModule,
-    SchedulesModule,
+    forwardRef(() => SchedulesModule),
     AwardsModule,
   ],
   controllers: [ContestsController],
