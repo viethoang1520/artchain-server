@@ -9,8 +9,13 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sponsor, Campaign]), FirebaseModule, PaymentsModule],
+  imports: [
+    TypeOrmModule.forFeature([Sponsor, Campaign]),
+    FirebaseModule,
+    PaymentsModule,
+  ],
   controllers: [SponsorsController],
   providers: [SponsorsService],
+  exports: [SponsorsService],
 })
 export class SponsorsModule {}

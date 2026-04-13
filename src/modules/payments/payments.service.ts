@@ -348,4 +348,46 @@ export class PaymentsService {
         totalSpendThisMonth: string;
       }>();
   }
+
+  async getSuccessfulAmountByCampaignId(campaignId: number): Promise<number> {
+    const result = await this.dataSource
+      .getRepository(Transaction)
+      .createQueryBuilder('transaction')
+      .select('COALESCE(SUM(transaction.amount), 0)', 'total')
+      .where('transaction.campaignId = :campaignId', { campaignId })
+      .andWhere('transaction.status = :status', {
+        status: TransactionStatus.SUCCESS,
+      })
+      .getRawOne<{ total: string }>();
+
+    return Number(result?.total ?? 0);
+  }
+
+  async getSuccessfulAmountByCampaignIds(
+    campaignIds: number[],
+  ): Promise<Map<number, number>> {
+    const amountByCampaign = new Map<number, number>();
+
+    if (campaignIds.length === 0) {
+      return amountByCampaign;
+    }
+
+    const rows = await this.dataSource
+      .getRepository(Transaction)
+      .createQueryBuilder('transaction')
+      .select('transaction.campaignId', 'campaignId')
+      .addSelect('COALESCE(SUM(transaction.amount), 0)', 'total')
+      .where('transaction.campaignId IN (:...campaignIds)', { campaignIds })
+      .andWhere('transaction.status = :status', {
+        status: TransactionStatus.SUCCESS,
+      })
+      .groupBy('transaction.campaignId')
+      .getRawMany<{ campaignId: string; total: string }>();
+
+    rows.forEach((row) => {
+      amountByCampaign.set(Number(row.campaignId), Number(row.total));
+    });
+
+    return amountByCampaign;
+  }
 }
