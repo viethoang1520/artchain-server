@@ -97,6 +97,12 @@ export class ExaminersService {
     });
   }
 
+  async findActiveAssignment(contestId: number, examinerId: string) {
+    return this.contestExaminersRepository.findOne({
+      where: { contestId, examinerId, status: 'ACTIVE' },
+    });
+  }
+
   async createAssignment(contestId: number, examinerId: string, role: string) {
     const contestExaminer = this.contestExaminersRepository.create({
       contestId,

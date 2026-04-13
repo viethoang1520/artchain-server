@@ -245,6 +245,19 @@ export class AwardsService {
     });
   }
 
+  async findById(awardId: number) {
+    return this.awardRepository.findOne({
+      where: { awardId },
+    });
+  }
+
+  async findByIdWithPaintings(awardId: number) {
+    return this.awardRepository.findOne({
+      where: { awardId },
+      relations: ['paintings'],
+    });
+  }
+
   async findOne(id: number) {
     const award = await this.awardRepository.findOne({
       where: { awardId: id },

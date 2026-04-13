@@ -12,44 +12,34 @@ import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
 import { EvaluateRound2Dto } from './dto/evaluate-round2.dto';
-import { User } from '../users/entities/user.entity';
-import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { Round } from '../contests/entities/round.entity';
-import { Contest } from '../contests/entities/contests.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import {
   PreliminaryReviewDto,
   PaintingReviewItem,
 } from './dto/preliminary-review.dto';
-import { Award } from '../awards/entities/award.entity';
-import { Schedule } from '../schedules/entities/schedule.entity';
 import { AiService } from '../ai/ai.service';
 import { GetAllSubmissionsDto } from './dto/get-all-submissions.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
+import { CompetitorsService } from '../competitors/competitor.service';
+import { ExaminersService } from '../examiners/examiners.service';
+import { SchedulesService } from '../schedules/schedules.service';
+import { AwardsService } from '../awards/awards.service';
+import { ContestsQueryService } from '../contests/contests-query.service';
 
 @Injectable()
 export class PaintingsService {
   constructor(
     private readonly firebaseService: FirebaseService,
     private readonly aiService: AiService,
+    private readonly competitorsService: CompetitorsService,
+    private readonly examinersService: ExaminersService,
+    private readonly schedulesService: SchedulesService,
+    private readonly awardsService: AwardsService,
+    private readonly contestsQueryService: ContestsQueryService,
     @InjectRepository(Painting)
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(ContestExaminer)
-    private readonly contestExaminerRepository: Repository<ContestExaminer>,
-    @InjectRepository(Round)
-    private readonly roundRepository: Repository<Round>,
-    @InjectRepository(Competitor)
-    private readonly competitorRepository: Repository<Competitor>,
-    @InjectRepository(Award)
-    private readonly awardRepository: Repository<Award>,
-    @InjectRepository(Schedule)
-    private readonly scheduleRepository: Repository<Schedule>,
-    @InjectRepository(Contest)
-    private readonly contestRepository: Repository<Contest>,
   ) {}
 
   async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
@@ -81,17 +71,17 @@ export class PaintingsService {
       paintings.map(async (painting) => {
         let competitorInfo: any = null;
         if (painting.competitorId) {
-          const competitor = await this.userRepository.findOne({
-            where: { userId: painting.competitorId },
-          });
+          const { user } = await this.competitorsService.getCompetitorWithUser(
+            painting.competitorId,
+          );
 
-          if (competitor) {
+          if (user) {
             competitorInfo = {
-              competitorId: competitor.userId,
-              fullName: competitor.fullName || null,
-              email: competitor.email || null,
-              phone: competitor.phone || null,
-              username: competitor.username || null,
+              competitorId: user.userId,
+              fullName: user.fullName || null,
+              email: user.email || null,
+              phone: user.phone || null,
+              username: user.username || null,
             };
           }
         }
@@ -135,17 +125,17 @@ export class PaintingsService {
 
     let competitorInfo;
     if (painting.competitorId) {
-      const competitor = await this.userRepository.findOne({
-        where: { userId: painting.competitorId },
-      });
+      const { user } = await this.competitorsService.getCompetitorWithUser(
+        painting.competitorId,
+      );
 
-      if (competitor) {
+      if (user) {
         competitorInfo = {
-          competitorId: competitor.userId,
-          fullName: competitor.fullName,
-          email: competitor.email,
-          phone: competitor.phone,
-          username: competitor.username,
+          competitorId: user.userId,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          username: user.username,
         };
       }
     }
@@ -291,10 +281,7 @@ export class PaintingsService {
       );
     }
 
-    const award = await this.awardRepository.findOne({
-      where: { awardId },
-      relations: ['paintings'],
-    });
+    const award = await this.awardsService.findByIdWithPaintings(awardId);
 
     if (!award) {
       throw new NotFoundException(`Award with ID ${awardId} not found`);
@@ -381,9 +368,9 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
-    const round = await this.roundRepository.findOne({
-      where: { roundId: painting.roundId },
-    });
+    const round = await this.contestsQueryService.findRoundById(
+      painting.roundId,
+    );
 
     if (!round || round.name !== 'ROUND_2') {
       throw new BadRequestException(
@@ -484,9 +471,7 @@ export class PaintingsService {
   }
 
   async getRound2QualifiedPaintingsByStaff(contestId: number) {
-    const contest = await this.contestRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
@@ -498,9 +483,10 @@ export class PaintingsService {
       );
     }
 
-    const round1 = await this.roundRepository.findOne({
-      where: { contestId, name: 'ROUND_1' },
-    });
+    const round1 = await this.contestsQueryService.findRoundByContestAndName(
+      contestId,
+      'ROUND_1',
+    );
 
     if (!round1) {
       throw new NotFoundException('ROUND_1 not found for this contest');
@@ -521,9 +507,9 @@ export class PaintingsService {
 
     const competitorsWithDetails = await Promise.all(
       competitorScores.map(async (compScore) => {
-        const competitor = await this.userRepository.findOne({
-          where: { userId: compScore.competitorId },
-        });
+        const { user } = await this.competitorsService.getCompetitorWithUser(
+          compScore.competitorId,
+        );
 
         const competitorPaintings = paintings.filter(
           (p) => p.competitorId === compScore.competitorId,
@@ -574,8 +560,8 @@ export class PaintingsService {
 
         return {
           competitorId: compScore.competitorId,
-          competitorName: competitor?.fullName || 'Unknown',
-          competitorEmail: competitor?.email || null,
+          competitorName: user?.fullName || 'Unknown',
+          competitorEmail: user?.email || null,
           avgScore: Number(compScore.avgScore.toFixed(2)),
           evaluationCount: compScore.evaluationCount,
           painting: bestPainting || null,
@@ -619,9 +605,7 @@ export class PaintingsService {
     paintingId: string,
     hasSubmittedOriginal: boolean,
   ) {
-    const contest = await this.contestRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
@@ -658,9 +642,7 @@ export class PaintingsService {
     date: string,
     numberOfTables?: number,
   ) {
-    const contest = await this.contestRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
@@ -683,12 +665,11 @@ export class PaintingsService {
       throw new BadRequestException('Invalid date format');
     }
 
-    const existingRound2 = await this.roundRepository.findOne({
-      where: {
+    const existingRound2 =
+      await this.contestsQueryService.findRoundByContestAndName(
         contestId,
-        name: 'ROUND_2',
-      },
-    });
+        'ROUND_2',
+      );
 
     if (existingRound2) {
       throw new BadRequestException(
@@ -748,7 +729,7 @@ export class PaintingsService {
     const createdPaintings: Painting[] = [];
 
     for (let i = 0; i < tablesToCreate; i++) {
-      const round = this.roundRepository.create({
+      const savedRound = await this.contestsQueryService.createRound({
         contestId,
         name: 'ROUND_2',
         table: tableNames[i],
@@ -756,14 +737,11 @@ export class PaintingsService {
         endDate: round2Date,
         status: 'DRAFT',
       });
-
-      const savedRound = await this.roundRepository.save(round);
       createdRounds.push(savedRound);
 
       for (const competitorId of tables[i]) {
-        const user = await this.userRepository.findOne({
-          where: { userId: competitorId },
-        });
+        const { user } =
+          await this.competitorsService.getCompetitorWithUser(competitorId);
         const competitorName = user?.fullName || competitorId;
 
         const painting = this.paintingRepository.create({
@@ -843,12 +821,11 @@ export class PaintingsService {
     let roundIds: string[] = [];
     if (roundName) {
       if (roundName === 'ROUND_2') {
-        const round2Tables = await this.roundRepository.find({
-          where: {
-            contestId: contestId,
-            name: 'ROUND_2',
-          },
-        });
+        const round2Tables =
+          await this.contestsQueryService.findRoundsByContestAndName(
+            contestId,
+            'ROUND_2',
+          );
 
         if (round2Tables.length > 0) {
           roundIds = round2Tables
@@ -856,12 +833,10 @@ export class PaintingsService {
             .map((r) => String(r.roundId));
         }
       } else {
-        const round = await this.roundRepository.findOne({
-          where: {
-            contestId: contestId,
-            name: roundName,
-          },
-        });
+        const round = await this.contestsQueryService.findRoundByContestAndName(
+          contestId,
+          roundName,
+        );
 
         if (round) {
           roundIds = [String(round.roundId)];
@@ -903,13 +878,10 @@ export class PaintingsService {
 
         const paintingsWithCompetitor = await Promise.all(
           allPaintings.map(async (painting) => {
-            const competitor = await this.competitorRepository.findOne({
-              where: { competitorId: painting.competitorId },
-            });
-
-            const user = await this.userRepository.findOne({
-              where: { userId: painting.competitorId },
-            });
+            const { competitor, user } =
+              await this.competitorsService.getCompetitorWithUser(
+                painting.competitorId,
+              );
 
             return {
               ...painting,
@@ -967,13 +939,10 @@ export class PaintingsService {
 
     const paintingsWithCompetitor = await Promise.all(
       paintings.map(async (painting) => {
-        const competitor = await this.competitorRepository.findOne({
-          where: { competitorId: painting.competitorId },
-        });
-
-        const user = await this.userRepository.findOne({
-          where: { userId: painting.competitorId },
-        });
+        const { competitor, user } =
+          await this.competitorsService.getCompetitorWithUser(
+            painting.competitorId,
+          );
 
         return {
           ...painting,
@@ -1077,13 +1046,10 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
-    const contestExaminer = await this.contestExaminerRepository.findOne({
-      where: {
-        contestId: painting.contestId,
-        examinerId: examinerId,
-        status: 'ACTIVE',
-      },
-    });
+    const contestExaminer = await this.examinersService.findActiveAssignment(
+      painting.contestId,
+      examinerId,
+    );
 
     if (!contestExaminer) {
       throw new BadRequestException(
@@ -1095,13 +1061,11 @@ export class PaintingsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const schedule = await this.scheduleRepository.findOne({
-      where: {
-        examinerId: examinerId,
-        contestId: painting.contestId,
-        status: 'ACTIVE',
-      },
-    });
+    const schedule =
+      await this.schedulesService.findActiveScheduleByExaminerAndContest(
+        examinerId,
+        painting.contestId,
+      );
 
     if (!schedule) {
       return {
@@ -1114,9 +1078,9 @@ export class PaintingsService {
     scheduleDate.setHours(0, 0, 0, 0);
 
     // Check if schedule enforcement is enabled for this contest
-    const contest = await this.contestRepository.findOne({
-      where: { contestId: painting.contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(
+      painting.contestId,
+    );
 
     if (
       contest?.isScheduleEnforced &&
@@ -1187,9 +1151,9 @@ export class PaintingsService {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
 
-    const round = await this.roundRepository.findOne({
-      where: { roundId: painting.roundId },
-    });
+    const round = await this.contestsQueryService.findRoundById(
+      painting.roundId,
+    );
 
     if (!round || round.name !== 'ROUND_2') {
       throw new BadRequestException(
@@ -1197,13 +1161,10 @@ export class PaintingsService {
       );
     }
 
-    const contestExaminer = await this.contestExaminerRepository.findOne({
-      where: {
-        contestId: painting.contestId,
-        examinerId: examinerId,
-        status: 'ACTIVE',
-      },
-    });
+    const contestExaminer = await this.examinersService.findActiveAssignment(
+      painting.contestId,
+      examinerId,
+    );
 
     if (!contestExaminer) {
       throw new BadRequestException(
@@ -1215,13 +1176,11 @@ export class PaintingsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
 
-    const schedule = await this.scheduleRepository.findOne({
-      where: {
-        examinerId: examinerId,
-        contestId: painting.contestId,
-        status: 'ACTIVE',
-      },
-    });
+    const schedule =
+      await this.schedulesService.findActiveScheduleByExaminerAndContest(
+        examinerId,
+        painting.contestId,
+      );
 
     if (!schedule) {
       return {
@@ -1234,9 +1193,9 @@ export class PaintingsService {
     scheduleDate.setHours(0, 0, 0, 0);
 
     // Check if schedule enforcement is enabled for this contest
-    const contest = await this.contestRepository.findOne({
-      where: { contestId: painting.contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(
+      painting.contestId,
+    );
 
     if (
       contest?.isScheduleEnforced &&
@@ -1338,26 +1297,17 @@ export class PaintingsService {
       relations: ['examiner'],
     });
 
-    const evaluationsWithNames = await Promise.all(
-      evaluations.map(async (evaluation) => {
-        const user = await this.userRepository.findOne({
-          where: { userId: evaluation.examinerId },
-        });
-
-        return {
-          ...evaluation,
-          examinerName: user?.fullName || 'Unknown',
-        };
-      }),
-    );
+    const evaluationsWithNames =
+      await this.examinersService.enrichWithExaminerProfile(evaluations);
 
     return evaluationsWithNames;
   }
 
   async getRound2PaintingsWithAvgScore(contestId: number) {
-    const rounds = await this.roundRepository.find({
-      where: { contestId, name: 'ROUND_2' },
-    });
+    const rounds = await this.contestsQueryService.findRoundsByContestAndName(
+      contestId,
+      'ROUND_2',
+    );
 
     if (rounds.length === 0) {
       throw new NotFoundException(`ROUND_2 not found for contest ${contestId}`);
@@ -1430,26 +1380,19 @@ export class PaintingsService {
               }
             }
 
-            const competitor = await this.competitorRepository.findOne({
-              where: { competitorId: painting.competitorId },
-            });
-
             let competitorName = 'Unknown';
-            if (competitor) {
-              const user = await this.userRepository.findOne({
-                where: { userId: competitor.competitorId },
-              });
-              if (user) {
-                competitorName = user.fullName || 'Unknown';
-              }
+            const { user } =
+              await this.competitorsService.getCompetitorWithUser(
+                painting.competitorId,
+              );
+            if (user) {
+              competitorName = user.fullName || 'Unknown';
             }
 
             // Get award information if painting has been awarded
             let awardInfo: any = null;
             if (painting.awardId) {
-              const award = await this.awardRepository.findOne({
-                where: { awardId: painting.awardId },
-              });
+              const award = await this.awardsService.findById(painting.awardId);
               if (award) {
                 awardInfo = {
                   awardId: award.awardId,
