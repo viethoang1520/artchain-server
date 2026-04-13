@@ -249,6 +249,115 @@ export class PaintingsService {
     });
   }
 
+  async findPaintingById(paintingId: string) {
+    return this.paintingRepository.findOne({
+      where: { paintingId },
+    });
+  }
+
+  async listEligibleRoundPaintingsForVoting(
+    contestId: number,
+    roundIds: Array<number | string>,
+    excludedAwardIds: number[],
+  ) {
+    let paintingsQuery = this.paintingRepository
+      .createQueryBuilder('painting')
+      .where('painting.contest_id = :contestId', { contestId })
+      .andWhere('painting.round_id IN (:...roundIds)', { roundIds });
+
+    if (excludedAwardIds.length > 0) {
+      paintingsQuery = paintingsQuery.andWhere(
+        '(painting.award_id IS NULL OR painting.award_id NOT IN (:...excludedAwardIds))',
+        { excludedAwardIds },
+      );
+    } else {
+      paintingsQuery = paintingsQuery.andWhere('painting.award_id IS NULL');
+    }
+
+    return paintingsQuery.orderBy('painting.created_at', 'DESC').getMany();
+  }
+
+  async getDetailedAverageScoresForPainting(paintingId: string): Promise<{
+    avgScoreRound2: number;
+    avgCreativityScore: number;
+    avgCompositionScore: number;
+    avgColorScore: number;
+    avgTechnicalScore: number;
+    avgAestheticScore: number;
+    evaluationCount: number;
+  }> {
+    const evaluations = await this.evaluationRepository.find({
+      where: { paintingId },
+    });
+
+    if (evaluations.length === 0) {
+      return {
+        avgScoreRound2: 0,
+        avgCreativityScore: 0,
+        avgCompositionScore: 0,
+        avgColorScore: 0,
+        avgTechnicalScore: 0,
+        avgAestheticScore: 0,
+        evaluationCount: 0,
+      };
+    }
+
+    const validScores = evaluations.filter(
+      (e) => e.scoreRound2 !== null && e.scoreRound2 !== undefined,
+    );
+
+    if (validScores.length === 0) {
+      return {
+        avgScoreRound2: 0,
+        avgCreativityScore: 0,
+        avgCompositionScore: 0,
+        avgColorScore: 0,
+        avgTechnicalScore: 0,
+        avgAestheticScore: 0,
+        evaluationCount: 0,
+      };
+    }
+
+    const totalScore = validScores.reduce(
+      (sum, evaluation) => sum + evaluation.scoreRound2,
+      0,
+    );
+    const totalCreativity = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.creativityScore || 0),
+      0,
+    );
+    const totalComposition = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.compositionScore || 0),
+      0,
+    );
+    const totalColor = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.colorScore || 0),
+      0,
+    );
+    const totalTechnical = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.technicalScore || 0),
+      0,
+    );
+    const totalAesthetic = validScores.reduce(
+      (sum, evaluation) => sum + (evaluation.aestheticScore || 0),
+      0,
+    );
+
+    return {
+      avgScoreRound2: Math.round((totalScore / validScores.length) * 100) / 100,
+      avgCreativityScore:
+        Math.round((totalCreativity / validScores.length) * 100) / 100,
+      avgCompositionScore:
+        Math.round((totalComposition / validScores.length) * 100) / 100,
+      avgColorScore: Math.round((totalColor / validScores.length) * 100) / 100,
+      avgTechnicalScore:
+        Math.round((totalTechnical / validScores.length) * 100) / 100,
+      avgAestheticScore:
+        Math.round((totalAesthetic / validScores.length) * 100) / 100,
+      evaluationCount: validScores.length,
+    };
+  }
+
   async hasSubmissionInRound(
     competitorId: string,
     contestId: number,

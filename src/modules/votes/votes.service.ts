@@ -5,169 +5,35 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Vote } from './entities/vote.entity';
 import { CreateVoteDto } from './dto/create-vote.dto';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Evaluation } from '../paintings/entities/evaluation.entity';
-import { Contest } from '../contests/entities/contests.entity';
-import { Award } from '../awards/entities/award.entity';
-import { Round } from '../contests/entities/round.entity';
-import { User } from '../users/entities/user.entity';
+import { PaintingsService } from '../paintings/paintings.service';
+import { ContestsQueryService } from '../contests/contests-query.service';
+import { AwardsService } from '../awards/awards.service';
+import { CompetitorsService } from '../competitors/competitor.service';
 
 @Injectable()
 export class VotesService {
   constructor(
     @InjectRepository(Vote)
     private readonly votesRepository: Repository<Vote>,
-    @InjectRepository(Painting)
-    private readonly paintingsRepository: Repository<Painting>,
-    @InjectRepository(Evaluation)
-    private readonly evaluationRepository: Repository<Evaluation>,
-    @InjectRepository(Contest)
-    private readonly contestsRepository: Repository<Contest>,
-    @InjectRepository(Award)
-    private readonly awardsRepository: Repository<Award>,
-    @InjectRepository(Round)
-    private readonly roundsRepository: Repository<Round>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly paintingsService: PaintingsService,
+    private readonly contestsQueryService: ContestsQueryService,
+    private readonly awardsService: AwardsService,
+    private readonly competitorsService: CompetitorsService,
   ) {}
 
-  /**
-   * Helper: Tính điểm trung bình của một painting từ các đánh giá
-   */
-  private async calculateAverageScore(
-    paintingId: string,
-  ): Promise<number | null> {
-    const evaluations = await this.evaluationRepository.find({
-      where: { paintingId },
-    });
-
-    if (evaluations.length === 0) {
-      return null;
-    }
-
-    let totalScore = 0;
-    let count = 0;
-
-    evaluations.forEach((evaluation) => {
-      const score =
-        evaluation.scoreRound2 !== null && evaluation.scoreRound2 !== undefined
-          ? evaluation.scoreRound2
-          : 0;
-
-      if (score !== null && score !== undefined) {
-        totalScore += score;
-        count++;
-      }
-    });
-
-    if (count === 0) {
-      return null;
-    }
-
-    return parseFloat((totalScore / count).toFixed(2));
-  }
-
-  private async calculateDetailedAverageScores(paintingId: string): Promise<{
-    avgScoreRound2: number;
-    avgCreativityScore: number;
-    avgCompositionScore: number;
-    avgColorScore: number;
-    avgTechnicalScore: number;
-    avgAestheticScore: number;
-    evaluationCount: number;
-  }> {
-    const evaluations = await this.evaluationRepository.find({
-      where: { paintingId },
-    });
-
-    if (evaluations.length === 0) {
-      return {
-        avgScoreRound2: 0,
-        avgCreativityScore: 0,
-        avgCompositionScore: 0,
-        avgColorScore: 0,
-        avgTechnicalScore: 0,
-        avgAestheticScore: 0,
-        evaluationCount: 0,
-      };
-    }
-
-    const validScores = evaluations.filter(
-      (e) => e.scoreRound2 !== null && e.scoreRound2 !== undefined,
-    );
-
-    if (validScores.length === 0) {
-      return {
-        avgScoreRound2: 0,
-        avgCreativityScore: 0,
-        avgCompositionScore: 0,
-        avgColorScore: 0,
-        avgTechnicalScore: 0,
-        avgAestheticScore: 0,
-        evaluationCount: 0,
-      };
-    }
-
-    const totalScore = validScores.reduce(
-      (sum, evaluation) => sum + evaluation.scoreRound2,
-      0,
-    );
-    const totalCreativity = validScores.reduce(
-      (sum, evaluation) => sum + (evaluation.creativityScore || 0),
-      0,
-    );
-    const totalComposition = validScores.reduce(
-      (sum, evaluation) => sum + (evaluation.compositionScore || 0),
-      0,
-    );
-    const totalColor = validScores.reduce(
-      (sum, evaluation) => sum + (evaluation.colorScore || 0),
-      0,
-    );
-    const totalTechnical = validScores.reduce(
-      (sum, evaluation) => sum + (evaluation.technicalScore || 0),
-      0,
-    );
-    const totalAesthetic = validScores.reduce(
-      (sum, evaluation) => sum + (evaluation.aestheticScore || 0),
-      0,
-    );
-
-    return {
-      avgScoreRound2: Math.round((totalScore / validScores.length) * 100) / 100,
-      avgCreativityScore:
-        Math.round((totalCreativity / validScores.length) * 100) / 100,
-      avgCompositionScore:
-        Math.round((totalComposition / validScores.length) * 100) / 100,
-      avgColorScore: Math.round((totalColor / validScores.length) * 100) / 100,
-      avgTechnicalScore:
-        Math.round((totalTechnical / validScores.length) * 100) / 100,
-      avgAestheticScore:
-        Math.round((totalAesthetic / validScores.length) * 100) / 100,
-      evaluationCount: validScores.length,
-    };
-  }
-
   async getVotableAwards(contestId: number) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const awards = await this.awardsRepository.find({
-      where: {
-        contestId,
-        rank: Not(In([1, 2, 3])),
-      },
-      order: {
-        rank: 'ASC',
-      },
-    });
+    const awards = await this.awardsService.listByContestExcludingRanks(
+      contestId,
+      [1, 2, 3],
+    );
 
     const awardsWithStats = await Promise.all(
       awards.map(async (award) => {
@@ -205,16 +71,15 @@ export class VotesService {
     awardId: number,
     accountId?: string,
   ) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const award = await this.awardsRepository.findOne({
-      where: { awardId, contestId },
-    });
+    const award = await this.awardsService.findByIdAndContest(
+      awardId,
+      contestId,
+    );
     if (!award) {
       throw new NotFoundException(
         `Award with ID ${awardId} not found in this contest`,
@@ -227,11 +92,8 @@ export class VotesService {
       );
     }
 
-    const round2Rounds = await this.roundsRepository.find({
-      where: {
-        contestId,
-      },
-    });
+    const round2Rounds =
+      await this.contestsQueryService.findAllRoundsByContest(contestId);
 
     const round2Tables = round2Rounds.filter(
       (round) =>
@@ -246,35 +108,20 @@ export class VotesService {
       );
     }
 
-    const round2Ids = round2Tables.map((r) => r.roundId.toString());
+    const round2Ids = round2Tables.map((r) => r.roundId);
 
-    const topAwards = await this.awardsRepository.find({
-      where: {
-        contestId,
-        rank: In([1, 2, 3]),
-      },
-    });
+    const topAwards = await this.awardsService.listByContestWithRanks(
+      contestId,
+      [1, 2, 3],
+    );
     const topAwardIds = topAwards.map((a) => a.awardId);
 
-    // Lấy paintings của Round 2 đủ điều kiện
-    // Điều kiện: roundId thuộc các bảng Round 2 (A, B, C, D,...) và chưa có giải top 3
-    let paintingsQuery = this.paintingsRepository
-      .createQueryBuilder('painting')
-      .where('painting.contest_id = :contestId', { contestId })
-      .andWhere('painting.round_id IN (:...round2Ids)', { round2Ids });
-
-    if (topAwardIds.length > 0) {
-      paintingsQuery = paintingsQuery.andWhere(
-        '(painting.award_id IS NULL OR painting.award_id NOT IN (:...topAwardIds))',
-        { topAwardIds },
+    const eligiblePaintings =
+      await this.paintingsService.listEligibleRoundPaintingsForVoting(
+        contestId,
+        round2Ids,
+        topAwardIds,
       );
-    } else {
-      paintingsQuery = paintingsQuery.andWhere('painting.award_id IS NULL');
-    }
-
-    const eligiblePaintings = await paintingsQuery
-      .orderBy('painting.created_at', 'DESC')
-      .getMany();
 
     // 6. Lấy thông tin vote cho giải này
     const paintingsWithVotes = await Promise.all(
@@ -303,16 +150,17 @@ export class VotesService {
         let competitorName;
         let email;
         if (painting.competitorId) {
-          const competitor = await this.usersRepository.findOne({
-            where: { userId: painting.competitorId },
-          });
-          competitorName = competitor?.fullName || null;
-          email = competitor?.email || null;
+          const { user } = await this.competitorsService.getCompetitorWithUser(
+            painting.competitorId,
+          );
+          competitorName = user?.fullName || null;
+          email = user?.email || null;
         }
 
-        const detailedScores = await this.calculateDetailedAverageScores(
-          painting.paintingId,
-        );
+        const detailedScores =
+          await this.paintingsService.getDetailedAverageScoresForPainting(
+            painting.paintingId,
+          );
 
         return {
           paintingId: painting.paintingId,
@@ -370,9 +218,7 @@ export class VotesService {
     awardId: number,
     contestId: number,
   ) {
-    const painting = await this.paintingsRepository.findOne({
-      where: { paintingId },
-    });
+    const painting = await this.paintingsService.findPaintingById(paintingId);
     if (!painting) {
       throw new NotFoundException(`Painting with ID ${paintingId} not found`);
     }
@@ -381,9 +227,8 @@ export class VotesService {
       throw new BadRequestException('Painting does not belong to this contest');
     }
 
-    const round2Rounds = await this.roundsRepository.find({
-      where: { contestId },
-    });
+    const round2Rounds =
+      await this.contestsQueryService.findAllRoundsByContest(contestId);
 
     const round2Tables = round2Rounds.filter(
       (round) =>
@@ -404,9 +249,10 @@ export class VotesService {
       );
     }
 
-    const award = await this.awardsRepository.findOne({
-      where: { awardId, contestId },
-    });
+    const award = await this.awardsService.findByIdAndContest(
+      awardId,
+      contestId,
+    );
     if (!award) {
       throw new NotFoundException(
         `Award with ID ${awardId} not found in this contest`,
@@ -418,9 +264,7 @@ export class VotesService {
     }
 
     if (painting.awardId) {
-      const paintingAward = await this.awardsRepository.findOne({
-        where: { awardId: painting.awardId },
-      });
+      const paintingAward = await this.awardsService.findById(painting.awardId);
       if (paintingAward && [1, 2, 3].includes(paintingAward.rank)) {
         throw new BadRequestException(
           'This painting already won a top 3 award and cannot be voted for',

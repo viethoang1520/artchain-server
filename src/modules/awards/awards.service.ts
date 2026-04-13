@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { Award } from './entities/award.entity';
 import { Contest } from '../contests/entities/contests.entity';
 import { Evaluation } from '../paintings/entities/evaluation.entity';
@@ -255,6 +255,36 @@ export class AwardsService {
     return this.awardRepository.findOne({
       where: { awardId },
       relations: ['paintings'],
+    });
+  }
+
+  async findByIdAndContest(awardId: number, contestId: number) {
+    return this.awardRepository.findOne({
+      where: { awardId, contestId },
+    });
+  }
+
+  async listByContestWithRanks(contestId: number, ranks: number[]) {
+    return this.awardRepository.find({
+      where: {
+        contestId,
+        rank: In(ranks),
+      },
+      order: {
+        rank: 'ASC',
+      },
+    });
+  }
+
+  async listByContestExcludingRanks(contestId: number, ranks: number[]) {
+    return this.awardRepository.find({
+      where: {
+        contestId,
+        rank: Not(In(ranks)),
+      },
+      order: {
+        rank: 'ASC',
+      },
     });
   }
 

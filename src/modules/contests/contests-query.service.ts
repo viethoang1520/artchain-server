@@ -44,6 +44,12 @@ export class ContestsQueryService {
     });
   }
 
+  async findAllRoundsByContest(contestId: number) {
+    return this.roundsRepository.find({
+      where: { contestId },
+    });
+  }
+
   async createRound(data: Partial<Round>) {
     const round = this.roundsRepository.create(data);
     return this.roundsRepository.save(round);

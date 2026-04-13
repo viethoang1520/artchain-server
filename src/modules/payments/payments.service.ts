@@ -4,9 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Transaction, TransactionStatus } from './entities/transaction.entity';
-import { Repository } from 'typeorm/repository/Repository';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { Sponsor, SponsorStatus } from '../sponsors/entities/sponsor.entity';
 import PayOS from '../../common/config/payos.config';
@@ -19,14 +17,6 @@ import { Wallet } from '../wallets/entities';
 export class PaymentsService {
   constructor(
     private dataSource: DataSource,
-    @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>,
-    @InjectRepository(Campaign)
-    private campaignRepository: Repository<Campaign>,
-    @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
-    @InjectRepository(Sponsor)
-    private sponsorRepository: Repository<Sponsor>,
     private configService: ConfigService
   ) { }
 
