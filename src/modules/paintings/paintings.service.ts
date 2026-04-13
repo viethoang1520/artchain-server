@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
@@ -253,6 +253,60 @@ export class PaintingsService {
     return this.paintingRepository.findOne({
       where: { paintingId },
     });
+  }
+
+  async markPaintingInAuction(
+    paintingId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repository = manager
+      ? manager.getRepository(Painting)
+      : this.paintingRepository;
+
+    await repository.update({ paintingId }, { status: 'IN_AUCTION' });
+  }
+
+  async markPaintingSoldToOwner(
+    paintingId: string,
+    ownerId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repository = manager
+      ? manager.getRepository(Painting)
+      : this.paintingRepository;
+
+    await repository.update({ paintingId }, { ownerId, status: 'SOLD' });
+  }
+
+  async markPaintingReOpen(
+    paintingId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repository = manager
+      ? manager.getRepository(Painting)
+      : this.paintingRepository;
+
+    await repository.update({ paintingId }, { status: 'RE_OPEN' });
+  }
+
+  async markPaintingsReOpen(
+    paintingIds: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    if (paintingIds.length === 0) {
+      return;
+    }
+
+    const repository = manager
+      ? manager.getRepository(Painting)
+      : this.paintingRepository;
+
+    await repository.update(
+      {
+        paintingId: In(paintingIds),
+      },
+      { status: 'RE_OPEN' },
+    );
   }
 
   async listEligibleRoundPaintingsForVoting(
