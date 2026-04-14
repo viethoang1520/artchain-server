@@ -77,6 +77,14 @@ export class ExhibitionsService {
     }
   }
 
+  async countExhibitions(where?: any) {
+    if (!where) {
+      return this.exhibitionRepository.count();
+    }
+
+    return this.exhibitionRepository.count({ where });
+  }
+
   async findAll(status?: string) {
     const whereCondition: any = {};
 

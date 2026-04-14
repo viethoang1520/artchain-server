@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, EntityManager } from 'typeorm';
+import { Repository, IsNull, In, EntityManager, Not } from 'typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
@@ -250,6 +250,76 @@ export class PaintingsService {
     return this.paintingRepository.find({
       where: { awardId, contestId },
     });
+  }
+
+  async countPaintings(where?: any) {
+    if (!where) {
+      return this.paintingRepository.count();
+    }
+
+    return this.paintingRepository.count({ where });
+  }
+
+  async findPaintings(where?: any) {
+    if (!where) {
+      return this.paintingRepository.find();
+    }
+
+    return this.paintingRepository.find({ where });
+  }
+
+  async findPaintingsByIds(paintingIds: string[]) {
+    if (paintingIds.length === 0) {
+      return [];
+    }
+
+    return this.paintingRepository.find({
+      where: { paintingId: In(paintingIds) },
+    });
+  }
+
+  async findByContestIds(contestIds: number[]) {
+    if (contestIds.length === 0) {
+      return [];
+    }
+
+    return this.paintingRepository.find({
+      where: {
+        contestId: In(contestIds),
+      },
+    });
+  }
+
+  async findAwardedPaintingsWithAward() {
+    return this.paintingRepository.find({
+      where: { awardId: Not(IsNull()) },
+      relations: ['award'],
+    });
+  }
+
+  async findAcceptedPaintings() {
+    return this.paintingRepository.find({
+      where: { status: 'ACCEPTED' },
+    });
+  }
+
+  async countEvaluations() {
+    return this.evaluationRepository.count();
+  }
+
+  async countEvaluationsByPaintingIds(paintingIds: string[]) {
+    if (paintingIds.length === 0) {
+      return 0;
+    }
+
+    return this.evaluationRepository
+      .createQueryBuilder('evaluation')
+      .where('evaluation.painting_id IN (:...paintingIds)', { paintingIds })
+      .getCount();
+  }
+
+  async findEvaluations() {
+    return this.evaluationRepository.find();
   }
 
   async findPaintingById(paintingId: string) {

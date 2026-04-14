@@ -174,6 +174,14 @@ export class CampaignsService {
     };
   }
 
+  async countCampaigns(where?: any) {
+    if (!where) {
+      return this.campaignRepository.count();
+    }
+
+    return this.campaignRepository.count({ where });
+  }
+
   async getSponsorsByCampaignId(
     campaignId: number,
     page: number = 1,

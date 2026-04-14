@@ -64,6 +64,63 @@ export class UsersService {
     });
   }
 
+  async findUsersByIds(userIds: string[]) {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return this.usersRepository.find({
+      where: userIds.map((userId) => ({ userId })),
+    });
+  }
+
+  async countUsers(where?: any) {
+    if (!where) {
+      return this.usersRepository.count();
+    }
+
+    return this.usersRepository.count({ where });
+  }
+
+  async findUsersByCreatedAt(where: any) {
+    return this.usersRepository.find({
+      where,
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async findAndCountAccounts(page: number, limit: number, role?: UserRole) {
+    const skip = (page - 1) * limit;
+    const whereCondition: any = {};
+
+    if (role) {
+      whereCondition.role = role;
+    }
+
+    return this.usersRepository.findAndCount({
+      where: whereCondition,
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+      select: {
+        userId: true,
+        username: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        positionLevel: true,
+      },
+    });
+  }
+
+  async updateUserStatus(userId: string, status: number) {
+    await this.usersRepository.update(userId, { status });
+    return this.findUserById(userId);
+  }
+
   async me(userId: string) {
     let userRole;
     if (!userId) {

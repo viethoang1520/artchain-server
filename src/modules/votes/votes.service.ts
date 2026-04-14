@@ -66,6 +66,18 @@ export class VotesService {
     };
   }
 
+  async countVotes(where?: any) {
+    if (!where) {
+      return this.votesRepository.count();
+    }
+
+    return this.votesRepository.count({ where });
+  }
+
+  async findVotes() {
+    return this.votesRepository.find();
+  }
+
   async getPaintingsForAward(
     contestId: number,
     awardId: number,

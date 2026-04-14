@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
 import { Award } from './entities/award.entity';
@@ -27,7 +32,9 @@ export class AwardsService {
   private async calculateAverageScore(
     paintingId: string,
   ): Promise<number | null> {
-    return this.paintingsService.calculateAverageScoreFromEvaluations(paintingId);
+    return this.paintingsService.calculateAverageScoreFromEvaluations(
+      paintingId,
+    );
   }
 
   private async recomputeContestNumOfAward(contestId: number) {
@@ -84,13 +91,22 @@ export class AwardsService {
     };
   }
 
+  async countAwards(where?: any) {
+    if (!where) {
+      return this.awardRepository.count();
+    }
+
+    return this.awardRepository.count({ where });
+  }
+
   async createBatch(createAwardsBatchDto: CreateAwardsBatchDto) {
     const awards = createAwardsBatchDto.awards;
 
     const contestIds = [...new Set(awards.map((a) => a.contestId))];
 
     for (const contestId of contestIds) {
-      const contest = await this.contestsQueryService.findContestById(contestId);
+      const contest =
+        await this.contestsQueryService.findContestById(contestId);
 
       if (!contest) {
         throw new NotFoundException(`Contest with ID ${contestId} not found`);
@@ -306,10 +322,7 @@ export class AwardsService {
 
     // Update num_of_award in contest (both old and new contest if changed)
     const affectedContestIds = [oldContestId];
-    if (
-      updateAwardDto.contestId &&
-      updateAwardDto.contestId !== oldContestId
-    ) {
+    if (updateAwardDto.contestId && updateAwardDto.contestId !== oldContestId) {
       affectedContestIds.push(updateAwardDto.contestId);
     }
 

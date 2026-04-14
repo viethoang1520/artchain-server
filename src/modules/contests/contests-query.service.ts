@@ -19,6 +19,21 @@ export class ContestsQueryService {
     });
   }
 
+  async countContests(where?: any) {
+    if (!where) {
+      return this.contestsRepository.count();
+    }
+
+    return this.contestsRepository.count({ where });
+  }
+
+  async listRecentContests(limit: number) {
+    return this.contestsRepository.find({
+      order: { contestId: 'DESC' },
+      take: limit,
+    });
+  }
+
   async updateContestNumOfAward(contestId: number, numOfAward: number) {
     await this.contestsRepository.update({ contestId }, { numOfAward });
 

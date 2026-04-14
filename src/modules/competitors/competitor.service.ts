@@ -21,4 +21,10 @@ export class CompetitorsService {
 
     return { competitor, user };
   }
+
+  async findCompetitorById(competitorId: string) {
+    return this.competitorsRepository.findOne({
+      where: { competitorId },
+    });
+  }
 }
