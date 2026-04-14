@@ -7,14 +7,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Exhibition } from './entities/exhibition.entity';
 import { ExhibitionPainting } from './entities/exhibition-painting.entity';
-import { Painting } from '../paintings/entities/paintings.entity';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddPaintingsToExhibitionDto } from './dto/add-paintings.dto';
-import { User } from '../users/entities/user.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Award } from '../awards/entities/award.entity';
 import { UpdatePaintingDto } from './dto/update-paintings.dto';
+import { PaintingsService } from '../paintings/paintings.service';
+import { CompetitorsService } from '../competitors/competitor.service';
+import { AwardsService } from '../awards/awards.service';
 
 @Injectable()
 export class ExhibitionsService {
@@ -23,14 +22,9 @@ export class ExhibitionsService {
     private exhibitionRepository: Repository<Exhibition>,
     @InjectRepository(ExhibitionPainting)
     private exhibitionPaintingRepository: Repository<ExhibitionPainting>,
-    @InjectRepository(Painting)
-    private paintingRepository: Repository<Painting>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Competitor)
-    private competitorRepository: Repository<Competitor>,
-    @InjectRepository(Award)
-    private awardRepository: Repository<Award>,
+    private readonly paintingsService: PaintingsService,
+    private readonly competitorsService: CompetitorsService,
+    private readonly awardsService: AwardsService,
   ) {}
 
   /**
@@ -68,7 +62,12 @@ export class ExhibitionsService {
         data: savedExhibition,
       };
     } catch (error) {
-      if (error.code === '22021') {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === '22021'
+      ) {
         throw new BadRequestException(
           'Đã phát hiện ký tự không hợp lệ trong đầu vào. Vui lòng loại bỏ các ký tự đặc biệt hoặc biểu tượng cảm xúc.',
         );
@@ -123,34 +122,27 @@ export class ExhibitionsService {
         // Get competitor info
         let competitorInfo: any = null;
         if (painting.competitorId) {
-          const competitor = await this.competitorRepository.findOne({
-            where: { competitorId: painting.competitorId },
-          });
+          const { competitor, user } =
+            await this.competitorsService.getCompetitorWithUser(
+              painting.competitorId,
+            );
 
-          if (competitor) {
-            const user = await this.userRepository.findOne({
-              where: { userId: competitor.competitorId },
-            });
-
-            if (user) {
-              competitorInfo = {
-                competitorId: competitor.competitorId,
-                fullName: user.fullName,
-                email: user.email,
-                birthday: competitor.birthday,
-                schoolName: competitor.schoolName,
-                grade: competitor.grade,
-              };
-            }
+          if (competitor && user) {
+            competitorInfo = {
+              competitorId: competitor.competitorId,
+              fullName: user.fullName,
+              email: user.email,
+              birthday: competitor.birthday,
+              schoolName: competitor.schoolName,
+              grade: competitor.grade,
+            };
           }
         }
 
         // Get award info
         let awardInfo: any = null;
         if (painting.awardId) {
-          const award = await this.awardRepository.findOne({
-            where: { awardId: painting.awardId },
-          });
+          const award = await this.awardsService.findById(painting.awardId);
 
           if (award) {
             awardInfo = {
@@ -245,9 +237,9 @@ export class ExhibitionsService {
     }
 
     // Validate all paintings exist
-    const paintings = await this.paintingRepository.find({
-      where: { paintingId: In(addPaintingsDto.paintingIds) },
-    });
+    const paintings = await this.paintingsService.findPaintingsByIds(
+      addPaintingsDto.paintingIds,
+    );
 
     if (paintings.length !== addPaintingsDto.paintingIds.length) {
       throw new BadRequestException('Một số tác phẩm không tồn tại');
@@ -385,11 +377,9 @@ export class ExhibitionsService {
     }
 
     // Validate all paintings exist
-    const paintings = await this.paintingRepository.find({
-      where: {
-        paintingId: In(updatePaintingDto.data.map((item) => item.paintingId)),
-      },
-    });
+    const paintings = await this.paintingsService.findPaintingsByIds(
+      updatePaintingDto.data.map((item) => item.paintingId),
+    );
 
     if (paintings.length !== updatePaintingDto.data.length) {
       throw new BadRequestException('Một số tác phẩm không tồn tại');

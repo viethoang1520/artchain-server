@@ -27,4 +27,15 @@ export class CompetitorsService {
       where: { competitorId },
     });
   }
+
+  async assignGuardian(competitorId: string, guardianId: string) {
+    await this.competitorsRepository.update({ competitorId }, { guardianId });
+    return this.findCompetitorById(competitorId);
+  }
+
+  async findByGuardianId(guardianId: string) {
+    return this.competitorsRepository.find({
+      where: { guardianId },
+    });
+  }
 }

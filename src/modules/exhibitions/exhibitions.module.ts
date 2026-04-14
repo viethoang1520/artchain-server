@@ -4,14 +4,16 @@ import { ExhibitionsService } from './exhibitions.service';
 import { ExhibitionsController } from './exhibitions.controller';
 import { Exhibition } from './entities/exhibition.entity';
 import { ExhibitionPainting } from './entities/exhibition-painting.entity';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { User } from '../users/entities/user.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Award } from '../awards/entities/award.entity';
+import { PaintingsModule } from '../paintings/paintings.module';
+import { CompetitorsModule } from '../competitors/competitors.module';
+import { AwardsModule } from '../awards/awards.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Exhibition, ExhibitionPainting, Painting, User, Competitor, Award]),
+    TypeOrmModule.forFeature([Exhibition, ExhibitionPainting]),
+    PaintingsModule,
+    CompetitorsModule,
+    AwardsModule,
   ],
   controllers: [ExhibitionsController],
   providers: [ExhibitionsService],

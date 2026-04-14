@@ -328,6 +328,15 @@ export class PaintingsService {
     });
   }
 
+  async markPaintingMinted(paintingId: string, transactionHash: string) {
+    await this.paintingRepository.query(
+      'UPDATE paintings SET nft = $1 WHERE painting_id = $2',
+      [transactionHash, paintingId],
+    );
+
+    return this.findPaintingById(paintingId);
+  }
+
   async markPaintingInAuction(
     paintingId: string,
     manager?: EntityManager,

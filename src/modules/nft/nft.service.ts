@@ -3,9 +3,9 @@ import { MintNftDto } from './dto/mint-nft.dto';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import { Nft } from './entities/nft.entity';
+import { PaintingsService } from '../paintings/paintings.service';
+import { CompetitorsService } from '../competitors/competitor.service';
 
 type MintApiResponse = {
   transaction_hash: string;
@@ -19,26 +19,23 @@ export class NftService {
     private readonly configService: ConfigService,
     @InjectRepository(Nft)
     private readonly nftRepository: Repository<Nft>,
-    @InjectRepository(Painting)
-    private readonly paintingRepository: Repository<Painting>,
-    @InjectRepository(Competitor)
-    private readonly competitorRepository: Repository<Competitor>
-  ) { }
+    private readonly paintingsService: PaintingsService,
+    private readonly competitorsService: CompetitorsService,
+  ) {}
 
   async mint(
     mintNftDto: MintNftDto,
   ): Promise<{ success: boolean; message: string; data: any }> {
     const { receiver, paintingId } = mintNftDto;
-    const [painting] = await this.paintingRepository.query(
-      'SELECT painting_id, competitor_id, image_url, title, description, nft FROM paintings WHERE painting_id = $1',
-      [paintingId],
-    );
-    const competitor = await this.competitorRepository.findOne({
-      where: { competitorId: painting.competitor_id },
-      relations: ['user'],
-    });
+    const painting = await this.paintingsService.findPaintingById(paintingId);
 
-    if (!painting || !painting.image_url) {
+    const competitor = painting?.competitorId
+      ? await this.competitorsService.getCompetitorWithUser(
+          painting.competitorId,
+        )
+      : null;
+
+    if (!painting || !painting.imageUrl) {
       throw new Error(
         'Không tìm thấy bức tranh hoặc bức tranh không có URL hình ảnh.',
       );
@@ -48,11 +45,9 @@ export class NftService {
       throw new Error('Bức tranh này đã được mint NFT trước đó.');
     }
 
-    const imageUrl = painting.image_url as string;
-    console.log('first: ', imageUrl, receiver);
+    const imageUrl = painting.imageUrl;
     const response = await fetch(
-      this.configService.get('NFT_URL') ||
-      'http://localhost:3001/api/mint-nft',
+      this.configService.get('NFT_URL') || 'http://localhost:3001/api/mint-nft',
       {
         method: 'POST',
         headers: {
@@ -63,7 +58,7 @@ export class NftService {
           receiver,
           title: painting.title,
           description: painting.description,
-          author: competitor?.user.fullName || 'Unknown Artist',
+          author: competitor?.user?.fullName || 'Unknown Artist',
         }),
       },
     );
@@ -73,7 +68,6 @@ export class NftService {
     }
 
     const data = (await response.json()) as MintApiResponse;
-    console.log('data: ', data);
     const { transaction_hash, cid, token_id } = data;
 
     await this.nftRepository.save({
@@ -82,9 +76,9 @@ export class NftService {
       tokenId: token_id ?? undefined,
     });
 
-    await this.paintingRepository.query(
-      'UPDATE paintings SET nft = $1 WHERE painting_id = $2',
-      [transaction_hash, paintingId],
+    await this.paintingsService.markPaintingMinted(
+      paintingId,
+      transaction_hash,
     );
 
     return {

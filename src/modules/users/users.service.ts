@@ -74,6 +74,12 @@ export class UsersService {
     });
   }
 
+  async findUsersByRole(role: UserRole) {
+    return this.usersRepository.find({
+      where: { role },
+    });
+  }
+
   async countUsers(where?: any) {
     if (!where) {
       return this.usersRepository.count();

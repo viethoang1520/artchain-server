@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User, UserRole } from '../users/entities/user.entity';
+import { UserRole } from '../users/entities/user.entity';
 import { Examiner } from './entities/examiners.entity';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
+import { UsersService } from '../users/users.service';
 
 type ExaminerRef = {
   examinerId: string;
@@ -12,18 +13,17 @@ type ExaminerRef = {
 @Injectable()
 export class ExaminersService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
     @InjectRepository(Examiner)
     private examinersRepository: Repository<Examiner>,
     @InjectRepository(ContestExaminer)
     private contestExaminersRepository: Repository<ContestExaminer>,
+    private readonly usersService: UsersService,
   ) {}
 
   async getAllExaminers() {
-    const examiners = await this.usersRepository.find({
-      where: { role: UserRole.EXAMINER },
-    });
+    const examiners = await this.usersService.findUsersByRole(
+      UserRole.EXAMINER,
+    );
 
     const examinersWithDetails = await Promise.all(
       examiners.map(async (user) => {
@@ -61,9 +61,7 @@ export class ExaminersService {
   async enrichWithExaminerProfile<T extends ExaminerRef>(items: T[]) {
     const examinerIds = [...new Set(items.map((item) => item.examinerId))];
 
-    const users = await this.usersRepository.find({
-      where: examinerIds.map((id) => ({ userId: id })),
-    });
+    const users = await this.usersService.findUsersByIds(examinerIds);
 
     const userMap = new Map(users.map((user) => [user.userId, user]));
 
