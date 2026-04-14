@@ -24,7 +24,7 @@ import { ContestsQueryService } from './contests-query.service';
     ExaminersModule,
     CompetitorsModule,
     forwardRef(() => SchedulesModule),
-    AwardsModule,
+    forwardRef(() => AwardsModule),
   ],
   controllers: [ContestsController],
   providers: [

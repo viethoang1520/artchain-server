@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
   UploadedFile,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -34,6 +36,7 @@ export class PaintingsService {
     private readonly competitorsService: CompetitorsService,
     private readonly examinersService: ExaminersService,
     private readonly schedulesService: SchedulesService,
+    @Inject(forwardRef(() => AwardsService))
     private readonly awardsService: AwardsService,
     private readonly contestsQueryService: ContestsQueryService,
     @InjectRepository(Painting)
@@ -410,6 +413,39 @@ export class PaintingsService {
         Math.round((totalAesthetic / validScores.length) * 100) / 100,
       evaluationCount: validScores.length,
     };
+  }
+
+  async calculateAverageScoreFromEvaluations(
+    paintingId: string,
+  ): Promise<number | null> {
+    const evaluations = await this.evaluationRepository.find({
+      where: { paintingId },
+    });
+
+    if (evaluations.length === 0) {
+      return null;
+    }
+
+    let totalScore = 0;
+    let count = 0;
+
+    evaluations.forEach((evaluation) => {
+      const score =
+        evaluation.scoreRound2 !== null && evaluation.scoreRound2 !== undefined
+          ? evaluation.scoreRound2
+          : evaluation.scoreRound1;
+
+      if (score !== null && score !== undefined) {
+        totalScore += score;
+        count++;
+      }
+    });
+
+    if (count === 0) {
+      return null;
+    }
+
+    return parseFloat((totalScore / count).toFixed(2));
   }
 
   async hasSubmissionInRound(

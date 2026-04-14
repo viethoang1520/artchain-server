@@ -21,7 +21,7 @@ import { ContestsModule } from '../contests/contests.module';
     CompetitorsModule,
     ExaminersModule,
     SchedulesModule,
-    AwardsModule,
+    forwardRef(() => AwardsModule),
     forwardRef(() => ContestsModule),
     TypeOrmModule.forFeature([Painting, Evaluation, Nft]),
   ],

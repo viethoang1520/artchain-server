@@ -19,6 +19,12 @@ export class ContestsQueryService {
     });
   }
 
+  async updateContestNumOfAward(contestId: number, numOfAward: number) {
+    await this.contestsRepository.update({ contestId }, { numOfAward });
+
+    return this.findContestById(contestId);
+  }
+
   async findRoundById(roundId: number | string) {
     const normalizedRoundId =
       typeof roundId === 'string' ? Number(roundId) : roundId;
