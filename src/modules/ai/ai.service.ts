@@ -43,23 +43,54 @@ export class AiService {
       }
 
       const prompt = `
-You are an image validation system.
+        You are an image validation system.
 
-Check if this image is valid for submission.
+        Your task is to determine whether an uploaded image is a valid HAND-DRAWN ARTWORK.
 
-Rules:
-- Must be a real image (not blank, not corrupted)
-- Must contain meaningful content
-- No NSFW, violence, illegal content
-- No pure text screenshot
-- Please send reason in Vietnamese
+        STRICT RULES:
 
-Return ONLY JSON:
-{
-  "valid": true/false,
-  "reason": "short reason"
-}
-`;
+        1. Main requirement:
+        - The image MUST be a hand-drawn artwork
+        - Acceptable: pencil drawing, pen sketch, watercolor, painting, doodle, traditional art
+        - The drawing can be on paper, canvas, or similar surfaces
+
+        2. Allowed variations:
+        - Photo of a hand-drawn artwork is OK (taken by camera)
+        - Slight shadows, lighting variations from camera are acceptable
+        - Colored or black-and-white drawings are both valid
+
+        3. Prohibited content (REJECT):
+        - Real-world photos (landscape, objects, people, buildings, food, etc.)
+        - Selfies or human portraits (real humans)
+        - Digital art (AI-generated, Photoshop, 3D render, vector art)
+        - Screenshots (apps, games, UI, chat, code, websites)
+        - Pure text images (notes, documents, printed text)
+        - Blank or nearly blank images
+
+        4. Quality requirements:
+        - The drawing must be visible and clear
+        - Not too blurry, too dark, or overexposed
+        - The main subject must be recognizable
+        - Not heavily obstructed, cropped, or distorted
+
+        5. Low-value / invalid drawings:
+        - Random scribbles with no clear subject
+        - Extremely minimal marks (e.g., just a line or dot)
+        - Incomplete drawing with no identifiable content
+
+        6. Authenticity:
+        - Must look like it was physically drawn by hand
+        - Visible signs: strokes, pen/pencil texture, paper background
+        - Reject if it looks AI-generated or digitally created
+
+        OUTPUT FORMAT (STRICT):
+        Return ONLY valid JSON:
+
+        {
+          "valid": true/false,
+          "reason": "short reason in Vietnamese"
+        }
+      `;
 
       const result = await model.generateContent([
         prompt,
@@ -74,7 +105,7 @@ Return ONLY JSON:
       const text = result.response.text();
       const parsed = this.extractJsonObject(text);
       return parsed ?? { valid: false, reason: 'Invalid model response' };
-    } catch (e) {
+    } catch (e: any) {
       console.error('Parse error:', e.message);
       return false;
     }
