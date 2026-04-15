@@ -1,22 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { UsersService } from '../users/users.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { User } from '../users/entities/user.entity';
-import { Repository, In } from 'typeorm';
 import { RegisterDTO } from '../auth/dto/register.dto';
+import { CompetitorsService } from '../competitors/competitor.service';
 
 @Injectable()
 export class GuardiansService {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
-    @InjectRepository(Competitor)
-    private readonly competitorRepository: Repository<Competitor>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) { }
+    private readonly competitorsService: CompetitorsService,
+  ) {}
   async assignStudentToGuardian(
     studentData: Array<RegisterDTO>,
     guardianId: string,
@@ -28,9 +22,9 @@ export class GuardiansService {
       try {
         const createdStudent = await this.authService.register(student);
 
-        await this.competitorRepository.update(
-          { competitorId: createdStudent.userId },
-          { guardianId: guardianId },
+        await this.competitorsService.assignGuardian(
+          createdStudent.userId,
+          guardianId,
         );
 
         successCount += 1;
@@ -62,10 +56,8 @@ export class GuardiansService {
   }
 
   async getStudentsByGuardian(guardianId: string) {
-    // Get competitors assigned to this guardian
-    const competitors = await this.competitorRepository.find({
-      where: { guardianId: guardianId },
-    });
+    const competitors =
+      await this.competitorsService.findByGuardianId(guardianId);
 
     if (competitors.length === 0) {
       return {
@@ -79,19 +71,7 @@ export class GuardiansService {
       (competitor) => competitor.competitorId,
     );
 
-    // Get corresponding user information
-    const users = await this.userRepository.find({
-      where: { userId: In(competitorIds) },
-      select: {
-        userId: true,
-        username: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        status: true,
-        createdAt: true,
-      },
-    });
+    const users = await this.usersService.findUsersByIds(competitorIds);
 
     // Create a map of users by userId for easy lookup
     const userMap = new Map();

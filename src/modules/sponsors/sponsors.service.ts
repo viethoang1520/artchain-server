@@ -16,13 +16,14 @@ export class SponsorsService {
     private readonly campaignRepository: Repository<Campaign>,
     private readonly firebaseService: FirebaseService,
     private readonly paymentService: PaymentsService,
-  ) { }
+  ) {}
 
   async createSponsor(
     createSponsorDto: CreateSponsorDto,
     file?: Express.Multer.File,
   ) {
-    const { name, contactInfo, sponsorshipAmount, campaignId } = createSponsorDto;
+    const { name, contactInfo, sponsorshipAmount, campaignId } =
+      createSponsorDto;
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
     });
@@ -58,7 +59,12 @@ export class SponsorsService {
     });
     await this.sponsorRepository.save(sponsor);
     // sponsorId: string, totalAmount: number, campaignId: number
-    const { checkoutUrl, qrCode, order } = await this.paymentService.createPayment(sponsor.sponsorId, sponsorshipAmount, campaignId);
+    const { checkoutUrl, qrCode, order } =
+      await this.paymentService.createPayment(
+        sponsor.sponsorId,
+        sponsorshipAmount,
+        campaignId,
+      );
     return { error: false, data: { sponsor, checkoutUrl, qrCode, order } };
   }
 
@@ -87,5 +93,27 @@ export class SponsorsService {
     }
 
     return sponsor;
+  }
+
+  async findAndCountByCampaign(
+    campaignId: number,
+    skip: number,
+    take: number,
+    status?: string,
+  ) {
+    const whereCondition: any = { campaignId };
+
+    if (status) {
+      whereCondition.status = status;
+    }
+
+    return this.sponsorRepository.findAndCount({
+      where: whereCondition,
+      order: {
+        sponsorId: 'DESC',
+      },
+      skip,
+      take,
+    });
   }
 }

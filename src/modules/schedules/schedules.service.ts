@@ -5,43 +5,38 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
-import { Contest } from '../contests/entities/contests.entity';
-import { Examiner } from '../examiners/entities/examiners.entity';
-import { User, UserRole } from '../users/entities/user.entity';
+import { UserRole } from '../users/entities/user.entity';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { Schedule } from './entities/schedule.entity';
+import { UsersService } from '../users/users.service';
+import { ExaminersService } from '../examiners/examiners.service';
+import { ContestsQueryService } from '../contests/contests-query.service';
 
 @Injectable()
 export class SchedulesService {
   constructor(
     @InjectRepository(Schedule)
     private readonly schedulesRepository: Repository<Schedule>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
-    @InjectRepository(Contest)
-    private readonly contestsRepository: Repository<Contest>,
-    @InjectRepository(ContestExaminer)
-    private readonly contestExaminersRepository: Repository<ContestExaminer>,
-    @InjectRepository(Examiner)
-    private readonly examinersRepository: Repository<Examiner>,
+    private readonly usersService: UsersService,
+    private readonly examinersService: ExaminersService,
+    private readonly contestsQueryService: ContestsQueryService,
   ) {}
 
   async createSchedule(createScheduleDto: CreateScheduleDto) {
-    const user = await this.usersRepository.findOne({
-      where: { userId: createScheduleDto.examinerId, role: UserRole.EXAMINER },
-    });
+    const user = await this.usersService.findUserById(
+      createScheduleDto.examinerId,
+    );
 
-    if (!user) {
+    if (!user || user.role !== UserRole.EXAMINER) {
       throw new NotFoundException(
         `Examiner with ID ${createScheduleDto.examinerId} not found`,
       );
     }
 
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId: createScheduleDto.contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(
+      createScheduleDto.contestId,
+    );
 
     if (!contest) {
       throw new NotFoundException(
@@ -49,12 +44,10 @@ export class SchedulesService {
       );
     }
 
-    const contestExaminer = await this.contestExaminersRepository.findOne({
-      where: {
-        contestId: createScheduleDto.contestId,
-        examinerId: createScheduleDto.examinerId,
-      },
-    });
+    const contestExaminer = await this.examinersService.findAssignment(
+      createScheduleDto.contestId,
+      createScheduleDto.examinerId,
+    );
 
     if (!contestExaminer) {
       throw new BadRequestException(
@@ -69,20 +62,10 @@ export class SchedulesService {
 
     const savedSchedule = await this.schedulesRepository.save(schedule);
 
-    let examiner = await this.examinersRepository.findOne({
-      where: { examinerId: createScheduleDto.examinerId },
-    });
-
-    if (!examiner) {
-      examiner = this.examinersRepository.create({
-        examinerId: createScheduleDto.examinerId,
-        assignedScheduleId: savedSchedule.scheduleId,
-      });
-      await this.examinersRepository.save(examiner);
-    } else if (!examiner.assignedScheduleId) {
-      examiner.assignedScheduleId = savedSchedule.scheduleId;
-      await this.examinersRepository.save(examiner);
-    }
+    await this.examinersService.ensureExaminerAssignedSchedule(
+      createScheduleDto.examinerId,
+      savedSchedule.scheduleId,
+    );
 
     return {
       success: true,
@@ -102,9 +85,9 @@ export class SchedulesService {
 
     const schedulesWithCanEvaluate = await Promise.all(
       schedules.map(async (schedule) => {
-        const contest = await this.contestsRepository.findOne({
-          where: { contestId: schedule.contestId },
-        });
+        const contest = await this.contestsQueryService.findContestById(
+          schedule.contestId,
+        );
 
         let canEvaluate = false;
 
@@ -144,9 +127,7 @@ export class SchedulesService {
 
     const schedulesWithExaminer = await Promise.all(
       schedules.map(async (schedule) => {
-        const user = await this.usersRepository.findOne({
-          where: { userId: schedule.examinerId },
-        });
+        const user = await this.usersService.findUserById(schedule.examinerId);
 
         return {
           ...schedule,
@@ -208,5 +189,18 @@ export class SchedulesService {
       success: true,
       message: 'Schedule deleted successfully',
     };
+  }
+
+  async findActiveScheduleByExaminerAndContest(
+    examinerId: string,
+    contestId: number,
+  ) {
+    return this.schedulesRepository.findOne({
+      where: {
+        examinerId,
+        contestId,
+        status: 'ACTIVE',
+      },
+    });
   }
 }

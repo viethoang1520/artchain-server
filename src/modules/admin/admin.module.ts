@@ -1,34 +1,25 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
-import { User } from '../users/entities/user.entity';
-import { Contest } from '../contests/entities/contests.entity';
-import { Round } from '../contests/entities/round.entity';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Evaluation } from '../paintings/entities/evaluation.entity';
-import { Vote } from '../votes/entities/vote.entity';
-import { Award } from '../awards/entities/award.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Examiner } from '../examiners/entities/examiners.entity';
-import { Exhibition } from '../exhibitions/entities/exhibition.entity';
-import { Campaign } from '../campaigns/entities/campaign.entity';
+import { UsersModule } from '../users/users.module';
+import { ContestsModule } from '../contests/contests.module';
+import { PaintingsModule } from '../paintings/paintings.module';
+import { VotesModule } from '../votes/votes.module';
+import { AwardsModule } from '../awards/awards.module';
+import { CompetitorsModule } from '../competitors/competitors.module';
+import { ExhibitionsModule } from '../exhibitions/exhibitions.module';
+import { CampaignsModule } from '../campaigns/campaigns.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      Contest,
-      Round,
-      Painting,
-      Evaluation,
-      Vote,
-      Award,
-      Competitor,
-      Examiner,
-      Exhibition,
-      Campaign,
-    ]),
+    UsersModule,
+    ContestsModule,
+    PaintingsModule,
+    VotesModule,
+    AwardsModule,
+    CompetitorsModule,
+    ExhibitionsModule,
+    CampaignsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

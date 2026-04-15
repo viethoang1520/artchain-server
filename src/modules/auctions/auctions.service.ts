@@ -39,6 +39,7 @@ import {
   BidHistoryStatus,
   UpdateAuctionStatusDto,
 } from './dto';
+import { PaintingsService } from '../paintings/paintings.service';
 
 @Injectable()
 export class AuctionsService {
@@ -55,9 +56,8 @@ export class AuctionsService {
     private readonly auctionParticipantRepository: Repository<AuctionParticipant>,
     @InjectRepository(BidHistory)
     private readonly bidHistoryRepository: Repository<BidHistory>,
-    @InjectRepository(Painting)
-    private readonly paintingRepository: Repository<Painting>,
     private readonly dataSource: DataSource,
+    private readonly paintingsService: PaintingsService,
   ) {}
 
   async createAuction(
@@ -162,9 +162,8 @@ export class AuctionsService {
 
     const saved = await this.auctionPaintingRepository.save(auctionPainting);
 
-    await this.paintingRepository.update(
-      { paintingId: addPaintingDto.paintingId },
-      { status: 'IN_AUCTION' },
+    await this.paintingsService.markPaintingInAuction(
+      addPaintingDto.paintingId,
     );
 
     const paintingWithRelations = await this.auctionPaintingRepository.findOne({
@@ -235,7 +234,6 @@ export class AuctionsService {
       const auctionRepo = manager.getRepository(Auction);
       const participantRepo = manager.getRepository(AuctionParticipant);
       const bidHistoryRepo = manager.getRepository(BidHistory);
-      const paintingRepo = manager.getRepository(Painting);
 
       const auctionPainting = await auctionPaintingRepo.findOne({
         where: { auctionPaintingId },
@@ -399,9 +397,10 @@ export class AuctionsService {
           activePainting.auctionPaintingId,
         );
 
-        await paintingRepo.update(
-          { paintingId: activePainting.paintingId },
-          { ownerId: userId, status: 'SOLD' },
+        await this.paintingsService.markPaintingSoldToOwner(
+          activePainting.paintingId,
+          userId,
+          manager,
         );
 
         await this.ensureActivePaintingForAuction(manager, auction, now);
@@ -732,7 +731,6 @@ export class AuctionsService {
     now: Date,
   ): Promise<AuctionPainting | null> {
     const auctionPaintingRepo = manager.getRepository(AuctionPainting);
-    const paintingRepo = manager.getRepository(Painting);
 
     let currentLivePainting = await auctionPaintingRepo
       .createQueryBuilder('auctionPainting')
@@ -763,14 +761,15 @@ export class AuctionsService {
         );
 
         currentLivePainting.isSold = true;
-        await paintingRepo.update(
-          { paintingId: currentLivePainting.paintingId },
-          { ownerId: currentLivePainting.currentBidderId, status: 'SOLD' },
+        await this.paintingsService.markPaintingSoldToOwner(
+          currentLivePainting.paintingId,
+          currentLivePainting.currentBidderId,
+          manager,
         );
       } else {
-        await paintingRepo.update(
-          { paintingId: currentLivePainting.paintingId },
-          { status: 'RE_OPEN' },
+        await this.paintingsService.markPaintingReOpen(
+          currentLivePainting.paintingId,
+          manager,
         );
       }
 
@@ -1082,7 +1081,6 @@ export class AuctionsService {
     await this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(Auction);
       const auctionPaintingRepo = manager.getRepository(AuctionPainting);
-      const paintingRepo = manager.getRepository(Painting);
 
       auction.status = AuctionStatus.END;
       auction.endTime = now;
@@ -1117,9 +1115,10 @@ export class AuctionsService {
 
         await Promise.all(
           soldPaintings.map((item) =>
-            paintingRepo.update(
-              { paintingId: item.paintingId },
-              { ownerId: item.currentBidderId, status: 'SOLD' },
+            this.paintingsService.markPaintingSoldToOwner(
+              item.paintingId,
+              item.currentBidderId as string,
+              manager,
             ),
           ),
         );
@@ -1135,11 +1134,9 @@ export class AuctionsService {
           { status: AuctionPaintingStatus.END },
         );
 
-        await paintingRepo.update(
-          {
-            paintingId: In(unsoldPaintings.map((item) => item.paintingId)),
-          },
-          { status: 'RE_OPEN' },
+        await this.paintingsService.markPaintingsReOpen(
+          unsoldPaintings.map((item) => item.paintingId),
+          manager,
         );
       }
     });

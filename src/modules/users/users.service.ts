@@ -26,7 +26,7 @@ export class UsersService {
     private contestsRepository: Repository<Contest>,
     @InjectRepository(Award)
     private awardsRepository: Repository<Award>,
-  ) { }
+  ) {}
 
   async submissions(userId: string) {
     const mySubmissions = await this.paintingsRepository.find({
@@ -58,6 +58,75 @@ export class UsersService {
     return submissionsWithContests;
   }
 
+  async findUserById(userId: string) {
+    return this.usersRepository.findOne({
+      where: { userId },
+    });
+  }
+
+  async findUsersByIds(userIds: string[]) {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return this.usersRepository.find({
+      where: userIds.map((userId) => ({ userId })),
+    });
+  }
+
+  async findUsersByRole(role: UserRole) {
+    return this.usersRepository.find({
+      where: { role },
+    });
+  }
+
+  async countUsers(where?: any) {
+    if (!where) {
+      return this.usersRepository.count();
+    }
+
+    return this.usersRepository.count({ where });
+  }
+
+  async findUsersByCreatedAt(where: any) {
+    return this.usersRepository.find({
+      where,
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async findAndCountAccounts(page: number, limit: number, role?: UserRole) {
+    const skip = (page - 1) * limit;
+    const whereCondition: any = {};
+
+    if (role) {
+      whereCondition.role = role;
+    }
+
+    return this.usersRepository.findAndCount({
+      where: whereCondition,
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+      select: {
+        userId: true,
+        username: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        positionLevel: true,
+      },
+    });
+  }
+
+  async updateUserStatus(userId: string, status: number) {
+    await this.usersRepository.update(userId, { status });
+    return this.findUserById(userId);
+  }
+
   async me(userId: string) {
     let userRole;
     if (!userId) {
@@ -75,11 +144,11 @@ export class UsersService {
 
     const wallet = user.wallet
       ? {
-        walletId: user.wallet.walletId,
-        balance: Number(user.wallet.balance),
-        currency: user.wallet.currency,
-        status: user.wallet.status,
-      }
+          walletId: user.wallet.walletId,
+          balance: Number(user.wallet.balance),
+          currency: user.wallet.currency,
+          status: user.wallet.status,
+        }
       : null;
 
     userRole = user.role;

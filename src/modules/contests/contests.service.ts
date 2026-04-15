@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Contest, ContestStatus } from './entities/contests.entity';
 import { CreateContestDto } from './dto/create-contest.dto';
 import { UpdateContestDto } from './dto/update-contest.dto';
@@ -13,42 +13,28 @@ import { GetAllContestsDto } from './dto/get-all-contests.dto';
 import { AssignExaminerDto } from './dto/assign-examiner.dto';
 import { UpdateRoundDto } from './dto/update-round.dto';
 import { Round } from './entities/round.entity';
-import { ContestExaminer } from './entities/contest-examiner.entity';
-import { Examiner } from '../examiners/entities/examiners.entity';
-import { User } from '../users/entities/user.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Schedule } from '../schedules/entities/schedule.entity';
-import { Award } from '../awards/entities/award.entity';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Evaluation } from '../paintings/entities/evaluation.entity';
 import { CreateRoundDto } from './dto/create-round.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { FirebaseService } from '../firebase/firebase.service';
+import { PaintingsService } from '../paintings/paintings.service';
+import { ExaminersService } from '../examiners/examiners.service';
+import { CompetitorsService } from '../competitors/competitor.service';
+import { SchedulesService } from '../schedules/schedules.service';
+import { AwardsService } from '../awards/awards.service';
+import { ContestsRoundsService } from './contests-rounds.service';
 
 @Injectable()
 export class ContestsService {
   constructor(
     @InjectRepository(Contest)
     private contestsRepository: Repository<Contest>,
-    @InjectRepository(Round)
-    private roundsRepository: Repository<Round>,
-    @InjectRepository(ContestExaminer)
-    private contestExaminerRepository: Repository<ContestExaminer>,
-    @InjectRepository(Examiner)
-    private examinerRepository: Repository<Examiner>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Competitor)
-    private competitorRepository: Repository<Competitor>,
-    @InjectRepository(Schedule)
-    private scheduleRepository: Repository<Schedule>,
-    @InjectRepository(Award)
-    private awardRepository: Repository<Award>,
-    @InjectRepository(Painting)
-    private paintingRepository: Repository<Painting>,
-    @InjectRepository(Evaluation)
-    private evaluationsRepository: Repository<Evaluation>,
     private firebaseService: FirebaseService,
+    private paintingsService: PaintingsService,
+    private examinersService: ExaminersService,
+    private competitorsService: CompetitorsService,
+    private schedulesService: SchedulesService,
+    private awardsService: AwardsService,
+    private contestsRoundsService: ContestsRoundsService,
   ) {}
 
   async findAll(query: GetContestDto) {
@@ -73,10 +59,9 @@ export class ContestsService {
     // Lấy thông tin rounds cho từng contest
     const contestsWithRounds = await Promise.all(
       contests.map(async (contest) => {
-        const rounds = await this.roundsRepository.find({
-          where: { contestId: contest.contestId },
-          order: { roundId: 'ASC' },
-        });
+        const rounds = await this.contestsRoundsService.listByContestIdOrdered(
+          contest.contestId,
+        );
 
         return {
           ...contest,
@@ -108,54 +93,34 @@ export class ContestsService {
       throw new NotFoundException(`Contest with ID ${id} not found`);
     }
 
-    const rounds = await this.roundsRepository.find({
-      where: { contestId: id },
-    });
+    const rounds = await this.contestsRoundsService.listByContestId(id);
 
-    const contestExaminers = await this.contestExaminerRepository.find({
-      where: { contestId: id },
-      relations: ['examiner'],
-    });
+    const contestExaminers =
+      await this.examinersService.getAssignmentsByContestId(id);
 
-    const examinersWithNames = await Promise.all(
-      contestExaminers.map(async (ce) => {
-        const user = await this.userRepository.findOne({
-          where: { userId: ce.examinerId },
-        });
+    const examinersWithNames =
+      await this.examinersService.enrichWithExaminerProfile(contestExaminers);
 
-        return {
-          ...ce,
-          examinerName: user?.fullName || 'Unknown',
-          examinerEmail: user?.email || null,
-        };
-      }),
-    );
+    const awards = await this.awardsService.listByContestId(id);
 
-    const awards = await this.awardRepository.find({
-      where: { contestId: id },
-      order: { rank: 'ASC' },
-    });
-
-    const winnerPaintings = await this.paintingRepository.find({
-      where: { contestId: id },
-      relations: ['award'],
-    });
+    const winnerPaintings =
+      await this.paintingsService.listWinnerPaintingsByContest(id);
 
     const winners = await Promise.all(
       winnerPaintings
         .filter((p) => p.awardId !== null)
         .map(async (painting) => {
-          const competitor = await this.userRepository.findOne({
-            where: { userId: painting.competitorId },
-          });
+          const { user } = await this.competitorsService.getCompetitorWithUser(
+            painting.competitorId,
+          );
 
           return {
             paintingId: painting.paintingId,
             title: painting.title,
             imageUrl: painting.imageUrl,
             competitorId: painting.competitorId,
-            competitorName: competitor?.fullName || 'Unknown',
-            competitorEmail: competitor?.email || null,
+            competitorName: user?.fullName || 'Unknown',
+            competitorEmail: user?.email || null,
             awardId: painting.awardId,
             awardName: painting.award?.name || null,
             awardRank: painting.award?.rank || null,
@@ -177,16 +142,12 @@ export class ContestsService {
   }
 
   async findAllForExaminer(examinerId: string) {
-    const examiner = await this.examinerRepository.findOne({
-      where: { examinerId },
-    });
+    const examiner = await this.examinersService.findExaminerById(examinerId);
     if (!examiner) {
       throw new NotFoundException(`Examiner with ID ${examinerId} not found`);
     }
-    const contestExaminers = await this.contestExaminerRepository.find({
-      where: { examinerId },
-      relations: ['contest'],
-    });
+    const contestExaminers =
+      await this.examinersService.getAssignmentsByExaminerId(examinerId);
 
     if (!contestExaminers.length) {
       return {
@@ -205,10 +166,11 @@ export class ContestsService {
     today.setHours(0, 0, 0, 0);
 
     for (const contest of contests) {
-      const round = await this.roundsRepository.find({
-        where: { contestId: contest.contestId, name: 'ROUND1' },
-      });
-      (contest as any).roundId = round.length > 0 ? round[0].roundId : null;
+      const round = await this.contestsRoundsService.findByContestAndName(
+        contest.contestId,
+        'ROUND1',
+      );
+      (contest as any).roundId = round ? round.roundId : null;
 
       const examinerRelation = contestExaminers.find(
         (ce) => ce.contestId === contest.contestId,
@@ -220,13 +182,11 @@ export class ContestsService {
       }
 
       // Kiểm tra canEvaluate dựa trên schedule và isScheduleEnforced
-      const schedule = await this.scheduleRepository.findOne({
-        where: {
-          examinerId: examinerId,
-          contestId: contest.contestId,
-          status: 'ACTIVE',
-        },
-      });
+      const schedule =
+        await this.schedulesService.findActiveScheduleByExaminerAndContest(
+          examinerId,
+          contest.contestId,
+        );
 
       let canEvaluate = false;
 
@@ -267,9 +227,9 @@ export class ContestsService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const examiner = await this.examinerRepository.findOne({
-      where: { examinerId: assignExaminerDto.examiner_id },
-    });
+    const examiner = await this.examinersService.findExaminerById(
+      assignExaminerDto.examiner_id,
+    );
 
     if (!examiner) {
       throw new NotFoundException(
@@ -277,12 +237,10 @@ export class ContestsService {
       );
     }
 
-    const existingAssignment = await this.contestExaminerRepository.findOne({
-      where: {
-        contestId,
-        examinerId: assignExaminerDto.examiner_id,
-      },
-    });
+    const existingAssignment = await this.examinersService.findAssignment(
+      contestId,
+      assignExaminerDto.examiner_id,
+    );
 
     if (existingAssignment) {
       throw new BadRequestException(
@@ -290,23 +248,16 @@ export class ContestsService {
       );
     }
 
-    const contestExaminer = this.contestExaminerRepository.create({
+    const savedAssignment = await this.examinersService.createAssignment(
       contestId,
-      examinerId: assignExaminerDto.examiner_id,
-      role: assignExaminerDto.role || 'EXAMINER',
-      assignmentDate: new Date(),
-    });
+      assignExaminerDto.examiner_id,
+      assignExaminerDto.role || 'EXAMINER',
+    );
 
-    const savedAssignment =
-      await this.contestExaminerRepository.save(contestExaminer);
-
-    const result = await this.contestExaminerRepository.findOne({
-      where: {
-        contestId: savedAssignment.contestId,
-        examinerId: savedAssignment.examinerId,
-      },
-      relations: ['contest', 'examiner'],
-    });
+    const result = await this.examinersService.findAssignmentWithRelations(
+      savedAssignment.contestId,
+      savedAssignment.examinerId,
+    );
 
     return {
       success: true,
@@ -324,24 +275,11 @@ export class ContestsService {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const examiners = await this.contestExaminerRepository.find({
-      where: { contestId },
-      relations: ['examiner'],
-    });
+    const examiners =
+      await this.examinersService.getAssignmentsByContestId(contestId);
 
-    const examinersWithNames = await Promise.all(
-      examiners.map(async (ce) => {
-        const user = await this.userRepository.findOne({
-          where: { userId: ce.examinerId },
-        });
-
-        return {
-          ...ce,
-          examinerName: user?.fullName || 'Unknown',
-          examinerEmail: user?.email || null,
-        };
-      }),
-    );
+    const examinersWithNames =
+      await this.examinersService.enrichWithExaminerProfile(examiners);
 
     return {
       success: true,
@@ -350,9 +288,10 @@ export class ContestsService {
   }
 
   async removeExaminerFromContest(contestId: number, examinerId: string) {
-    const assignment = await this.contestExaminerRepository.findOne({
-      where: { contestId, examinerId },
-    });
+    const assignment = await this.examinersService.findAssignment(
+      contestId,
+      examinerId,
+    );
 
     if (!assignment) {
       throw new NotFoundException(
@@ -360,7 +299,7 @@ export class ContestsService {
       );
     }
 
-    await this.contestExaminerRepository.remove(assignment);
+    await this.examinersService.removeAssignment(assignment);
 
     return {
       success: true,
@@ -483,10 +422,9 @@ export class ContestsService {
 
     const contestsWithRounds = await Promise.all(
       contests.map(async (contest) => {
-        const rounds = await this.roundsRepository.find({
-          where: { contestId: contest.contestId },
-          order: { roundId: 'ASC' },
-        });
+        const rounds = await this.contestsRoundsService.listByContestIdOrdered(
+          contest.contestId,
+        );
         return {
           ...contest,
           rounds,
@@ -511,301 +449,19 @@ export class ContestsService {
   }
 
   async createRound(contestId: number, createRoundDto: CreateRoundDto) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const round = this.roundsRepository.create({
-      contestId,
-      name: createRoundDto.name,
-      table: createRoundDto.table,
-      startDate: createRoundDto.startDate,
-      endDate: createRoundDto.endDate,
-      submissionDeadline: createRoundDto.submissionDeadline,
-      resultAnnounceDate: createRoundDto.resultAnnounceDate,
-      sendOriginalDeadline: createRoundDto.sendOriginalDeadline,
-      status: createRoundDto.status || 'DRAFT',
-    });
-
-    const savedRound = await this.roundsRepository.save(round);
-
-    return {
-      success: true,
-      message: 'Round created successfully',
-      data: savedRound,
-    };
+    return this.contestsRoundsService.createRound(contestId, createRoundDto);
   }
 
   async getRoundsByContest(contestId: number, _queryDto?: PaginationDto) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const allRounds = await this.roundsRepository.find({
-      where: { contestId },
-      order: { name: 'ASC', table: 'ASC' },
-    });
-
-    const groupedRounds = allRounds.reduce(
-      (acc, round) => {
-        const roundName = round.name;
-        if (!acc[roundName]) {
-          acc[roundName] = [];
-        }
-        acc[roundName].push(round);
-        return acc;
-      },
-      {} as Record<string, typeof allRounds>,
-    );
-
-    const formattedRounds = await Promise.all(
-      Object.entries(groupedRounds).map(async ([roundName, rounds]) => {
-        if (roundName === 'ROUND_2') {
-          const tablesData = await Promise.all(
-            rounds
-              .filter((r) => r.table && /^[A-Z]$/.test(r.table))
-              .map(async (tableRound) => {
-                const paintingCount = await this.paintingRepository.count({
-                  where: {
-                    roundId: tableRound.roundId,
-                    status: In([
-                      'PENDING',
-                      'ACCEPTED',
-                      'ORIGINAL_SUBMITTED',
-                      'NOT_SUBMITTED_ORIGINAL',
-                    ]),
-                  },
-                });
-
-                return {
-                  roundId: tableRound.roundId,
-                  table: tableRound.table,
-                  startDate: tableRound.startDate,
-                  endDate: tableRound.endDate,
-                  submissionDeadline: tableRound.submissionDeadline,
-                  resultAnnounceDate: tableRound.resultAnnounceDate,
-                  sendOriginalDeadline: tableRound.sendOriginalDeadline,
-                  status: tableRound.status,
-                  totalPaintings: paintingCount,
-                };
-              }),
-          );
-
-          return {
-            name: roundName,
-            isRound2: true,
-            tables: tablesData,
-            totalTables: tablesData.length,
-          };
-        }
-
-        const paintingsRounds = rounds.filter((r) => r.table === 'paintings');
-
-        if (paintingsRounds.length === 0) {
-          return null;
-        }
-
-        const round = paintingsRounds[0];
-
-        const paintingCount = await this.paintingRepository.count({
-          where: {
-            roundId: round.roundId,
-            status: In([
-              'PENDING',
-              'ACCEPTED',
-              'ORIGINAL_SUBMITTED',
-              'NOT_SUBMITTED_ORIGINAL',
-            ]),
-          },
-        });
-
-        return {
-          roundId: round.roundId,
-          name: roundName,
-          isRound2: false,
-          startDate: round.startDate,
-          endDate: round.endDate,
-          submissionDeadline: round.submissionDeadline,
-          resultAnnounceDate: round.resultAnnounceDate,
-          sendOriginalDeadline: round.sendOriginalDeadline,
-          status: round.status,
-          table: round.table,
-          totalPaintings: paintingCount,
-        };
-      }),
-    );
-
-    const validRounds = formattedRounds.filter((r) => r !== null);
-
-    return {
-      success: true,
-      data: validRounds,
-      meta: {
-        contestId,
-        totalRounds: validRounds.length,
-        roundTypes: Object.keys(groupedRounds).filter((roundName) => {
-          const rounds = groupedRounds[roundName];
-          if (roundName === 'ROUND_2') {
-            return rounds.some((r) => r.table && /^[A-Z]$/.test(r.table));
-          }
-          return rounds.some((r) => r.table === 'paintings');
-        }),
-      },
-    };
+    return this.contestsRoundsService.getRoundsByContest(contestId, _queryDto);
   }
 
   async getRoundByName(contestId: number, name: string) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const round = await this.roundsRepository.findOne({
-      where: { contestId, name },
-    });
-
-    if (!round) {
-      throw new NotFoundException(
-        `Round with name "${name}" not found in contest ${contestId}`,
-      );
-    }
-
-    if (round.name === 'ROUND_2') {
-      const allRound2Tables = await this.roundsRepository
-        .createQueryBuilder('round')
-        .where('round.contestId = :contestId', { contestId })
-        .andWhere('round.name = :name', { name: 'ROUND_2' })
-        .andWhere('round.table IN (:...tables)', {
-          tables: ['A', 'B', 'C', 'D'],
-        })
-        .orderBy('round.table', 'ASC')
-        .getMany();
-
-      if (allRound2Tables.length === 0) {
-        return {
-          success: true,
-          data: round,
-          message: 'ROUND_2 found but no tables (A, B, C, D) created yet',
-        };
-      }
-
-      const tablesWithCompetitors = await Promise.all(
-        allRound2Tables.map(async (tableRound) => {
-          const paintings = await this.paintingRepository.find({
-            where: { roundId: tableRound.roundId },
-          });
-
-          const competitorIds = [
-            ...new Set(paintings.map((p) => p.competitorId)),
-          ];
-
-          const competitors = await Promise.all(
-            competitorIds.map(async (competitorId) => {
-              const competitor = await this.competitorRepository.findOne({
-                where: { competitorId },
-              });
-
-              const user = await this.userRepository.findOne({
-                where: { userId: competitorId },
-              });
-
-              const competitorPaintings = paintings.filter(
-                (p) => p.competitorId === competitorId,
-              );
-
-              return {
-                competitorId: competitor?.competitorId,
-                birthday: competitor?.birthday,
-                schoolName: competitor?.schoolName,
-                ward: competitor?.ward,
-                grade: competitor?.grade,
-                guardianId: competitor?.guardianId,
-                username: user?.username,
-                email: user?.email,
-                fullName: user?.fullName,
-                paintings: competitorPaintings.map((p) => ({
-                  paintingId: p.paintingId,
-                  title: p.title,
-                  imageUrl: p.imageUrl,
-                  status: p.status,
-                })),
-              };
-            }),
-          );
-
-          return {
-            roundId: tableRound.roundId,
-            table: tableRound.table,
-            name: tableRound.name,
-            startDate: tableRound.startDate,
-            endDate: tableRound.endDate,
-            submissionDeadline: tableRound.submissionDeadline,
-            resultAnnounceDate: tableRound.resultAnnounceDate,
-            sendOriginalDeadline: tableRound.sendOriginalDeadline,
-            status: tableRound.status,
-            competitors,
-            competitorCount: competitors.length,
-          };
-        }),
-      );
-
-      return {
-        success: true,
-        data: {
-          roundInfo: round,
-          isRound2: true,
-          tables: tablesWithCompetitors,
-          totalCompetitors: tablesWithCompetitors.reduce(
-            (sum, table) => sum + table.competitorCount,
-            0,
-          ),
-        },
-      };
-    }
-
-    return {
-      success: true,
-      data: {
-        ...round,
-        isRound2: false,
-      },
-    };
+    return this.contestsRoundsService.getRoundByName(contestId, name);
   }
 
   async getRoundById(contestId: number, roundId: number) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const round = await this.roundsRepository.findOne({
-      where: { roundId, contestId },
-    });
-
-    if (!round) {
-      throw new NotFoundException(
-        `Round with ID ${roundId} not found in contest ${contestId}`,
-      );
-    }
-
-    return {
-      success: true,
-      data: round,
-    };
+    return this.contestsRoundsService.getRoundById(contestId, roundId);
   }
 
   async updateRound(
@@ -813,87 +469,15 @@ export class ContestsService {
     roundId: number,
     updateRoundDto: UpdateRoundDto,
   ) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const round = await this.roundsRepository.findOne({
-      where: { roundId, contestId },
-    });
-
-    if (!round) {
-      throw new NotFoundException(
-        `Round with ID ${roundId} not found in contest ${contestId}`,
-      );
-    }
-
-    if (updateRoundDto.name !== undefined) {
-      round.name = updateRoundDto.name;
-    }
-    if (updateRoundDto.table !== undefined) {
-      round.table = updateRoundDto.table;
-    }
-    if (updateRoundDto.startDate !== undefined) {
-      round.startDate = updateRoundDto.startDate;
-    }
-    if (updateRoundDto.endDate !== undefined) {
-      round.endDate = updateRoundDto.endDate;
-    }
-    if (updateRoundDto.submissionDeadline !== undefined) {
-      round.submissionDeadline = updateRoundDto.submissionDeadline;
-    }
-    if (updateRoundDto.resultAnnounceDate !== undefined) {
-      round.resultAnnounceDate = updateRoundDto.resultAnnounceDate;
-    }
-    if (updateRoundDto.sendOriginalDeadline !== undefined) {
-      round.sendOriginalDeadline = updateRoundDto.sendOriginalDeadline;
-    }
-    if (updateRoundDto.status !== undefined) {
-      round.status = updateRoundDto.status;
-    }
-
-    const savedRound = await this.roundsRepository.save(round);
-
-    return {
-      success: true,
-      message: 'Round updated successfully',
-      data: savedRound,
-    };
+    return this.contestsRoundsService.updateRound(
+      contestId,
+      roundId,
+      updateRoundDto,
+    );
   }
 
   async deleteRound(contestId: number, roundId: number) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const round = await this.roundsRepository.findOne({
-      where: { roundId, contestId },
-    });
-
-    if (!round) {
-      throw new NotFoundException(
-        `Round with ID ${roundId} not found in contest ${contestId}`,
-      );
-    }
-
-    await this.roundsRepository.remove(round);
-
-    return {
-      success: true,
-      message: 'Round deleted successfully',
-      data: {
-        roundId,
-        contestId,
-      },
-    };
+    return this.contestsRoundsService.deleteRound(contestId, roundId);
   }
 
   async createRound2WithTables(
@@ -901,338 +485,15 @@ export class ContestsService {
     date: string,
     numberOfTables?: number,
   ) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    if (!date) {
-      throw new BadRequestException('Date is required for ROUND_2');
-    }
-
-    const tablesToCreate = numberOfTables || contest.numberOfTablesRound2 || 4;
-
-    if (tablesToCreate < 3 || tablesToCreate > 6) {
-      throw new BadRequestException(
-        'Number of tables must be between 3 and 6 (A-Z)',
-      );
-    }
-
-    const round2Date = new Date(date);
-    if (isNaN(round2Date.getTime())) {
-      throw new BadRequestException('Invalid date format');
-    }
-
-    const existingRound2 = await this.roundsRepository.findOne({
-      where: {
-        contestId,
-        name: 'ROUND_2',
-      },
-    });
-
-    if (existingRound2) {
-      throw new BadRequestException(
-        `ROUND_2 has already been created for contest ${contestId}. Cannot create duplicate ROUND_2.`,
-      );
-    }
-
-    const qualifiedData = await this.getRound2QualifiedPaintings(contestId);
-
-    const qualifiedCompetitors = qualifiedData.data.qualified.filter(
-      (p) => p.status === 'ORIGINAL_SUBMITTED',
+    return this.paintingsService.createRound2WithTablesByStaff(
+      contestId,
+      date,
+      numberOfTables,
     );
-
-    if (qualifiedCompetitors.length === 0) {
-      throw new BadRequestException(
-        'No competitors have submitted original paintings yet. Cannot create ROUND_2.',
-      );
-    }
-
-    if (qualifiedCompetitors.length < tablesToCreate) {
-      throw new BadRequestException(
-        `Need at least ${tablesToCreate} competitors who submitted originals to create ${tablesToCreate} tables. Only ${qualifiedCompetitors.length} competitors submitted originals.`,
-      );
-    }
-
-    const topCompetitors = qualifiedCompetitors.map((p) => ({
-      competitorId: p.competitorId,
-      avgScore: p.avgScore,
-      evaluationCount: 1,
-    }));
-
-    const tableNames: string[] = [];
-    for (let i = 0; i < tablesToCreate; i++) {
-      tableNames.push(String.fromCharCode(65 + i));
-    }
-
-    const tables: string[][] = Array(tablesToCreate)
-      .fill(null)
-      .map(() => []);
-
-    for (let i = 0; i < topCompetitors.length; i++) {
-      const group = Math.floor(i / tablesToCreate);
-      const positionInGroup = i % tablesToCreate;
-
-      let tableIndex;
-      if (group % 2 === 0) {
-        tableIndex = positionInGroup;
-      } else {
-        tableIndex = tablesToCreate - 1 - positionInGroup;
-      }
-
-      tables[tableIndex].push(topCompetitors[i].competitorId);
-    }
-
-    const createdRounds: Round[] = [];
-    const createdPaintings: Painting[] = [];
-
-    for (let i = 0; i < tablesToCreate; i++) {
-      const round = this.roundsRepository.create({
-        contestId,
-        name: 'ROUND_2',
-        table: tableNames[i],
-        startDate: round2Date,
-        endDate: round2Date,
-        status: 'DRAFT',
-      });
-
-      const savedRound = await this.roundsRepository.save(round);
-      createdRounds.push(savedRound);
-
-      for (const competitorId of tables[i]) {
-        const user = await this.userRepository.findOne({
-          where: { userId: competitorId },
-        });
-        const competitorName = user?.fullName || competitorId;
-
-        const painting = this.paintingRepository.create({
-          competitorId,
-          contestId,
-          roundId: savedRound.roundId,
-          title: `Bảng ${tableNames[i]} - ${competitorName}`,
-          description: `Tranh cho Vòng 2, Bảng ${tableNames[i]}. Đang chờ giám khảo tải lên.`,
-          status: 'ACCEPTED',
-        });
-
-        const savedPainting = await this.paintingRepository.save(painting);
-        createdPaintings.push(savedPainting);
-      }
-    }
-
-    const paintingsByTable: { [key: string]: Painting[] } = {};
-    const tableDistribution: any = {};
-
-    for (let i = 0; i < tablesToCreate; i++) {
-      const tableName = `Table ${tableNames[i]}`;
-      paintingsByTable[tableName] = createdPaintings.filter(
-        (p) => p.roundId === createdRounds[i].roundId,
-      );
-
-      tableDistribution[tableName] = {
-        roundId: createdRounds[i].roundId,
-        competitors: tables[i],
-        count: tables[i].length,
-        paintings: paintingsByTable[tableName].map((p) => ({
-          paintingId: p.paintingId,
-          competitorId: p.competitorId,
-          status: p.status,
-        })),
-      };
-    }
-
-    return {
-      success: true,
-      message: `ROUND_2 created successfully with ${tablesToCreate} tables using seeding based on average scores`,
-      data: {
-        rounds: createdRounds,
-        seedingInfo: topCompetitors.map((comp, index) => ({
-          seed: index + 1,
-          competitorId: comp.competitorId,
-          avgScore: comp.avgScore,
-          evaluationCount: comp.evaluationCount,
-        })),
-        tableDistribution,
-        numberOfTables: tablesToCreate,
-        totalCompetitors: topCompetitors.length,
-        qualifiedWithOriginals: qualifiedCompetitors.length,
-        totalPaintingsCreated: createdPaintings.length,
-      },
-    };
-  }
-
-  private async calculateCompetitorScores(
-    passedPaintings: Painting[],
-    contestId: number,
-  ) {
-    const uniqueCompetitorIds = [
-      ...new Set(passedPaintings.map((p) => p.competitorId)),
-    ];
-
-    const competitorScores = await Promise.all(
-      uniqueCompetitorIds.map(async (competitorId) => {
-        const competitorPaintings = passedPaintings.filter(
-          (p) => p.competitorId === competitorId && p.contestId === contestId,
-        );
-
-        const paintingIds = competitorPaintings.map((p) => p.paintingId);
-        const evaluations = await this.evaluationsRepository.find({
-          where: paintingIds.map((paintingId) => ({ paintingId })),
-        });
-
-        let avgScore = 0;
-        if (evaluations.length > 0) {
-          const totalScore = evaluations.reduce(
-            (sum, evaluation) => sum + (evaluation.scoreRound1 || 0),
-            0,
-          );
-          avgScore = totalScore / evaluations.length;
-        }
-
-        return {
-          competitorId,
-          avgScore,
-          evaluationCount: evaluations.length,
-        };
-      }),
-    );
-
-    competitorScores.sort((a, b) => b.avgScore - a.avgScore);
-
-    return competitorScores;
   }
 
   async getRound2QualifiedPaintings(contestId: number) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    if (!contest.round2Quantity) {
-      throw new BadRequestException(
-        'This contest does not have round_2_quantity configured',
-      );
-    }
-
-    const round1 = await this.roundsRepository.findOne({
-      where: { contestId, name: 'ROUND_1' },
-    });
-
-    if (!round1) {
-      throw new NotFoundException('ROUND_1 not found for this contest');
-    }
-
-    const paintings = await this.paintingRepository.find({
-      where: {
-        contestId,
-        roundId: round1.roundId,
-        status: In(['ACCEPTED', 'ORIGINAL_SUBMITTED']),
-      },
-    });
-
-    const competitorScores = await this.calculateCompetitorScores(
-      paintings,
-      contestId,
-    );
-
-    const competitorsWithDetails = await Promise.all(
-      competitorScores.map(async (compScore) => {
-        const competitor = await this.userRepository.findOne({
-          where: { userId: compScore.competitorId },
-        });
-
-        const competitorPaintings = paintings.filter(
-          (p) => p.competitorId === compScore.competitorId,
-        );
-
-        const paintingsWithScores = await Promise.all(
-          competitorPaintings.map(async (painting) => {
-            const evaluations = await this.evaluationsRepository.find({
-              where: { paintingId: painting.paintingId },
-            });
-
-            if (evaluations.length === 0) return null;
-
-            const totalScore = evaluations.reduce((sum, evaluation) => {
-              return sum + (evaluation.scoreRound1 || 0);
-            }, 0);
-
-            const avgScore = totalScore / evaluations.length;
-
-            return {
-              paintingId: painting.paintingId,
-              title: painting.title,
-              imageUrl: painting.imageUrl,
-              status: painting.status,
-              avgScore: Number(avgScore.toFixed(2)),
-              submissionDate: painting.submissionDate,
-            };
-          }),
-        );
-
-        const validPaintings = paintingsWithScores.filter((p) => p !== null);
-        const bestPainting = validPaintings.sort((a, b) => {
-          if (b.avgScore !== a.avgScore) {
-            return b.avgScore - a.avgScore;
-          }
-          const dateA = a.submissionDate
-            ? new Date(a.submissionDate).getTime()
-            : Infinity;
-          const dateB = b.submissionDate
-            ? new Date(b.submissionDate).getTime()
-            : Infinity;
-          return dateA - dateB;
-        })[0];
-
-        const hasSubmittedOriginal = competitorPaintings.some(
-          (p) => p.status === 'ORIGINAL_SUBMITTED',
-        );
-
-        return {
-          competitorId: compScore.competitorId,
-          competitorName: competitor?.fullName || 'Unknown',
-          competitorEmail: competitor?.email || null,
-          avgScore: Number(compScore.avgScore.toFixed(2)),
-          evaluationCount: compScore.evaluationCount,
-          painting: bestPainting || null,
-          status: hasSubmittedOriginal
-            ? 'ORIGINAL_SUBMITTED'
-            : competitorPaintings[0]?.status || 'ACCEPTED',
-          hasSubmittedOriginal,
-        };
-      }),
-    );
-
-    const qualifiedCompetitors = competitorsWithDetails.slice(
-      0,
-      contest.round2Quantity,
-    );
-
-    const notSubmittedCount = qualifiedCompetitors.filter(
-      (c) => !c.hasSubmittedOriginal,
-    ).length;
-
-    return {
-      success: true,
-      message: 'Qualified list shows top competitors who passed ROUND_1.',
-      data: {
-        contestId,
-        contestTitle: contest.title,
-        round2Quantity: contest.round2Quantity,
-        qualified: qualifiedCompetitors,
-        summary: {
-          totalQualified: qualifiedCompetitors.length,
-          submitted: qualifiedCompetitors.filter((c) => c.hasSubmittedOriginal)
-            .length,
-          notSubmitted: notSubmittedCount,
-        },
-      },
-    };
+    return this.paintingsService.getRound2QualifiedPaintingsByStaff(contestId);
   }
 
   async updateOriginalSubmissionStatus(
@@ -1240,38 +501,11 @@ export class ContestsService {
     paintingId: string,
     hasSubmittedOriginal: boolean,
   ) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
-    }
-
-    const painting = await this.paintingRepository.findOne({
-      where: { paintingId, contestId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    painting.status = hasSubmittedOriginal
-      ? 'ORIGINAL_SUBMITTED'
-      : 'NOT_SUBMITTED_ORIGINAL';
-    await this.paintingRepository.save(painting);
-
-    return {
-      success: true,
-      message: hasSubmittedOriginal
-        ? 'Original submission status updated successfully'
-        : 'Painting marked as not submitted original',
-      data: {
-        paintingId,
-        status: painting.status,
-        hasSubmittedOriginal,
-      },
-    };
+    return this.paintingsService.updateOriginalSubmissionStatusByStaff(
+      contestId,
+      paintingId,
+      hasSubmittedOriginal,
+    );
   }
 
   async createContestByStaff(
@@ -1335,21 +569,12 @@ export class ContestsService {
 
       const savedRounds: Round[] = [];
       if (createContestDto.rounds && createContestDto.rounds.length > 0) {
-        for (const roundDto of createContestDto.rounds) {
-          const round = this.roundsRepository.create({
-            contestId: savedContest.contestId,
-            name: roundDto.name,
-            table: roundDto.table,
-            startDate: roundDto.startDate,
-            endDate: roundDto.endDate,
-            submissionDeadline: roundDto.submissionDeadline,
-            resultAnnounceDate: roundDto.resultAnnounceDate,
-            sendOriginalDeadline: roundDto.sendOriginalDeadline,
-            status: roundDto.status || 'DRAFT',
-          });
-          const savedRound = await this.roundsRepository.save(round);
-          savedRounds.push(savedRound);
-        }
+        savedRounds.push(
+          ...(await this.contestsRoundsService.createRoundsForContest(
+            savedContest.contestId,
+            createContestDto.rounds,
+          )),
+        );
       }
 
       return {
@@ -1427,25 +652,7 @@ export class ContestsService {
 
       if (updateContestDto.rounds && updateContestDto.rounds.length > 0) {
         const roundData = updateContestDto.rounds[0];
-
-        const existingRound = await this.roundsRepository.findOne({
-          where: { contestId: id, name: 'ROUND_1' },
-        });
-
-        if (existingRound) {
-          const updatedRound = this.roundsRepository.merge(
-            existingRound,
-            roundData,
-          );
-          await this.roundsRepository.save(updatedRound);
-        } else {
-          const newRound = this.roundsRepository.create({
-            ...roundData,
-            contestId: id,
-            name: roundData.name || 'ROUND_1',
-          });
-          await this.roundsRepository.save(newRound);
-        }
+        await this.contestsRoundsService.upsertRound1ForContest(id, roundData);
       }
 
       const { rounds: roundsData, ...contestData } = updateContestDto;
@@ -1461,10 +668,8 @@ export class ContestsService {
       );
       const savedContest = await this.contestsRepository.save(updatedContest);
 
-      const rounds = await this.roundsRepository.find({
-        where: { contestId: id },
-        order: { roundId: 'ASC' },
-      });
+      const rounds =
+        await this.contestsRoundsService.listByContestIdOrdered(id);
 
       return {
         success: true,
@@ -1475,9 +680,9 @@ export class ContestsService {
         },
       };
     } catch (error) {
-      throw new BadRequestException(
-        `Failed to update contest: ${error.message}`,
-      );
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`Failed to update contest: ${message}`);
     }
   }
 
@@ -1493,19 +698,17 @@ export class ContestsService {
 
     const contestWithAwards = await Promise.all(
       contest.awards.map(async (award) => {
-        const paintings = await this.paintingRepository.find({
-          where: { awardId: award.awardId, contestId: id },
-        });
+        const paintings = await this.paintingsService.listByAwardAndContest(
+          award.awardId,
+          id,
+        );
 
         const winners = await Promise.all(
           paintings.map(async (painting) => {
-            const competitor = await this.competitorRepository.findOne({
-              where: { competitorId: painting.competitorId },
-            });
-
-            const user = await this.userRepository.findOne({
-              where: { userId: painting.competitorId },
-            });
+            const { competitor, user } =
+              await this.competitorsService.getCompetitorWithUser(
+                painting.competitorId,
+              );
 
             return {
               paintingId: painting.paintingId,
@@ -1528,28 +731,13 @@ export class ContestsService {
       }),
     );
 
-    const rounds = await this.roundsRepository.find({
-      where: { contestId: id },
-    });
+    const rounds = await this.contestsRoundsService.listByContestId(id);
 
-    const contestExaminers = await this.contestExaminerRepository.find({
-      where: { contestId: id },
-      relations: ['examiner'],
-    });
+    const contestExaminers =
+      await this.examinersService.getAssignmentsByContestId(id);
 
-    const examinersWithNames = await Promise.all(
-      contestExaminers.map(async (ce) => {
-        const user = await this.userRepository.findOne({
-          where: { userId: ce.examinerId },
-        });
-
-        return {
-          ...ce,
-          examinerName: user?.fullName || 'Unknown',
-          examinerEmail: user?.email || null,
-        };
-      }),
-    );
+    const examinersWithNames =
+      await this.examinersService.enrichWithExaminerProfile(contestExaminers);
 
     return {
       success: true,
@@ -1563,95 +751,14 @@ export class ContestsService {
   }
 
   async assignAwardToPainting(paintingId: string, awardId: number) {
-    const painting = await this.paintingRepository.findOne({
-      where: { paintingId },
-      relations: ['award'],
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    if (painting.awardId) {
-      throw new BadRequestException(
-        `Painting already has an award assigned (Award ID: ${painting.awardId})`,
-      );
-    }
-
-    const award = await this.awardRepository.findOne({
-      where: { awardId },
-      relations: ['paintings'],
-    });
-
-    if (!award) {
-      throw new NotFoundException(`Award with ID ${awardId} not found`);
-    }
-
-    if (award.quantity) {
-      const paintingsWithAward = await this.paintingRepository.count({
-        where: { awardId },
-      });
-
-      if (paintingsWithAward >= award.quantity) {
-        throw new BadRequestException(
-          `Award "${award.name}" has reached its maximum quantity (${award.quantity}). Cannot assign more paintings.`,
-        );
-      }
-    }
-
-    painting.awardId = awardId;
-    const updatedPainting = await this.paintingRepository.save(painting);
-
-    const currentCount = await this.paintingRepository.count({
-      where: { awardId },
-    });
-
-    return {
-      success: true,
-      message: 'Award assigned to painting successfully',
-      data: {
-        paintingId: updatedPainting.paintingId,
-        awardId: updatedPainting.awardId,
-        awardName: award.name,
-        awardRank: award.rank,
-        awardPrize: award.prize,
-      },
-      meta: {
-        currentAssignedCount: currentCount,
-        maxQuantity: award.quantity,
-        remainingSlots: award.quantity ? award.quantity - currentCount : null,
-      },
-    };
+    return this.paintingsService.assignAwardToPaintingByStaff(
+      paintingId,
+      awardId,
+    );
   }
 
   async unassignAwardFromPainting(paintingId: string) {
-    const painting = await this.paintingRepository.findOne({
-      where: { paintingId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    if (!painting.awardId) {
-      throw new BadRequestException(
-        'Painting does not have any award assigned',
-      );
-    }
-
-    const previousAwardId = painting.awardId;
-
-    painting.awardId = null;
-    await this.paintingRepository.save(painting);
-
-    return {
-      success: true,
-      message: 'Award unassigned from painting successfully',
-      data: {
-        paintingId: painting.paintingId,
-        previousAwardId,
-      },
-    };
+    return this.paintingsService.unassignAwardFromPaintingByStaff(paintingId);
   }
 
   async uploadRound2PaintingImage(
@@ -1660,73 +767,12 @@ export class ContestsService {
     title?: string,
     description?: string,
   ) {
-    const painting = await this.paintingRepository.findOne({
-      where: { paintingId },
-    });
-
-    if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
-    }
-
-    const round = await this.roundsRepository.findOne({
-      where: { roundId: painting.roundId },
-    });
-
-    if (!round || round.name !== 'ROUND_2') {
-      throw new BadRequestException(
-        'This painting is not in ROUND_2. Can only update ROUND_2 paintings.',
-      );
-    }
-
-    if (!imageFile && !title && !description) {
-      throw new BadRequestException(
-        'At least one field (image, title, or description) must be provided',
-      );
-    }
-
-    let imageUrl = painting.imageUrl;
-
-    if (imageFile) {
-      try {
-        const bucket = this.firebaseService.getStorage().bucket();
-        const fileName = `paintings/round2/${Date.now()}-${imageFile.originalname}`;
-        const fileUpload = bucket.file(fileName);
-
-        await fileUpload.save(imageFile.buffer, {
-          metadata: { contentType: imageFile.mimetype },
-        });
-
-        await fileUpload.makePublic();
-        imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        painting.imageUrl = imageUrl;
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown error occurred';
-        throw new BadRequestException(`Failed to upload image: ${message}`);
-      }
-    }
-
-    if (title) {
-      painting.title = title;
-    }
-    if (description) {
-      painting.description = description;
-    }
-
-    await this.paintingRepository.save(painting);
-
-    return {
-      success: true,
-      message: 'Round 2 painting updated successfully',
-      data: {
-        paintingId: painting.paintingId,
-        imageUrl: painting.imageUrl,
-        title: painting.title,
-        description: painting.description,
-        round: round.name,
-        table: round.table,
-      },
-    };
+    return this.paintingsService.uploadRound2PaintingImageByStaff(
+      paintingId,
+      imageFile,
+      title,
+      description,
+    );
   }
 
   async create(createContestDto: CreateContestDto) {
@@ -1746,21 +792,12 @@ export class ContestsService {
 
       const savedRounds: Round[] = [];
       if (createContestDto.rounds && createContestDto.rounds.length > 0) {
-        for (const roundDto of createContestDto.rounds) {
-          const round = this.roundsRepository.create({
-            contestId: savedContest.contestId,
-            name: roundDto.name,
-            table: roundDto.table,
-            startDate: roundDto.startDate,
-            endDate: roundDto.endDate,
-            submissionDeadline: roundDto.submissionDeadline,
-            resultAnnounceDate: roundDto.resultAnnounceDate,
-            sendOriginalDeadline: roundDto.sendOriginalDeadline,
-            status: roundDto.status || 'DRAFT',
-          });
-          const savedRound = await this.roundsRepository.save(round);
-          savedRounds.push(savedRound);
-        }
+        savedRounds.push(
+          ...(await this.contestsRoundsService.createRoundsForContest(
+            savedContest.contestId,
+            createContestDto.rounds,
+          )),
+        );
       }
 
       return {
@@ -1790,29 +827,10 @@ export class ContestsService {
 
     let savedRounds: Round[] = [];
     if (rounds && Array.isArray(rounds)) {
-      const existingRounds = await this.roundsRepository.find({
-        where: { contestId: id },
-      });
-
-      if (existingRounds.length > 0) {
-        await this.roundsRepository.remove(existingRounds);
-      }
-
-      for (const roundDto of rounds) {
-        const round = this.roundsRepository.create({
-          contestId: id,
-          name: roundDto.name,
-          table: roundDto.table,
-          startDate: roundDto.startDate,
-          endDate: roundDto.endDate,
-          submissionDeadline: roundDto.submissionDeadline,
-          resultAnnounceDate: roundDto.resultAnnounceDate,
-          sendOriginalDeadline: roundDto.sendOriginalDeadline,
-          status: roundDto.status || 'DRAFT',
-        });
-        const savedRound = await this.roundsRepository.save(round);
-        savedRounds.push(savedRound);
-      }
+      savedRounds = await this.contestsRoundsService.replaceRoundsForContest(
+        id,
+        rounds,
+      );
     }
 
     return {
@@ -1865,12 +883,10 @@ export class ContestsService {
   }
 
   async checkUsersUploadStatus(contestId: number, userIds: string | string[]) {
-    const round1 = await this.roundsRepository.findOne({
-      where: {
-        contestId: contestId,
-        name: 'ROUND_1',
-      },
-    });
+    const round1 = await this.contestsRoundsService.findByContestAndName(
+      contestId,
+      'ROUND_1',
+    );
 
     if (!round1) {
       throw new NotFoundException(`ROUND_1 not found for contest ${contestId}`);
@@ -1880,17 +896,15 @@ export class ContestsService {
 
     const uploadStatusResults = await Promise.all(
       userIdArray.map(async (userId) => {
-        const painting = await this.paintingRepository.findOne({
-          where: {
-            competitorId: userId,
-            contestId: contestId,
-            roundId: round1.roundId,
-          },
-        });
+        const isUploaded = await this.paintingsService.hasSubmissionInRound(
+          userId,
+          contestId,
+          round1.roundId,
+        );
 
         return {
           userId: userId,
-          isUploaded: !!painting,
+          isUploaded,
         };
       }),
     );

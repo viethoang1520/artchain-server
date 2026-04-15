@@ -8,26 +8,20 @@ import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Campaign } from './entities/campaign.entity';
-import { Sponsor } from '../sponsors/entities/sponsor.entity';
-import {
-  Transaction,
-  TransactionStatus,
-} from '../payments/entities/transaction.entity';
-import { User } from '../users/entities/user.entity';
 import { FirebaseService } from '../firebase/firebase.service';
+import { UsersService } from '../users/users.service';
+import { SponsorsService } from '../sponsors/sponsors.service';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class CampaignsService {
   constructor(
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
-    @InjectRepository(Sponsor)
-    private readonly sponsorRepository: Repository<Sponsor>,
-    @InjectRepository(Transaction)
-    private readonly transactionRepository: Repository<Transaction>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
     private readonly firebaseService: FirebaseService,
+    private readonly usersService: UsersService,
+    private readonly sponsorsService: SponsorsService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   async createCampaignByStaff(data: {
@@ -35,9 +29,7 @@ export class CampaignsService {
     staffId: string;
     imageFile?: Express.Multer.File;
   }) {
-    const user = await this.usersRepository.findOne({
-      where: { userId: data.staffId },
-    });
+    const user = await this.usersService.findUserById(data.staffId);
     const role = user?.role;
     if (role !== 'STAFF' && role !== 'ADMIN') {
       throw new BadRequestException(
@@ -100,9 +92,7 @@ export class CampaignsService {
     }
 
     if (staffId) {
-      const user = await this.usersRepository.findOne({
-        where: { userId: staffId },
-      });
+      const user = await this.usersService.findUserById(staffId);
       const role = user?.role;
       if (role !== 'STAFF' && role !== 'ADMIN') {
         throw new BadRequestException(
@@ -164,25 +154,14 @@ export class CampaignsService {
       take: limit,
     });
 
-    // Tính currentAmount cho từng campaign
-    const campaignsWithAmount = await Promise.all(
-      campaigns.map(async (campaign) => {
-        const transactions = await this.transactionRepository.find({
-          where: {
-            campaignId: campaign.campaignId,
-            status: TransactionStatus.SUCCESS,
-          },
-        });
-        const currentAmount = transactions.reduce(
-          (sum, transaction) => sum + transaction.amount,
-          0,
-        );
-        return {
-          ...campaign,
-          currentAmount,
-        };
-      }),
-    );
+    const amountByCampaignId =
+      await this.paymentsService.getSuccessfulAmountByCampaignIds(
+        campaigns.map((campaign) => campaign.campaignId),
+      );
+    const campaignsWithAmount = campaigns.map((campaign) => ({
+      ...campaign,
+      currentAmount: amountByCampaignId.get(campaign.campaignId) ?? 0,
+    }));
 
     return {
       data: campaignsWithAmount,
@@ -193,6 +172,14 @@ export class CampaignsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async countCampaigns(where?: any) {
+    if (!where) {
+      return this.campaignRepository.count();
+    }
+
+    return this.campaignRepository.count({ where });
   }
 
   async getSponsorsByCampaignId(
@@ -216,14 +203,12 @@ export class CampaignsService {
       whereCondition.status = status;
     }
 
-    const [sponsors, total] = await this.sponsorRepository.findAndCount({
-      where: whereCondition,
-      order: {
-        sponsorId: 'DESC',
-      },
+    const [sponsors, total] = await this.sponsorsService.findAndCountByCampaign(
+      campaignId,
       skip,
-      take: limit,
-    });
+      limit,
+      status,
+    );
 
     return {
       data: sponsors,
@@ -245,13 +230,8 @@ export class CampaignsService {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
 
-    const transactions = await this.transactionRepository.find({
-      where: { campaignId, status: TransactionStatus.SUCCESS },
-    });
-    const currentAmount = transactions.reduce(
-      (sum, transaction) => sum + transaction.amount,
-      0,
-    );
+    const currentAmount =
+      await this.paymentsService.getSuccessfulAmountByCampaignId(campaignId);
 
     return {
       success: true,

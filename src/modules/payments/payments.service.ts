@@ -4,9 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Transaction, TransactionStatus } from './entities/transaction.entity';
-import { Repository } from 'typeorm/repository/Repository';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { Sponsor, SponsorStatus } from '../sponsors/entities/sponsor.entity';
 import PayOS from '../../common/config/payos.config';
@@ -19,16 +17,8 @@ import { Wallet } from '../wallets/entities';
 export class PaymentsService {
   constructor(
     private dataSource: DataSource,
-    @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>,
-    @InjectRepository(Campaign)
-    private campaignRepository: Repository<Campaign>,
-    @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
-    @InjectRepository(Sponsor)
-    private sponsorRepository: Repository<Sponsor>,
-    private configService: ConfigService
-  ) { }
+    private configService: ConfigService,
+  ) {}
 
   private getClientBaseUrl(): string {
     const explicit =
@@ -53,12 +43,16 @@ export class PaymentsService {
     };
   }
 
-  async createPayment(sponsorId: number, totalAmount: number, campaignId: number): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
+  async createPayment(
+    sponsorId: number,
+    totalAmount: number,
+    campaignId: number,
+  ): Promise<{ checkoutUrl: string; qrCode: string; order: any }> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
-      const orderCode = Number(String(new Date().getTime()).slice(-6))
+      const orderCode = Number(String(new Date().getTime()).slice(-6));
 
       // bấm vào nút thanh toán -> tạo mới sponsor (api khác) + transaction + update tiền campaign
       const campaign = await queryRunner.manager.findOne(Campaign, {
@@ -84,7 +78,7 @@ export class PaymentsService {
         amount: parseFloat(totalAmount.toString()),
         description: `THANH TOAN TAI TRO ${orderCode}`,
         ...this.getPaymentRedirectUrls(),
-      }
+      };
       const createdOrder = await this.createNewOrder(
         {
           sponsorId,
@@ -94,15 +88,15 @@ export class PaymentsService {
         totalAmount,
         `THANH TOAN TAI TRO ${orderCode}`,
         savedTransaction.transactionId,
-        queryRunner.manager
+        queryRunner.manager,
       );
       await queryRunner.commitTransaction();
       const paymentLink = await PayOS.paymentRequests.create(order);
       return {
         checkoutUrl: paymentLink.checkoutUrl,
         qrCode: paymentLink.qrCode,
-        order: createdOrder
-      }
+        order: createdOrder,
+      };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -115,7 +109,7 @@ export class PaymentsService {
     walletId: string,
     userId: string,
     totalAmount: number,
-  ): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
+  ): Promise<{ checkoutUrl: string; qrCode: string; order: any }> {
     if (totalAmount <= 0) {
       throw new BadRequestException('Số tiền nạp phải lớn hơn 0');
     }
@@ -182,7 +176,7 @@ export class PaymentsService {
   async createWalletTopupPaymentByUser(
     userId: string,
     totalAmount: number,
-  ): Promise<{ checkoutUrl: string, qrCode: string, order: any }> {
+  ): Promise<{ checkoutUrl: string; qrCode: string; order: any }> {
     if (totalAmount <= 0) {
       throw new BadRequestException('Số tiền nạp phải lớn hơn 0');
     }
@@ -240,15 +234,15 @@ export class PaymentsService {
       const sponsor =
         order.orderType === OrderType.SPONSOR && order.sponsorId
           ? await queryRunner.manager.findOne(Sponsor, {
-            where: { sponsorId: order.sponsorId },
-          })
+              where: { sponsorId: order.sponsorId },
+            })
           : null;
 
       const wallet =
         order.orderType === OrderType.WALLET_TOPUP && order.walletId
           ? await queryRunner.manager.findOne(Wallet, {
-            where: { walletId: order.walletId },
-          })
+              where: { walletId: order.walletId },
+            })
           : null;
 
       if (order.status === OrderStatus.COMPLETED) {
@@ -298,5 +292,102 @@ export class PaymentsService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async getTransactionsByUser(
+    userId: string,
+    page: number,
+    limit: number,
+    status?: TransactionStatus,
+  ) {
+    const whereCondition: { userId: string; status?: TransactionStatus } = {
+      userId,
+    };
+
+    if (status) {
+      whereCondition.status = status;
+    }
+
+    return this.dataSource.manager.findAndCount(Transaction, {
+      where: whereCondition,
+      order: { paymentDate: 'DESC', createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
+  async getMonthlyWalletStats(accountId: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    return this.dataSource
+      .getRepository(Transaction)
+      .createQueryBuilder('transaction')
+      .select(
+        `COALESCE(SUM(CASE WHEN transaction.note ILIKE 'NAP TIEN VI%' THEN transaction.amount ELSE 0 END), 0)`,
+        'totalTopupThisMonth',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN transaction.note ILIKE 'Thanh toan dau gia tranh #%'
+          OR transaction.note ILIKE 'RUT TIEN VI%'
+          OR transaction.note ILIKE 'WITHDRAW_APPROVED #%'
+          THEN transaction.amount ELSE 0 END), 0)`,
+        'totalSpendThisMonth',
+      )
+      .where('transaction.userId = :accountId', { accountId })
+      .andWhere('transaction.status = :successStatus', {
+        successStatus: TransactionStatus.SUCCESS,
+      })
+      .andWhere('transaction.paymentDate >= :monthStart', { monthStart })
+      .andWhere('transaction.paymentDate < :nextMonthStart', {
+        nextMonthStart,
+      })
+      .getRawOne<{
+        totalTopupThisMonth: string;
+        totalSpendThisMonth: string;
+      }>();
+  }
+
+  async getSuccessfulAmountByCampaignId(campaignId: number): Promise<number> {
+    const result = await this.dataSource
+      .getRepository(Transaction)
+      .createQueryBuilder('transaction')
+      .select('COALESCE(SUM(transaction.amount), 0)', 'total')
+      .where('transaction.campaignId = :campaignId', { campaignId })
+      .andWhere('transaction.status = :status', {
+        status: TransactionStatus.SUCCESS,
+      })
+      .getRawOne<{ total: string }>();
+
+    return Number(result?.total ?? 0);
+  }
+
+  async getSuccessfulAmountByCampaignIds(
+    campaignIds: number[],
+  ): Promise<Map<number, number>> {
+    const amountByCampaign = new Map<number, number>();
+
+    if (campaignIds.length === 0) {
+      return amountByCampaign;
+    }
+
+    const rows = await this.dataSource
+      .getRepository(Transaction)
+      .createQueryBuilder('transaction')
+      .select('transaction.campaignId', 'campaignId')
+      .addSelect('COALESCE(SUM(transaction.amount), 0)', 'total')
+      .where('transaction.campaignId IN (:...campaignIds)', { campaignIds })
+      .andWhere('transaction.status = :status', {
+        status: TransactionStatus.SUCCESS,
+      })
+      .groupBy('transaction.campaignId')
+      .getRawMany<{ campaignId: string; total: string }>();
+
+    rows.forEach((row) => {
+      amountByCampaign.set(Number(row.campaignId), Number(row.total));
+    });
+
+    return amountByCampaign;
   }
 }

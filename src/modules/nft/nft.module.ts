@@ -2,12 +2,16 @@ import { Module } from '@nestjs/common';
 import { NftService } from './nft.service';
 import { NftController } from './nft.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
 import { Nft } from './entities/nft.entity';
+import { PaintingsModule } from '../paintings/paintings.module';
+import { CompetitorsModule } from '../competitors/competitors.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Nft, Painting, Competitor])],
+  imports: [
+    TypeOrmModule.forFeature([Nft]),
+    PaintingsModule,
+    CompetitorsModule,
+  ],
   controllers: [NftController],
   providers: [NftService],
 })
