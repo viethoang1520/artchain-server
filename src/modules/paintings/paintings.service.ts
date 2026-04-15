@@ -235,6 +235,9 @@ export class PaintingsService {
           'ACCEPTED',
           'ORIGINAL_SUBMITTED',
           'NOT_SUBMITTED_ORIGINAL',
+          'IN_AUCTION',
+          'SOLD',
+          'RE_OPEN',
         ]),
       },
     });
