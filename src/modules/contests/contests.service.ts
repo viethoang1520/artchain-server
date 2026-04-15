@@ -334,7 +334,7 @@ export class ContestsService {
       }
     }
 
-    contest.status = ContestStatus.ACTIVE;
+    contest.status = ContestStatus.UPCOMING;
     const publishedContest = await this.contestsRepository.save(contest);
 
     return {

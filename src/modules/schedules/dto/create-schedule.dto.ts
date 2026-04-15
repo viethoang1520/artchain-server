@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsOptional,
   IsInt,
+  Matches,
 } from 'class-validator';
 
 export class CreateScheduleDto {
@@ -48,4 +49,17 @@ export class CreateScheduleDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiProperty({
+    description:
+      'Bảng ROUND_2 được phân cho examiner (A-Z). Bắt buộc nếu task thuộc ROUND_2.',
+    example: 'A',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z]$/, {
+    message: 'round2Table must be a single letter from A to Z',
+  })
+  round2Table?: string;
 }

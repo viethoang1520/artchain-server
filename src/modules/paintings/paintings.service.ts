@@ -1099,16 +1099,32 @@ export class PaintingsService {
     let roundIds: string[] = [];
     if (roundName) {
       if (roundName === 'ROUND_2') {
-        const round2Tables =
+        let round2Tables =
           await this.contestsQueryService.findRoundsByContestAndName(
             contestId,
             'ROUND_2',
           );
 
+        if (examinerId) {
+          const assignedTable =
+            await this.schedulesService.getAssignedRound2TableByExaminerAndContest(
+              examinerId,
+              contestId,
+            );
+
+          if (!assignedTable) {
+            throw new BadRequestException(
+              `Examiner ${examinerId} has no ROUND_2 table assignment for contest ${contestId}`,
+            );
+          }
+
+          round2Tables = round2Tables.filter(
+            (round) => round.table?.toUpperCase() === assignedTable,
+          );
+        }
+
         if (round2Tables.length > 0) {
-          roundIds = round2Tables
-            .filter((r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table))
-            .map((r) => String(r.roundId));
+          roundIds = round2Tables.map((r) => String(r.roundId));
         }
       } else {
         const round = await this.contestsQueryService.findRoundByContestAndName(
@@ -1469,6 +1485,28 @@ export class PaintingsService {
 
     const scheduleDate = new Date(schedule.date);
     scheduleDate.setHours(0, 0, 0, 0);
+
+    const assignedTable =
+      await this.schedulesService.getAssignedRound2TableByExaminerAndContest(
+        examinerId,
+        painting.contestId,
+      );
+
+    if (!assignedTable) {
+      return {
+        canEvaluate: false,
+        message:
+          'Examiner does not have a ROUND_2 table assignment for this contest',
+      };
+    }
+
+    const paintingTable = round.table?.toUpperCase();
+    if (paintingTable !== assignedTable) {
+      return {
+        canEvaluate: false,
+        message: `Examiner is assigned to table ${assignedTable} and cannot evaluate table ${paintingTable || 'UNKNOWN'}`,
+      };
+    }
 
     // Check if schedule enforcement is enabled for this contest
     const contest = await this.contestsQueryService.findContestById(

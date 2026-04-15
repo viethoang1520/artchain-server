@@ -1300,6 +1300,7 @@ Lấy danh sách lịch chấm bài của examiner với thông tin canEvaluate.
             contestId: 1,
             examinerId: 'uuid-123',
             task: 'Chấm vòng 1',
+            round2Table: 'A',
             date: '2025-11-08',
             status: 'ACTIVE',
             createdAt: '2025-11-01T00:00:00Z',

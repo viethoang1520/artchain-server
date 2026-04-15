@@ -24,6 +24,9 @@ export class Schedule {
   @Column({ name: 'task', type: 'varchar', length: 255 })
   task: string;
 
+  @Column({ name: 'round2_table', type: 'varchar', length: 1, nullable: true })
+  round2Table?: string;
+
   @Column({ name: 'date', type: 'date' })
   date: Date;
 
