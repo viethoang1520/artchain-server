@@ -57,6 +57,9 @@ export class Painting {
   @Column({ nullable: true, name: 'award_id' })
   awardId: number | null;
 
+  @Column({ type: 'boolean', nullable: true, name: 'is_flagged' })
+  isFlagged: boolean;
+
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
 

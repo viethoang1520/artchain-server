@@ -17,7 +17,7 @@ import { ContestsModule } from '../contests/contests.module';
 @Module({
   imports: [
     FirebaseModule,
-    AiModule,
+    forwardRef(() => AiModule),
     CompetitorsModule,
     ExaminersModule,
     SchedulesModule,
@@ -29,4 +29,4 @@ import { ContestsModule } from '../contests/contests.module';
   providers: [PaintingsService],
   exports: [PaintingsService],
 })
-export class PaintingsModule {}
+export class PaintingsModule { }

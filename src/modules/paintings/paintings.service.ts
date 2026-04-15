@@ -43,7 +43,7 @@ export class PaintingsService {
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
-  ) {}
+  ) { }
 
   async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
     const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
@@ -1165,22 +1165,22 @@ export class PaintingsService {
               ...painting,
               competitor: competitor
                 ? {
-                    competitorId: competitor.competitorId,
-                    birthday: competitor.birthday,
-                    schoolName: competitor.schoolName,
-                    ward: competitor.ward,
-                    grade: competitor.grade,
-                    guardianId: competitor.guardianId,
-                  }
+                  competitorId: competitor.competitorId,
+                  birthday: competitor.birthday,
+                  schoolName: competitor.schoolName,
+                  ward: competitor.ward,
+                  grade: competitor.grade,
+                  guardianId: competitor.guardianId,
+                }
                 : null,
               user: user
                 ? {
-                    userId: user.userId,
-                    username: user.username,
-                    email: user.email,
-                    fullName: user.fullName,
-                    phone: user.phone,
-                  }
+                  userId: user.userId,
+                  username: user.username,
+                  email: user.email,
+                  fullName: user.fullName,
+                  phone: user.phone,
+                }
                 : null,
             };
           }),
@@ -1226,22 +1226,22 @@ export class PaintingsService {
           ...painting,
           competitor: competitor
             ? {
-                competitorId: competitor.competitorId,
-                birthday: competitor.birthday,
-                schoolName: competitor.schoolName,
-                ward: competitor.ward,
-                grade: competitor.grade,
-                guardianId: competitor.guardianId,
-              }
+              competitorId: competitor.competitorId,
+              birthday: competitor.birthday,
+              schoolName: competitor.schoolName,
+              ward: competitor.ward,
+              grade: competitor.grade,
+              guardianId: competitor.guardianId,
+            }
             : null,
           user: user
             ? {
-                userId: user.userId,
-                username: user.username,
-                email: user.email,
-                fullName: user.fullName,
-                phone: user.phone,
-              }
+              userId: user.userId,
+              username: user.username,
+              email: user.email,
+              fullName: user.fullName,
+              phone: user.phone,
+            }
             : null,
         };
       }),
@@ -1255,7 +1255,10 @@ export class PaintingsService {
 
   async uploadFile(@UploadedFile() file: Express.Multer.File, data: any) {
     if (!file) throw new NotFoundException('No file uploaded!');
-    const { ignoreAiCheck, competitorId, contestId, roundId } = data;
+    const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+    const { ignoreAiCheck, competitorId, contestId, roundId } = parsedData;
+    const isFlagged =
+      parsedData?.isFlagged === true || parsedData?.isFlagged === 'true';
     if (ignoreAiCheck !== 'true') {
       const validationResult = await this.aiService.checkValidSubmission(
         file.buffer.toString('base64'),
@@ -1292,7 +1295,13 @@ export class PaintingsService {
       expires: '03-09-2491',
     });
 
-    const newPainting = await this.createPainting(data, url);
+    const newPainting = await this.createPainting(parsedData, url);
+
+    await this.paintingRepository.update(
+      { paintingId: newPainting.paintingId },
+      { isFlagged }
+    );
+
 
     return newPainting;
   }
