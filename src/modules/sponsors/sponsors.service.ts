@@ -9,11 +9,9 @@ import { PaymentsService } from '../payments/payments.service';
 import { Tier } from '../tiers/entities/tier.entity';
 import { SponsorshipTier } from '../tiers/entities/sponsorship-tier.entity';
 
-type CampaignTierMinPrices = {
-  bronze: number;
-  silver: number;
-  gold: number;
-  diamond: number;
+type CampaignTierInput = {
+  tierId: number;
+  minPrice: number;
 };
 
 @Injectable()
@@ -33,7 +31,7 @@ export class SponsorsService {
 
   async createCampaignSponsorshipTiers(
     campaignId: number,
-    minPrices: CampaignTierMinPrices,
+    tiersInput: CampaignTierInput[],
   ) {
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
@@ -43,49 +41,42 @@ export class SponsorsService {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
 
-    const requiredTierNames = ['bronze', 'silver', 'gold', 'diamond'];
+    if (!tiersInput?.length) {
+      throw new BadRequestException('Danh sách tier không được để trống');
+    }
+
+    const uniqueTierIds = [...new Set(tiersInput.map((item) => item.tierId))];
+    if (uniqueTierIds.length !== tiersInput.length) {
+      throw new BadRequestException('Danh sách tier bị trùng tierId');
+    }
+
     const tiers = await this.tierRepository.find({
-      where: requiredTierNames.map((name) => ({ name })),
+      where: uniqueTierIds.map((id) => ({ id })),
     });
 
-    if (tiers.length !== requiredTierNames.length) {
+    if (tiers.length !== uniqueTierIds.length) {
       throw new BadRequestException(
-        'Thiếu dữ liệu tier bắt buộc trong hệ thống: bronze, silver, gold, diamond',
+        'Có tierId không tồn tại trong hệ thống',
       );
     }
 
-    const tierMap = new Map(tiers.map((tier) => [tier.name.toLowerCase(), tier]));
+    const tierMap = new Map(tiers.map((tier) => [tier.id, tier]));
 
-    const sponsorshipTiers = this.sponsorshipTierRepository.create([
-      {
-        campaignId,
-        tierId: tierMap.get('bronze')!.id,
-        minPrice: minPrices.bronze,
-        maxPrice: null,
-        isActive: true,
-      },
-      {
-        campaignId,
-        tierId: tierMap.get('silver')!.id,
-        minPrice: minPrices.silver,
-        maxPrice: null,
-        isActive: true,
-      },
-      {
-        campaignId,
-        tierId: tierMap.get('gold')!.id,
-        minPrice: minPrices.gold,
-        maxPrice: null,
-        isActive: true,
-      },
-      {
-        campaignId,
-        tierId: tierMap.get('diamond')!.id,
-        minPrice: minPrices.diamond,
-        maxPrice: null,
-        isActive: true,
-      },
-    ]);
+    const sponsorshipTiers = this.sponsorshipTierRepository.create(
+      tiersInput.map((item) => {
+        if (item.minPrice <= 0) {
+          throw new BadRequestException('Mức tài trợ tối thiểu phải lớn hơn 0');
+        }
+
+        return {
+          campaignId,
+          tierId: tierMap.get(item.tierId)!.id,
+          minPrice: item.minPrice,
+          maxPrice: null,
+          isActive: true,
+        };
+      }),
+    );
 
     return this.sponsorshipTierRepository.save(sponsorshipTiers);
   }

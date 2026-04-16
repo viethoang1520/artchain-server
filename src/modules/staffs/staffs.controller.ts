@@ -806,7 +806,7 @@ export class StaffController {
         },
         file,
       );
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to create post');
     }
   }
@@ -1098,35 +1098,35 @@ export class StaffController {
           description: 'Campaign status',
           example: 'DRAFT',
         },
-        bronzeMinPrice: {
-          type: 'number',
-          description: 'Minimum sponsorship amount for Bronze tier',
-          example: 500000,
-        },
-        silverMinPrice: {
-          type: 'number',
-          description: 'Minimum sponsorship amount for Silver tier',
-          example: 1000000,
-        },
-        goldMinPrice: {
-          type: 'number',
-          description: 'Minimum sponsorship amount for Gold tier',
-          example: 2000000,
-        },
-        diamondMinPrice: {
-          type: 'number',
-          description: 'Minimum sponsorship amount for Diamond tier',
-          example: 5000000,
+        tiers: {
+          type: 'array',
+          description: 'Danh sách tier và mức tài trợ tối thiểu do người dùng cấu hình',
+          items: {
+            type: 'object',
+            properties: {
+              tierId: {
+                type: 'number',
+                example: 1,
+              },
+              minPrice: {
+                type: 'number',
+                example: 500000,
+              },
+            },
+            required: ['tierId', 'minPrice'],
+          },
+          example: [
+            { tierId: 1, minPrice: 500000 },
+            { tierId: 2, minPrice: 1000000 },
+            { tierId: 3, minPrice: 2000000 },
+          ],
         },
       },
       required: [
         'title',
         'goalAmount',
         'deadline',
-        'bronzeMinPrice',
-        'silverMinPrice',
-        'goldMinPrice',
-        'diamondMinPrice',
+        'tiers',
       ],
     },
   })
