@@ -7,9 +7,33 @@ import {
   IsDateString,
   IsEnum,
   IsOptional,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignStatus } from '../../campaigns/entities/campaign.entity';
+
+export class CreateCampaignTierDto {
+  @ApiProperty({
+    description: 'ID của tier',
+    example: 1,
+  })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  tierId: number;
+
+  @ApiProperty({
+    description: 'Mức tài trợ tối thiểu của tier',
+    example: 500000,
+    type: 'number',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Type(() => Number)
+  minPrice: number;
+}
 
 export class CreateCampaignDto {
   @ApiProperty({
@@ -59,44 +83,18 @@ export class CreateCampaignDto {
   status?: CampaignStatus;
 
   @ApiProperty({
-    description: 'Minimum sponsorship amount for Bronze tier',
-    example: 500000,
-    type: 'number',
+    description: 'Danh sách các tier và mức tài trợ tối thiểu cho campaign',
+    type: [CreateCampaignTierDto],
+    example: [
+      { tierId: 1, minPrice: 500000 },
+      { tierId: 2, minPrice: 1000000 },
+    ],
   })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  @Type(() => Number)
-  bronzeMinPrice: number;
-
-  @ApiProperty({
-    description: 'Minimum sponsorship amount for Silver tier',
-    example: 1000000,
-    type: 'number',
-  })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  @Type(() => Number)
-  silverMinPrice: number;
-
-  @ApiProperty({
-    description: 'Minimum sponsorship amount for Gold tier',
-    example: 2000000,
-    type: 'number',
-  })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  @Type(() => Number)
-  goldMinPrice: number;
-
-  @ApiProperty({
-    description: 'Minimum sponsorship amount for Diamond tier',
-    example: 5000000,
-    type: 'number',
-  })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  @Type(() => Number)
-  diamondMinPrice: number;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateCampaignTierDto)
+  tiers: CreateCampaignTierDto[];
 
   // @ApiProperty({
   //   description: 'ID of the staff member creating the campaign',
