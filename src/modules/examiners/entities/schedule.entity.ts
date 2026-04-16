@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Contest } from '../../contests/entities/contests.entity';
-import { Examiner } from '../../examiners/entities/examiners.entity';
+import { Examiner } from './examiners.entity';
 
 @Entity('schedules')
 export class Schedule {
@@ -39,7 +39,6 @@ export class Schedule {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
-  // Relationships
   @ManyToOne(() => Contest, (contest) => contest.schedules)
   @JoinColumn({ name: 'contest_id' })
   contest: Contest;

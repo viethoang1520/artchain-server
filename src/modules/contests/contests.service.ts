@@ -19,7 +19,6 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { PaintingsService } from '../paintings/paintings.service';
 import { ExaminersService } from '../examiners/examiners.service';
 import { CompetitorsService } from '../competitors/competitor.service';
-import { SchedulesService } from '../schedules/schedules.service';
 import { AwardsService } from '../awards/awards.service';
 import { ContestsRoundsService } from './contests-rounds.service';
 
@@ -32,7 +31,6 @@ export class ContestsService {
     private paintingsService: PaintingsService,
     private examinersService: ExaminersService,
     private competitorsService: CompetitorsService,
-    private schedulesService: SchedulesService,
     private awardsService: AwardsService,
     private contestsRoundsService: ContestsRoundsService,
   ) {}
@@ -183,7 +181,7 @@ export class ContestsService {
 
       // Kiểm tra canEvaluate dựa trên schedule và isScheduleEnforced
       const schedule =
-        await this.schedulesService.findActiveScheduleByExaminerAndContest(
+        await this.examinersService.findActiveScheduleByExaminerAndContest(
           examinerId,
           contest.contestId,
         );
@@ -295,15 +293,22 @@ export class ContestsService {
 
     if (!assignment) {
       throw new NotFoundException(
-        `Assignment not found for contest ${contestId} and examiner ${examinerId}`,
+        `Không tìm thấy giám khảo  ${examinerId} trong cuộc thi ${contestId} `,
       );
     }
 
-    await this.examinersService.removeAssignment(assignment);
+    const deleteResult =
+      await this.examinersService.removeAssignment(assignment);
+
+    if (!deleteResult.affected) {
+      throw new NotFoundException(
+        `Không tìm thấy bản ghi phân công của giám khảo ${examinerId} trong cuộc thi ${contestId}`,
+      );
+    }
 
     return {
       success: true,
-      message: 'Examiner removed from contest successfully',
+      message: 'Giám khảo được xóa thành công',
     };
   }
 
@@ -334,7 +339,7 @@ export class ContestsService {
       }
     }
 
-    contest.status = ContestStatus.ACTIVE;
+    contest.status = ContestStatus.UPCOMING;
     const publishedContest = await this.contestsRepository.save(contest);
 
     return {

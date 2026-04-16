@@ -9,7 +9,7 @@ import {
 import { Award } from '../../awards/entities/award.entity';
 import { User } from '../../users/entities/user.entity';
 import { Painting } from '../../paintings/entities/paintings.entity';
-import { Schedule } from '../../schedules/entities/schedule.entity';
+import { Schedule } from '../../examiners/entities/schedule.entity';
 import { Round } from './round.entity';
 
 export enum ContestStatus {
