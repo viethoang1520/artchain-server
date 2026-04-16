@@ -16,6 +16,7 @@ export class ContestsQueryService {
   async findContestById(contestId: number) {
     return this.contestsRepository.findOne({
       where: { contestId },
+      relations: ['rounds'],
     });
   }
 

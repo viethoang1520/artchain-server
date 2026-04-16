@@ -130,7 +130,7 @@ export class ContestsRoundsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Cuộc thi với ID ${contestId} không tồn tại`);
     }
 
     const allRounds = await this.roundsRepository.find({
@@ -237,7 +237,7 @@ export class ContestsRoundsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Cuộc thi với ID ${contestId} không tồn tại`);
     }
 
     const round = await this.roundsRepository.findOne({
@@ -246,7 +246,7 @@ export class ContestsRoundsService {
 
     if (!round) {
       throw new NotFoundException(
-        `Round with name "${name}" not found in contest ${contestId}`,
+        `Vòng thi với tên "${name}" không tồn tại trong cuộc thi ${contestId}`,
       );
     }
 
@@ -355,7 +355,7 @@ export class ContestsRoundsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Cuộc thi với ID ${contestId} không tồn tại`);
     }
 
     const round = await this.roundsRepository.findOne({
@@ -364,7 +364,7 @@ export class ContestsRoundsService {
 
     if (!round) {
       throw new NotFoundException(
-        `Round with ID ${roundId} not found in contest ${contestId}`,
+        `Vòng thi với ID ${roundId} không tồn tại trong cuộc thi ${contestId}`,
       );
     }
 
@@ -384,7 +384,7 @@ export class ContestsRoundsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Cuộc thi với ID ${contestId} không tồn tại`);
     }
 
     const round = await this.roundsRepository.findOne({
@@ -393,7 +393,7 @@ export class ContestsRoundsService {
 
     if (!round) {
       throw new NotFoundException(
-        `Round with ID ${roundId} not found in contest ${contestId}`,
+        `Vòng thi với ID ${roundId} không tồn tại trong cuộc thi ${contestId}`,
       );
     }
 
@@ -426,7 +426,7 @@ export class ContestsRoundsService {
 
     return {
       success: true,
-      message: 'Round updated successfully',
+      message: 'Vòng thi đã được cập nhật thành công',
       data: savedRound,
     };
   }
@@ -437,7 +437,7 @@ export class ContestsRoundsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Cuộc thi với ID ${contestId} không tồn tại`);
     }
 
     const round = await this.roundsRepository.findOne({
@@ -446,7 +446,7 @@ export class ContestsRoundsService {
 
     if (!round) {
       throw new NotFoundException(
-        `Round with ID ${roundId} not found in contest ${contestId}`,
+        `Vòng thi với ID ${roundId} không tồn tại trong cuộc thi ${contestId}`,
       );
     }
 
@@ -454,7 +454,7 @@ export class ContestsRoundsService {
 
     return {
       success: true,
-      message: 'Round deleted successfully',
+      message: 'Vòng thi đã được xóa thành công',
       data: {
         roundId,
         contestId,

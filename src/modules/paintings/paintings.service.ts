@@ -24,7 +24,6 @@ import { GetAllSubmissionsDto } from './dto/get-all-submissions.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
 import { CompetitorsService } from '../competitors/competitor.service';
 import { ExaminersService } from '../examiners/examiners.service';
-import { SchedulesService } from '../schedules/schedules.service';
 import { AwardsService } from '../awards/awards.service';
 import { ContestsQueryService } from '../contests/contests-query.service';
 
@@ -35,7 +34,6 @@ export class PaintingsService {
     private readonly aiService: AiService,
     private readonly competitorsService: CompetitorsService,
     private readonly examinersService: ExaminersService,
-    private readonly schedulesService: SchedulesService,
     @Inject(forwardRef(() => AwardsService))
     private readonly awardsService: AwardsService,
     private readonly contestsQueryService: ContestsQueryService,
@@ -43,7 +41,7 @@ export class PaintingsService {
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
-  ) { }
+  ) {}
 
   async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
     const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
@@ -235,6 +233,9 @@ export class PaintingsService {
           'ACCEPTED',
           'ORIGINAL_SUBMITTED',
           'NOT_SUBMITTED_ORIGINAL',
+          'IN_AUCTION',
+          'SOLD',
+          'RE_OPEN',
         ]),
       },
     });
@@ -1083,6 +1084,11 @@ export class PaintingsService {
     status?: string,
     examinerId?: string,
   ) {
+    const normalizedRoundName = roundName
+      ? roundName.trim().toUpperCase().replace(/\s+/g, '_')
+      : undefined;
+    const normalizedExaminerId = examinerId?.trim() || undefined;
+
     const checkEvaluatedByExaminer = async (
       paintingId: string,
       examinerId: string,
@@ -1097,23 +1103,43 @@ export class PaintingsService {
     }
 
     let roundIds: string[] = [];
-    if (roundName) {
-      if (roundName === 'ROUND_2') {
-        const round2Tables =
+    if (normalizedRoundName) {
+      if (normalizedRoundName === 'ROUND_2') {
+        if (!normalizedExaminerId) {
+          throw new BadRequestException(
+            'examinerId is required for ROUND_2 to filter assigned table',
+          );
+        }
+
+        let round2Tables =
           await this.contestsQueryService.findRoundsByContestAndName(
             contestId,
             'ROUND_2',
           );
 
+        const assignedTable =
+          await this.examinersService.getAssignedRound2TableByExaminerAndContest(
+            normalizedExaminerId,
+            contestId,
+          );
+
+        if (!assignedTable) {
+          throw new BadRequestException(
+            `Examiner ${normalizedExaminerId} has no ROUND_2 table assignment for contest ${contestId}`,
+          );
+        }
+
+        round2Tables = round2Tables.filter(
+          (round) => round.table?.toUpperCase() === assignedTable,
+        );
+
         if (round2Tables.length > 0) {
-          roundIds = round2Tables
-            .filter((r) => r.table && ['A', 'B', 'C', 'D'].includes(r.table))
-            .map((r) => String(r.roundId));
+          roundIds = round2Tables.map((r) => String(r.roundId));
         }
       } else {
         const round = await this.contestsQueryService.findRoundByContestAndName(
           contestId,
-          roundName,
+          normalizedRoundName,
         );
 
         if (round) {
@@ -1141,12 +1167,12 @@ export class PaintingsService {
         const paintingsArrays = await Promise.all(paintingsPromises);
         let allPaintings = paintingsArrays.flat();
 
-        if (examinerId) {
+        if (normalizedExaminerId) {
           const unevaluatedPaintings = await Promise.all(
             allPaintings.map(async (painting) => {
               const hasEvaluated = await checkEvaluatedByExaminer(
                 painting.paintingId,
-                examinerId,
+                normalizedExaminerId,
               );
               return hasEvaluated ? null : painting;
             }),
@@ -1165,22 +1191,22 @@ export class PaintingsService {
               ...painting,
               competitor: competitor
                 ? {
-                  competitorId: competitor.competitorId,
-                  birthday: competitor.birthday,
-                  schoolName: competitor.schoolName,
-                  ward: competitor.ward,
-                  grade: competitor.grade,
-                  guardianId: competitor.guardianId,
-                }
+                    competitorId: competitor.competitorId,
+                    birthday: competitor.birthday,
+                    schoolName: competitor.schoolName,
+                    ward: competitor.ward,
+                    grade: competitor.grade,
+                    guardianId: competitor.guardianId,
+                  }
                 : null,
               user: user
                 ? {
-                  userId: user.userId,
-                  username: user.username,
-                  email: user.email,
-                  fullName: user.fullName,
-                  phone: user.phone,
-                }
+                    userId: user.userId,
+                    username: user.username,
+                    email: user.email,
+                    fullName: user.fullName,
+                    phone: user.phone,
+                  }
                 : null,
             };
           }),
@@ -1202,12 +1228,12 @@ export class PaintingsService {
     });
 
     // Filter paintings that have NOT been evaluated by this examiner (if examinerId provided)
-    if (examinerId) {
+    if (normalizedExaminerId) {
       const unevaluatedPaintings = await Promise.all(
         paintings.map(async (painting) => {
           const hasEvaluated = await checkEvaluatedByExaminer(
             painting.paintingId,
-            examinerId,
+            normalizedExaminerId,
           );
           return hasEvaluated ? null : painting;
         }),
@@ -1226,22 +1252,22 @@ export class PaintingsService {
           ...painting,
           competitor: competitor
             ? {
-              competitorId: competitor.competitorId,
-              birthday: competitor.birthday,
-              schoolName: competitor.schoolName,
-              ward: competitor.ward,
-              grade: competitor.grade,
-              guardianId: competitor.guardianId,
-            }
+                competitorId: competitor.competitorId,
+                birthday: competitor.birthday,
+                schoolName: competitor.schoolName,
+                ward: competitor.ward,
+                grade: competitor.grade,
+                guardianId: competitor.guardianId,
+              }
             : null,
           user: user
             ? {
-              userId: user.userId,
-              username: user.username,
-              email: user.email,
-              fullName: user.fullName,
-              phone: user.phone,
-            }
+                userId: user.userId,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                phone: user.phone,
+              }
             : null,
         };
       }),
@@ -1299,9 +1325,8 @@ export class PaintingsService {
 
     await this.paintingRepository.update(
       { paintingId: newPainting.paintingId },
-      { isFlagged }
+      { isFlagged },
     );
-
 
     return newPainting;
   }
@@ -1349,7 +1374,7 @@ export class PaintingsService {
     today.setHours(0, 0, 0, 0);
 
     const schedule =
-      await this.schedulesService.findActiveScheduleByExaminerAndContest(
+      await this.examinersService.findActiveScheduleByExaminerAndContest(
         examinerId,
         painting.contestId,
       );
@@ -1363,6 +1388,34 @@ export class PaintingsService {
 
     const scheduleDate = new Date(schedule.date);
     scheduleDate.setHours(0, 0, 0, 0);
+
+    const round = await this.contestsQueryService.findRoundById(
+      painting.roundId,
+    );
+
+    if (round?.name === 'ROUND_2') {
+      const assignedTable =
+        await this.examinersService.getAssignedRound2TableByExaminerAndContest(
+          examinerId,
+          painting.contestId,
+        );
+
+      if (!assignedTable) {
+        return {
+          canEvaluate: false,
+          message:
+            'Examiner does not have a ROUND_2 table assignment for this contest',
+        };
+      }
+
+      const paintingTable = round.table?.trim().toUpperCase();
+      if (paintingTable !== assignedTable) {
+        return {
+          canEvaluate: false,
+          message: `Examiner is assigned to table ${assignedTable} and cannot evaluate table ${paintingTable || 'UNKNOWN'}`,
+        };
+      }
+    }
 
     // Check if schedule enforcement is enabled for this contest
     const contest = await this.contestsQueryService.findContestById(
@@ -1464,7 +1517,7 @@ export class PaintingsService {
     today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
 
     const schedule =
-      await this.schedulesService.findActiveScheduleByExaminerAndContest(
+      await this.examinersService.findActiveScheduleByExaminerAndContest(
         examinerId,
         painting.contestId,
       );
@@ -1478,6 +1531,28 @@ export class PaintingsService {
 
     const scheduleDate = new Date(schedule.date);
     scheduleDate.setHours(0, 0, 0, 0);
+
+    const assignedTable =
+      await this.examinersService.getAssignedRound2TableByExaminerAndContest(
+        examinerId,
+        painting.contestId,
+      );
+
+    if (!assignedTable) {
+      return {
+        canEvaluate: false,
+        message:
+          'Examiner does not have a ROUND_2 table assignment for this contest',
+      };
+    }
+
+    const paintingTable = round.table?.toUpperCase();
+    if (paintingTable !== assignedTable) {
+      return {
+        canEvaluate: false,
+        message: `Examiner is assigned to table ${assignedTable} and cannot evaluate table ${paintingTable || 'UNKNOWN'}`,
+      };
+    }
 
     // Check if schedule enforcement is enabled for this contest
     const contest = await this.contestsQueryService.findContestById(
