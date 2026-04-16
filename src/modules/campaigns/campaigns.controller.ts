@@ -17,7 +17,7 @@ import { UpdateCampaignDto } from './dto/update-campaign.dto';
 @ApiTags('Campaigns')
 @Controller('api/campaigns')
 export class CampaignsController {
-  constructor(private readonly campaignsService: CampaignsService) {}
+  constructor(private readonly campaignsService: CampaignsService) { }
 
   @Get('')
   @ApiOperation({
@@ -89,8 +89,8 @@ export class CampaignsController {
         limit || 10,
         status,
       );
-    } catch (error) {
-      throw new BadRequestException(error.message || 'Failed to get campaigns');
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'Không thể lấy danh sách campaign');
     }
   }
 
@@ -135,9 +135,29 @@ export class CampaignsController {
   async getCampaignDetail(@Param('id') id: number) {
     try {
       return await this.campaignsService.getCampaignDetail(id);
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException(
-        error.message || 'Failed to get campaign detail',
+        error.message || 'Không thể lấy chi tiết campaign',
+      );
+    }
+  }
+
+  @Get(':id/sponsorship-tiers')
+  @ApiOperation({
+    summary: 'Get sponsorship tiers by campaign ID',
+    description:
+      'Lấy danh sách tier tài trợ (bronze/silver/gold/diamond) của một campaign',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy danh sách tier tài trợ thành công',
+  })
+  async getSponsorshipTiersByCampaignId(@Param('id') id: number) {
+    try {
+      return await this.campaignsService.getCampaignSponsorshipTiers(id);
+    } catch (error: any) {
+      throw new BadRequestException(
+        error.message || 'Không thể lấy danh sách tier tài trợ của campaign',
       );
     }
   }
@@ -223,8 +243,8 @@ export class CampaignsController {
         limit || 10,
         status,
       );
-    } catch (error) {
-      throw new BadRequestException(error.message || 'Failed to get sponsors');
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'Không thể lấy danh sách nhà tài trợ');
     }
   }
 }

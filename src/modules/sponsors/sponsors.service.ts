@@ -50,7 +50,7 @@ export class SponsorsService {
 
     if (tiers.length !== requiredTierNames.length) {
       throw new BadRequestException(
-        'Missing required tiers in database: bronze, silver, gold, diamond',
+        'Thiếu dữ liệu tier bắt buộc trong hệ thống: bronze, silver, gold, diamond',
       );
     }
 
@@ -90,6 +90,42 @@ export class SponsorsService {
     return this.sponsorshipTierRepository.save(sponsorshipTiers);
   }
 
+  async getCampaignSponsorshipTiers(campaignId: number) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
+    }
+
+    const sponsorshipTiers = await this.sponsorshipTierRepository.find({
+      where: { campaignId, isActive: true },
+      relations: {
+        tier: true,
+      },
+    });
+
+    sponsorshipTiers.sort((a, b) => {
+      const priorityA = a.tier?.priority ?? 999;
+      const priorityB = b.tier?.priority ?? 999;
+      return priorityA - priorityB;
+    });
+
+    return {
+      success: true,
+      data: sponsorshipTiers.map((item) => ({
+        id: item.id,
+        campaignId: item.campaignId,
+        tierId: item.tierId,
+        tierName: item.tier?.name,
+        tierDisplay: item.tier?.display,
+        minPrice: item.minPrice,
+      })),
+    };
+  }
+
+
   async createSponsor(
     createSponsorDto: CreateSponsorDto,
     file?: Express.Multer.File,
@@ -100,7 +136,7 @@ export class SponsorsService {
       where: { campaignId },
     });
     if (!campaign) {
-      throw new NotFoundException('Campaign not found');
+      throw new NotFoundException('Không tìm thấy campaign');
     }
 
     let logoUrl: string | undefined;

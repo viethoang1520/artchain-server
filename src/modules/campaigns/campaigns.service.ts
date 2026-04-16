@@ -41,7 +41,7 @@ export class CampaignsService {
     const role = user?.role;
     if (role !== 'STAFF' && role !== 'ADMIN') {
       throw new BadRequestException(
-        'Only staff or admin users can create campaigns',
+        'Chỉ người dùng có vai trò staff hoặc admin mới được tạo campaign',
       );
     }
 
@@ -62,7 +62,7 @@ export class CampaignsService {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error';
-        throw new BadRequestException(`Failed to upload image: ${message}`);
+        throw new BadRequestException(`Tải ảnh lên thất bại: ${message}`);
       }
     }
 
@@ -115,7 +115,7 @@ export class CampaignsService {
       const role = user?.role;
       if (role !== 'STAFF' && role !== 'ADMIN') {
         throw new BadRequestException(
-          'Only staff or admin users can update campaigns',
+          'Chỉ người dùng có vai trò staff hoặc admin mới được cập nhật campaign',
         );
       }
     }
@@ -137,7 +137,7 @@ export class CampaignsService {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error';
-        throw new BadRequestException(`Failed to upload image: ${message}`);
+        throw new BadRequestException(`Tải ảnh lên thất bại: ${message}`);
       }
     }
 
@@ -259,5 +259,9 @@ export class CampaignsService {
         currentAmount,
       },
     };
+  }
+
+  async getCampaignSponsorshipTiers(campaignId: number) {
+    return this.sponsorsService.getCampaignSponsorshipTiers(campaignId);
   }
 }
