@@ -10,7 +10,6 @@ import { AiModule } from '../ai/ai.module';
 import { Nft } from '../nft/entities/nft.entity';
 import { CompetitorsModule } from '../competitors/competitors.module';
 import { ExaminersModule } from '../examiners/examiners.module';
-import { SchedulesModule } from '../schedules/schedules.module';
 import { AwardsModule } from '../awards/awards.module';
 import { ContestsModule } from '../contests/contests.module';
 
@@ -20,7 +19,6 @@ import { ContestsModule } from '../contests/contests.module';
     forwardRef(() => AiModule),
     CompetitorsModule,
     ExaminersModule,
-    SchedulesModule,
     forwardRef(() => AwardsModule),
     forwardRef(() => ContestsModule),
     TypeOrmModule.forFeature([Painting, Evaluation, Nft]),
@@ -29,4 +27,4 @@ import { ContestsModule } from '../contests/contests.module';
   providers: [PaintingsService],
   exports: [PaintingsService],
 })
-export class PaintingsModule { }
+export class PaintingsModule {}

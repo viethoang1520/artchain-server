@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Evaluation } from '../../paintings/entities/evaluation.entity';
-import { Schedule } from '../../schedules/entities/schedule.entity';
+import { Schedule } from './schedule.entity';
 
 @Entity('examiners')
 export class Examiner {

@@ -7,13 +7,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
-import { SchedulesService } from '../schedules/schedules.service';
+import { ExaminersService } from './examiners.service';
 
 @ApiTags('Examiners')
 @ApiBearerAuth()
 @Controller('api/examiners')
 export class ExaminersController {
-  constructor(private readonly schedulesService: SchedulesService) {}
+  constructor(private readonly examinersService: ExaminersService) {}
 
   @Get('schedules')
   @UseGuards(AuthGuard)
@@ -24,11 +24,13 @@ export class ExaminersController {
   async getMySchedules(@Request() req: any) {
     try {
       const examinerId = req.user.sub || req.user.userId;
-      return await this.schedulesService.getSchedulesByExaminer(examinerId);
+      return await this.examinersService.getSchedulesByExaminer(examinerId);
     } catch (error) {
-      throw new BadRequestException(
-        error.message || 'Không thể lấy lịch trình của giám khảo',
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Không thể lấy lịch trình của giám khảo';
+      throw new BadRequestException(message);
     }
   }
 }

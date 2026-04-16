@@ -10,7 +10,6 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { PaintingsModule } from '../paintings/paintings.module';
 import { ExaminersModule } from '../examiners/examiners.module';
 import { CompetitorsModule } from '../competitors/competitors.module';
-import { SchedulesModule } from '../schedules/schedules.module';
 import { AwardsModule } from '../awards/awards.module';
 import { ContestsRoundsService } from './contests-rounds.service';
 import { ContestsQueryService } from './contests-query.service';
@@ -21,9 +20,8 @@ import { ContestsQueryService } from './contests-query.service';
     AuthModule,
     FirebaseModule,
     forwardRef(() => PaintingsModule),
-    ExaminersModule,
+    forwardRef(() => ExaminersModule),
     CompetitorsModule,
-    forwardRef(() => SchedulesModule),
     forwardRef(() => AwardsModule),
   ],
   controllers: [ContestsController],

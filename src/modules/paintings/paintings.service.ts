@@ -24,7 +24,6 @@ import { GetAllSubmissionsDto } from './dto/get-all-submissions.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
 import { CompetitorsService } from '../competitors/competitor.service';
 import { ExaminersService } from '../examiners/examiners.service';
-import { SchedulesService } from '../schedules/schedules.service';
 import { AwardsService } from '../awards/awards.service';
 import { ContestsQueryService } from '../contests/contests-query.service';
 
@@ -35,7 +34,6 @@ export class PaintingsService {
     private readonly aiService: AiService,
     private readonly competitorsService: CompetitorsService,
     private readonly examinersService: ExaminersService,
-    private readonly schedulesService: SchedulesService,
     @Inject(forwardRef(() => AwardsService))
     private readonly awardsService: AwardsService,
     private readonly contestsQueryService: ContestsQueryService,
@@ -1120,7 +1118,7 @@ export class PaintingsService {
           );
 
         const assignedTable =
-          await this.schedulesService.getAssignedRound2TableByExaminerAndContest(
+          await this.examinersService.getAssignedRound2TableByExaminerAndContest(
             normalizedExaminerId,
             contestId,
           );
@@ -1376,7 +1374,7 @@ export class PaintingsService {
     today.setHours(0, 0, 0, 0);
 
     const schedule =
-      await this.schedulesService.findActiveScheduleByExaminerAndContest(
+      await this.examinersService.findActiveScheduleByExaminerAndContest(
         examinerId,
         painting.contestId,
       );
@@ -1397,7 +1395,7 @@ export class PaintingsService {
 
     if (round?.name === 'ROUND_2') {
       const assignedTable =
-        await this.schedulesService.getAssignedRound2TableByExaminerAndContest(
+        await this.examinersService.getAssignedRound2TableByExaminerAndContest(
           examinerId,
           painting.contestId,
         );
@@ -1519,7 +1517,7 @@ export class PaintingsService {
     today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
 
     const schedule =
-      await this.schedulesService.findActiveScheduleByExaminerAndContest(
+      await this.examinersService.findActiveScheduleByExaminerAndContest(
         examinerId,
         painting.contestId,
       );
@@ -1535,7 +1533,7 @@ export class PaintingsService {
     scheduleDate.setHours(0, 0, 0, 0);
 
     const assignedTable =
-      await this.schedulesService.getAssignedRound2TableByExaminerAndContest(
+      await this.examinersService.getAssignedRound2TableByExaminerAndContest(
         examinerId,
         painting.contestId,
       );
