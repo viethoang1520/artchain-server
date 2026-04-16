@@ -120,7 +120,10 @@ export class ExaminersService {
   }
 
   async removeAssignment(assignment: ContestExaminer) {
-    return this.contestExaminersRepository.remove(assignment);
+    return this.contestExaminersRepository.delete({
+      contestId: assignment.contestId,
+      examinerId: assignment.examinerId,
+    });
   }
 
   async ensureExaminerAssignedSchedule(examinerId: string, scheduleId: number) {

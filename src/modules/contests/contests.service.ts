@@ -295,15 +295,22 @@ export class ContestsService {
 
     if (!assignment) {
       throw new NotFoundException(
-        `Assignment not found for contest ${contestId} and examiner ${examinerId}`,
+        `Không tìm thấy giám khảo  ${examinerId} trong cuộc thi ${contestId} `,
       );
     }
 
-    await this.examinersService.removeAssignment(assignment);
+    const deleteResult =
+      await this.examinersService.removeAssignment(assignment);
+
+    if (!deleteResult.affected) {
+      throw new NotFoundException(
+        `Không tìm thấy bản ghi phân công của giám khảo ${examinerId} trong cuộc thi ${contestId}`,
+      );
+    }
 
     return {
       success: true,
-      message: 'Examiner removed from contest successfully',
+      message: 'Giám khảo được xóa thành công',
     };
   }
 
