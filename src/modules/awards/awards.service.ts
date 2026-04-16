@@ -1,25 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { Award } from './entities/award.entity';
-import { Contest } from '../contests/entities/contests.entity';
-import { Evaluation } from '../paintings/entities/evaluation.entity';
-import { User } from '../users/entities/user.entity';
 import { CreateAwardDto } from './dto/create-award.dto';
 import { UpdateAwardDto } from './dto/update-award.dto';
 import { CreateAwardsBatchDto } from './dto/create-awards-batch.dto';
+import { ContestsQueryService } from '../contests/contests-query.service';
+import { UsersService } from '../users/users.service';
+import { PaintingsService } from '../paintings/paintings.service';
 
 @Injectable()
 export class AwardsService {
   constructor(
     @InjectRepository(Award)
     private readonly awardRepository: Repository<Award>,
-    @InjectRepository(Contest)
-    private readonly contestRepository: Repository<Contest>,
-    @InjectRepository(Evaluation)
-    private readonly evaluationRepository: Repository<Evaluation>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly contestsQueryService: ContestsQueryService,
+    private readonly usersService: UsersService,
+    @Inject(forwardRef(() => PaintingsService))
+    private readonly paintingsService: PaintingsService,
   ) {}
 
   /**
@@ -29,41 +32,40 @@ export class AwardsService {
   private async calculateAverageScore(
     paintingId: string,
   ): Promise<number | null> {
-    const evaluations = await this.evaluationRepository.find({
-      where: { paintingId },
-    });
+    return this.paintingsService.calculateAverageScoreFromEvaluations(
+      paintingId,
+    );
+  }
 
-    if (evaluations.length === 0) {
+  private async recomputeContestNumOfAward(contestId: number) {
+    const contest = await this.contestsQueryService.findContestById(contestId);
+    if (!contest) {
       return null;
     }
 
-    let totalScore = 0;
-    let count = 0;
-
-    evaluations.forEach((evaluation) => {
-      // Ưu tiên scoreRound2, nếu không có thì dùng scoreRound1
-      const score =
-        evaluation.scoreRound2 !== null && evaluation.scoreRound2 !== undefined
-          ? evaluation.scoreRound2
-          : evaluation.scoreRound1;
-
-      if (score !== null && score !== undefined) {
-        totalScore += score;
-        count++;
-      }
+    const allContestAwards = await this.awardRepository.find({
+      where: { contestId },
     });
+    const totalQuantity = allContestAwards.reduce(
+      (sum, award) => sum + (award.quantity || 0),
+      0,
+    );
 
-    if (count === 0) {
-      return null;
-    }
+    await this.contestsQueryService.updateContestNumOfAward(
+      contestId,
+      totalQuantity,
+    );
 
-    return parseFloat((totalScore / count).toFixed(2));
+    return {
+      totalQuantity,
+      totalAwards: allContestAwards.length,
+    };
   }
 
   async create(createAwardDto: CreateAwardDto) {
-    const contest = await this.contestRepository.findOne({
-      where: { contestId: createAwardDto.contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(
+      createAwardDto.contestId,
+    );
 
     if (!contest) {
       throw new NotFoundException(
@@ -74,26 +76,27 @@ export class AwardsService {
     const award = this.awardRepository.create(createAwardDto);
     const savedAward = await this.awardRepository.save(award);
 
-    const allContestAwards = await this.awardRepository.find({
-      where: { contestId: createAwardDto.contestId },
-    });
-    const totalQuantity = allContestAwards.reduce(
-      (sum, award) => sum + (award.quantity || 0),
-      0,
+    const contestStats = await this.recomputeContestNumOfAward(
+      createAwardDto.contestId,
     );
-
-    contest.numOfAward = totalQuantity;
-    await this.contestRepository.save(contest);
 
     return {
       success: true,
       message: 'Award created successfully',
       data: savedAward,
       meta: {
-        contestNumOfAward: totalQuantity,
-        totalAwardsInContest: allContestAwards.length,
+        contestNumOfAward: contestStats?.totalQuantity ?? 0,
+        totalAwardsInContest: contestStats?.totalAwards ?? 0,
       },
     };
+  }
+
+  async countAwards(where?: any) {
+    if (!where) {
+      return this.awardRepository.count();
+    }
+
+    return this.awardRepository.count({ where });
   }
 
   async createBatch(createAwardsBatchDto: CreateAwardsBatchDto) {
@@ -101,16 +104,13 @@ export class AwardsService {
 
     const contestIds = [...new Set(awards.map((a) => a.contestId))];
 
-    const contests: Contest[] = [];
     for (const contestId of contestIds) {
-      const contest = await this.contestRepository.findOne({
-        where: { contestId },
-      });
+      const contest =
+        await this.contestsQueryService.findContestById(contestId);
 
       if (!contest) {
         throw new NotFoundException(`Contest with ID ${contestId} not found`);
       }
-      contests.push(contest);
     }
 
     const createdAwards = this.awardRepository.create(awards);
@@ -125,23 +125,12 @@ export class AwardsService {
       numOfAward: number;
       totalAwards: number;
     }> = [];
-    for (const contest of contests) {
-      const allContestAwards = await this.awardRepository.find({
-        where: { contestId: contest.contestId },
-      });
-
-      const contestTotalQuantity = allContestAwards.reduce(
-        (sum, award) => sum + (award.quantity || 0),
-        0,
-      );
-
-      contest.numOfAward = contestTotalQuantity;
-      await this.contestRepository.save(contest);
-
+    for (const contestId of contestIds) {
+      const contestStats = await this.recomputeContestNumOfAward(contestId);
       updatedContests.push({
-        contestId: contest.contestId,
-        numOfAward: contestTotalQuantity,
-        totalAwards: allContestAwards.length,
+        contestId,
+        numOfAward: contestStats?.totalQuantity ?? 0,
+        totalAwards: contestStats?.totalAwards ?? 0,
       });
     }
 
@@ -174,9 +163,7 @@ export class AwardsService {
   }
 
   async findByContestId(contestId: number) {
-    const contest = await this.contestRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
@@ -198,9 +185,9 @@ export class AwardsService {
 
               // Lấy thông tin competitor
               if (painting.competitorId) {
-                const competitor = await this.usersRepository.findOne({
-                  where: { userId: painting.competitorId },
-                });
+                const competitor = await this.usersService.findUserById(
+                  painting.competitorId,
+                );
                 competitorName = competitor?.fullName || null;
                 competitorEmail = competitor?.email || null;
               }
@@ -238,6 +225,56 @@ export class AwardsService {
     };
   }
 
+  async listByContestId(contestId: number) {
+    return this.awardRepository.find({
+      where: { contestId },
+      order: { rank: 'ASC' },
+    });
+  }
+
+  async findById(awardId: number) {
+    return this.awardRepository.findOne({
+      where: { awardId },
+    });
+  }
+
+  async findByIdWithPaintings(awardId: number) {
+    return this.awardRepository.findOne({
+      where: { awardId },
+      relations: ['paintings'],
+    });
+  }
+
+  async findByIdAndContest(awardId: number, contestId: number) {
+    return this.awardRepository.findOne({
+      where: { awardId, contestId },
+    });
+  }
+
+  async listByContestWithRanks(contestId: number, ranks: number[]) {
+    return this.awardRepository.find({
+      where: {
+        contestId,
+        rank: In(ranks),
+      },
+      order: {
+        rank: 'ASC',
+      },
+    });
+  }
+
+  async listByContestExcludingRanks(contestId: number, ranks: number[]) {
+    return this.awardRepository.find({
+      where: {
+        contestId,
+        rank: Not(In(ranks)),
+      },
+      order: {
+        rank: 'ASC',
+      },
+    });
+  }
+
   async findOne(id: number) {
     const award = await this.awardRepository.findOne({
       where: { awardId: id },
@@ -267,9 +304,9 @@ export class AwardsService {
       updateAwardDto.contestId &&
       updateAwardDto.contestId !== award.contestId
     ) {
-      const contest = await this.contestRepository.findOne({
-        where: { contestId: updateAwardDto.contestId },
-      });
+      const contest = await this.contestsQueryService.findContestById(
+        updateAwardDto.contestId,
+      );
 
       if (!contest) {
         throw new NotFoundException(
@@ -278,38 +315,24 @@ export class AwardsService {
       }
     }
 
+    const oldContestId = award.contestId;
+
     Object.assign(award, updateAwardDto);
     const updatedAward = await this.awardRepository.save(award);
 
     // Update num_of_award in contest (both old and new contest if changed)
-    const affectedContestIds = [award.contestId];
-    if (
-      updateAwardDto.contestId &&
-      updateAwardDto.contestId !== award.contestId
-    ) {
+    const affectedContestIds = [oldContestId];
+    if (updateAwardDto.contestId && updateAwardDto.contestId !== oldContestId) {
       affectedContestIds.push(updateAwardDto.contestId);
     }
 
     for (const contestId of affectedContestIds) {
-      const contest = await this.contestRepository.findOne({
-        where: { contestId },
-      });
-      if (contest) {
-        const allContestAwards = await this.awardRepository.find({
-          where: { contestId },
-        });
-        const totalQuantity = allContestAwards.reduce(
-          (sum, a) => sum + (a.quantity || 0),
-          0,
-        );
-        contest.numOfAward = totalQuantity;
-        await this.contestRepository.save(contest);
-      }
+      await this.recomputeContestNumOfAward(contestId);
     }
 
     return {
       success: true,
-      message: 'Award updated successfully',
+      message: 'Cập nhật giải thưởng thành công',
       data: updatedAward,
     };
   }
@@ -320,31 +343,18 @@ export class AwardsService {
     });
 
     if (!award) {
-      throw new NotFoundException(`Award with ID ${id} not found`);
+      throw new NotFoundException(`Giải thưởng với ID ${id} không tìm thấy`);
     }
 
     const contestId = award.contestId;
     await this.awardRepository.remove(award);
 
     // Update num_of_award in contest after deletion
-    const contest = await this.contestRepository.findOne({
-      where: { contestId },
-    });
-    if (contest) {
-      const allContestAwards = await this.awardRepository.find({
-        where: { contestId },
-      });
-      const totalQuantity = allContestAwards.reduce(
-        (sum, a) => sum + (a.quantity || 0),
-        0,
-      );
-      contest.numOfAward = totalQuantity;
-      await this.contestRepository.save(contest);
-    }
+    await this.recomputeContestNumOfAward(contestId);
 
     return {
       success: true,
-      message: 'Award deleted successfully',
+      message: 'Cập nhật giải thưởng thành công',
     };
   }
 }

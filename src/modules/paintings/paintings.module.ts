@@ -1,34 +1,30 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PaintingsService } from './paintings.service';
 import { PaintingsController } from './paintings.controller';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
-import { User } from '../users/entities/user.entity';
-import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
-import { Round } from '../contests/entities/round.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Award } from '../awards/entities/award.entity';
-import { Schedule } from '../schedules/entities/schedule.entity';
-import { Contest } from '../contests/entities/contests.entity';
+
+import { AiModule } from '../ai/ai.module';
+import { Nft } from '../nft/entities/nft.entity';
+import { CompetitorsModule } from '../competitors/competitors.module';
+import { ExaminersModule } from '../examiners/examiners.module';
+import { AwardsModule } from '../awards/awards.module';
+import { ContestsModule } from '../contests/contests.module';
 
 @Module({
   imports: [
     FirebaseModule,
-    TypeOrmModule.forFeature([
-      Painting,
-      Evaluation,
-      User,
-      ContestExaminer,
-      Round,
-      Competitor,
-      Award,
-      Schedule,
-      Contest,
-    ]),
+    forwardRef(() => AiModule),
+    CompetitorsModule,
+    ExaminersModule,
+    forwardRef(() => AwardsModule),
+    forwardRef(() => ContestsModule),
+    TypeOrmModule.forFeature([Painting, Evaluation, Nft]),
   ],
   controllers: [PaintingsController],
   providers: [PaintingsService],
+  exports: [PaintingsService],
 })
 export class PaintingsModule {}

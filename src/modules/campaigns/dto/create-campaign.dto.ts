@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsPositive, IsDateString, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CampaignStatus } from '../../campaigns/entities/campaign.entity';
 
@@ -49,6 +57,46 @@ export class CreateCampaignDto {
   @IsEnum(CampaignStatus)
   @IsOptional()
   status?: CampaignStatus;
+
+  @ApiProperty({
+    description: 'Minimum sponsorship amount for Bronze tier',
+    example: 500000,
+    type: 'number',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Type(() => Number)
+  bronzeMinPrice: number;
+
+  @ApiProperty({
+    description: 'Minimum sponsorship amount for Silver tier',
+    example: 1000000,
+    type: 'number',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Type(() => Number)
+  silverMinPrice: number;
+
+  @ApiProperty({
+    description: 'Minimum sponsorship amount for Gold tier',
+    example: 2000000,
+    type: 'number',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Type(() => Number)
+  goldMinPrice: number;
+
+  @ApiProperty({
+    description: 'Minimum sponsorship amount for Diamond tier',
+    example: 5000000,
+    type: 'number',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Type(() => Number)
+  diamondMinPrice: number;
 
   // @ApiProperty({
   //   description: 'ID of the staff member creating the campaign',

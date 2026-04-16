@@ -1,5 +1,12 @@
 import { UserRole } from '../entities/user.entity';
 
+export class WalletProfileDto {
+  walletId: string;
+  balance: number;
+  currency: string;
+  status: string;
+}
+
 export class ProfileResponseDto {
   fullName: string;
   email: string;
@@ -21,6 +28,7 @@ export class CompetitorProfileDto {
   ward?: string;
   grade?: string;
   role: UserRole;
+  wallet?: WalletProfileDto | null;
 }
 
 export class ExaminerProfileDto {
@@ -30,6 +38,7 @@ export class ExaminerProfileDto {
   phone: string;
   specialization?: string;
   role: UserRole;
+  wallet?: WalletProfileDto | null;
 }
 
 
@@ -39,6 +48,7 @@ export class ProfileDto {
   email: string;
   phone: string;
   role: UserRole;
+  wallet?: WalletProfileDto | null;
 }
 //-----------------------------------
 export class AchievementDto {

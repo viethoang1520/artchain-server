@@ -9,6 +9,7 @@ import {
   Param,
   Query,
   ParseIntPipe,
+  ParseUUIDPipe,
   UseGuards,
   Request,
   UploadedFile,
@@ -36,10 +37,8 @@ import { CreateContestDto } from '../contests/dto/create-contest.dto';
 import { UpdateContestDto } from '../contests/dto/update-contest.dto';
 import { CreateRoundDto } from '../contests/dto/create-round.dto';
 import { UpdateRoundDto } from '../contests/dto/update-round.dto';
-import { CreateRound2Dto } from '../contests/dto/create-round2.dto';
 import { ReviewSubmissionDto } from '../paintings/dto/review-submission.dto';
 import { GetAllContestsDto } from '../contests/dto/get-all-contests.dto';
-import { GetRoundsByContestDto } from '../contests/dto/get-rounds-by-contest.dto';
 import { GetAllSubmissionsDto } from '../paintings/dto/get-all-submissions.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -51,12 +50,15 @@ import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
-import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
-import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
+import { CreateScheduleDto } from '../examiners/dto/create-schedule.dto';
+import { UpdateScheduleDto } from '../examiners/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
 import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
 import { AcceptMultipleSubmissionsDto } from './dto/accept-multiple-submissions.dto';
 import { UpdateOriginalSubmissionStatusDto } from './dto/update-original-submission-status.dto';
+import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
+import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
+import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -66,6 +68,94 @@ export class StaffController {
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
   ) {}
+
+  @Get('wallet-withdraw-requests')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Staff xem danh sách yêu cầu rút tiền ví' })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  getWalletWithdrawRequests(
+    @Request() req: any,
+    @Query() queryDto: QueryWithdrawRequestDto,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.getWithdrawRequests(staffId, queryDto);
+  }
+
+  @Patch('wallet-withdraw-requests/:requestId/approve')
+  @UseGuards(AuthGuard)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Staff duyệt yêu cầu rút tiền ví' })
+  @ApiParam({ name: 'requestId', type: 'string', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        proofImage: {
+          type: 'string',
+          format: 'binary',
+          description: 'Ảnh chứng từ chuyển khoản',
+        },
+        proofImageUrl: {
+          type: 'string',
+          description: 'URL ảnh chứng từ (khi không upload file)',
+          example: 'https://cdn.example.com/proofs/withdraw-1.jpg',
+        },
+        staffNote: {
+          type: 'string',
+          description: 'Ghi chú của staff',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Duyệt yêu cầu thành công' })
+  @UseInterceptors(FileInterceptor('proofImage', { storage: memoryStorage() }))
+  async approveWalletWithdrawRequest(
+    @Request() req: any,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() approveDto: ApproveWithdrawRequestDto,
+    @UploadedFile() proofImage?: Express.Multer.File,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+
+    const nextApproveDto: ApproveWithdrawRequestDto = { ...approveDto };
+
+    if (proofImage) {
+      nextApproveDto.proofImageUrl =
+        await this.staffService.uploadWithdrawProofImage(proofImage);
+    }
+
+    if (!nextApproveDto.proofImageUrl) {
+      throw new BadRequestException(
+        'Vui lòng upload ảnh chứng từ hoặc truyền proofImageUrl',
+      );
+    }
+
+    return this.staffService.approveWithdrawRequest(
+      staffId,
+      requestId,
+      nextApproveDto,
+    );
+  }
+
+  @Patch('wallet-withdraw-requests/:requestId/reject')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Staff từ chối yêu cầu rút tiền ví và hoàn tiền',
+  })
+  @ApiParam({ name: 'requestId', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Từ chối yêu cầu thành công' })
+  rejectWalletWithdrawRequest(
+    @Request() req: any,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() rejectDto: RejectWithdrawRequestDto,
+  ) {
+    const staffId = req.user.sub || req.user.userId;
+    return this.staffService.rejectWithdrawRequest(
+      staffId,
+      requestId,
+      rejectDto,
+    );
+  }
 
   @Post('contests')
   @UseGuards(AuthGuard)
@@ -717,7 +807,9 @@ export class StaffController {
         file,
       );
     } catch (error) {
-      throw new BadRequestException(error.message || 'Failed to create post');
+      const message =
+        error instanceof Error ? error.message : 'Failed to create post';
+      throw new BadRequestException(message);
     }
   }
 
@@ -1008,8 +1100,36 @@ export class StaffController {
           description: 'Campaign status',
           example: 'DRAFT',
         },
+        bronzeMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Bronze tier',
+          example: 500000,
+        },
+        silverMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Silver tier',
+          example: 1000000,
+        },
+        goldMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Gold tier',
+          example: 2000000,
+        },
+        diamondMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Diamond tier',
+          example: 5000000,
+        },
       },
-      required: ['title', 'goalAmount', 'deadline'],
+      required: [
+        'title',
+        'goalAmount',
+        'deadline',
+        'bronzeMinPrice',
+        'silverMinPrice',
+        'goldMinPrice',
+        'diamondMinPrice',
+      ],
     },
   })
   @ApiResponse({
@@ -1210,6 +1330,7 @@ Lấy danh sách lịch chấm bài của examiner với thông tin canEvaluate.
             contestId: 1,
             examinerId: 'uuid-123',
             task: 'Chấm vòng 1',
+            round2Table: 'A',
             date: '2025-11-08',
             status: 'ACTIVE',
             createdAt: '2025-11-01T00:00:00Z',

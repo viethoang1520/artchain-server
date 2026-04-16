@@ -18,7 +18,7 @@ export class Evaluation {
   @Column({ name: 'painting_id' })
   paintingId: string;
 
-  @Column({ name: 'examiner_id' })
+  @Column({ name: 'examiner_id', type: 'uuid' })
   examinerId: string;
 
   // Round 1 score - Simple scoring
@@ -64,11 +64,11 @@ export class Evaluation {
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => Painting)
+  @ManyToOne(() => Painting, (painting) => painting.evaluations)
   @JoinColumn({ name: 'painting_id' })
   painting: Painting;
 
-  @ManyToOne(() => Examiner)
+  @ManyToOne(() => Examiner, (examiner) => examiner.evaluations)
   @JoinColumn({ name: 'examiner_id' })
   examiner: Examiner;
 }

@@ -27,7 +27,16 @@ export class ExhibitionPainting {
   @JoinColumn({ name: 'exhibition_id' })
   exhibition: Exhibition;
 
-  @ManyToOne(() => Painting)
+  @ManyToOne(() => Painting, (painting) => painting.exhibitionPaintings)
   @JoinColumn({ name: 'painting_id' })
   painting: Painting;
+
+  @Column({ type: 'text', name: 'position', nullable: true })
+  position: string | null;
+
+  @Column({ type: 'text', name: 'rotation', nullable: true })
+  rotation: string | null;
+
+  @Column({ type: 'text', name: 'scale', nullable: true })
+  scale: string | null;
 }

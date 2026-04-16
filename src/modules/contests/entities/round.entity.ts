@@ -1,4 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
+import { Contest } from './contests.entity';
+import { Painting } from '../../paintings/entities/paintings.entity';
 
 @Entity('rounds')
 export class Round {
@@ -37,4 +48,12 @@ export class Round {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
+
+  // Relationships
+  @ManyToOne(() => Contest, (contest) => contest.rounds)
+  @JoinColumn({ name: 'contest_id' })
+  contest: Contest;
+
+  @OneToMany(() => Painting, (painting) => painting.round)
+  paintings: Painting[];
 }

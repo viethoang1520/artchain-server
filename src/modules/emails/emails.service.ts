@@ -21,13 +21,15 @@ export class EmailsService {
 
   async sendMail(mailOptions: MailOptionsDto): Promise<void> {
     this.logger.log(`Sending email to: ${mailOptions.to.join(', ')}`);
-    const { from, to, subject, text } = mailOptions;
+    const { from, to, subject, text, html } = mailOptions;
     for (const recipient of to) {
-      this.mailService.sendMail({ from, to: recipient, subject, text }).catch((error) => {
-        this.logger.error(
-          `Failed to send email to ${recipient}: ${error.message}`,
-        );
-      });
+      this.mailService
+        .sendMail({ from, to: recipient, subject, text, html })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send email to ${recipient}: ${error.message}`,
+          );
+        });
       const user = await this.userRepository.findOne({
         where: { email: recipient },
         relations: { pushTokens: true },
@@ -37,7 +39,7 @@ export class EmailsService {
       const tokens = user.pushTokens.map((token) => token.tokenValue);
       this.notificationService.pushNotificationByTokens(tokens, {
         title: subject,
-        body: text,
+        body: text || 'Bạn có một thông báo mới từ ArtChain.',
       });
     }
     this.logger.log(`Email sent successfully to: ${mailOptions.to.join(', ')}`);
@@ -56,15 +58,17 @@ export class EmailsService {
     const subject = `Cuộc thi mới: ${latestContest?.title} đã bắt đầu!`;
     const text = `Các em thí sinh thân mến,\n\nChúng tôi rất vui thông báo về cuộc thi mới: ${latestContest?.title}.\n\nHãy chuẩn bị tinh thần và tham gia nhé!\n\nTrân trọng,\nĐội ngũ ArtChain`;
     for (const user of competitorEmails) {
-      this.mailService.sendMail({
-        to: user.email,
-        subject,
-        text,
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send email to ${user.email}: ${error.message}`,
-        );
-      });
+      this.mailService
+        .sendMail({
+          to: user.email,
+          subject,
+          text,
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send email to ${user.email}: ${error.message}`,
+          );
+        });
       if (user.pushTokens.length === 0) continue;
       const tokens = user.pushTokens.map((token) => token.tokenValue);
       this.notificationService.pushNotificationByTokens(tokens, {
@@ -82,15 +86,17 @@ export class EmailsService {
     const subject = `Chúc mừng bạn đã đạt giải thưởng trong cuộc thi: ${contestName}`;
     const text = `Xin chúc mừng!\n\nBạn đã xuất sắc đạt giải thưởng trong cuộc thi: ${contestName}.\n\nChúng tôi sẽ liên hệ với bạn để trao giải thưởng.\n\nTrân trọng,\nĐội ngũ ArtChain`;
     for (const email of winnerEmails) {
-      this.mailService.sendMail({
-        to: email,
-        subject,
-        text,
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send email to ${email}: ${error.message}`,
-        );
-      });
+      this.mailService
+        .sendMail({
+          to: email,
+          subject,
+          text,
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send email to ${email}: ${error.message}`,
+          );
+        });
       const user = await this.userRepository.findOne({
         where: { email: email },
         relations: { pushTokens: true },

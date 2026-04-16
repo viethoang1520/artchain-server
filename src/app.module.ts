@@ -21,6 +21,12 @@ import { ExhibitionsModule } from './modules/exhibitions/exhibitions.module';
 import { EmailsModule } from './modules/emails/emails.module';
 import { VotesModule } from './modules/votes/votes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { WebsocketModule } from './modules/websocket/websocket.module';
+import { AuctionsModule } from './modules/auctions/auctions.module';
+import { WalletsModule } from './modules/wallets/wallets.module';
+import { AiModule } from './modules/ai/ai.module';
+import { NftModule } from './modules/nft/nft.module';
+import { TiersModule } from './modules/tiers/tiers.module';
 
 @Module({
   imports: [
@@ -44,8 +50,14 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     EmailsModule,
     VotesModule,
     NotificationsModule,
+    WebsocketModule,
+    AuctionsModule,
+    WalletsModule,
+    AiModule,
+    NftModule,
+    TiersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

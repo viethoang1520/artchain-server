@@ -1,80 +1,40 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Repository,
-  Between,
-  MoreThanOrEqual,
-  LessThanOrEqual,
-  Not,
-  In,
-  IsNull,
-} from 'typeorm';
+import { Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { PaginationDto, PaginatedResponse } from './dto/pagination.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
-import { Round } from '../contests/entities/round.entity';
-import { Painting } from '../paintings/entities/paintings.entity';
-import { Evaluation } from '../paintings/entities/evaluation.entity';
-import { Vote } from '../votes/entities/vote.entity';
-import { Award } from '../awards/entities/award.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Examiner } from '../examiners/entities/examiners.entity';
-import { Exhibition } from '../exhibitions/entities/exhibition.entity';
-import {
-  Campaign,
-  CampaignStatus,
-} from '../campaigns/entities/campaign.entity';
+import { CampaignStatus } from '../campaigns/entities/campaign.entity';
+import { UsersService } from '../users/users.service';
+import { ContestsQueryService } from '../contests/contests-query.service';
+import { PaintingsService } from '../paintings/paintings.service';
+import { VotesService } from '../votes/votes.service';
+import { AwardsService } from '../awards/awards.service';
+import { CompetitorsService } from '../competitors/competitor.service';
+import { ExhibitionsService } from '../exhibitions/exhibitions.service';
+import { CampaignsService } from '../campaigns/campaigns.service';
 
 @Injectable()
 export class AdminService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    @InjectRepository(Contest)
-    private contestsRepository: Repository<Contest>,
-    @InjectRepository(Round)
-    private roundsRepository: Repository<Round>,
-    @InjectRepository(Painting)
-    private paintingsRepository: Repository<Painting>,
-    @InjectRepository(Evaluation)
-    private evaluationsRepository: Repository<Evaluation>,
-    @InjectRepository(Vote)
-    private votesRepository: Repository<Vote>,
-    @InjectRepository(Award)
-    private awardsRepository: Repository<Award>,
-    @InjectRepository(Competitor)
-    private competitorsRepository: Repository<Competitor>,
-    @InjectRepository(Examiner)
-    private examinersRepository: Repository<Examiner>,
-    @InjectRepository(Exhibition)
-    private exhibitionsRepository: Repository<Exhibition>,
-    @InjectRepository(Campaign)
-    private campaignsRepository: Repository<Campaign>,
+    private readonly usersService: UsersService,
+    private readonly contestsQueryService: ContestsQueryService,
+    private readonly paintingsService: PaintingsService,
+    private readonly votesService: VotesService,
+    private readonly awardsService: AwardsService,
+    private readonly competitorsService: CompetitorsService,
+    private readonly exhibitionsService: ExhibitionsService,
+    private readonly campaignsService: CampaignsService,
   ) {}
 
   async findAllCompetitors(
     paginationDto: PaginationDto,
   ): Promise<PaginatedResponse<User>> {
     const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
-
-    const [competitors, total] = await this.usersRepository.findAndCount({
-      where: { role: UserRole.COMPETITOR },
-      skip,
-      take: limit,
-      order: { createdAt: 'DESC' },
-      select: {
-        userId: true,
-        username: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        positionLevel: true,
-      },
-    });
+    const [competitors, total] = await this.usersService.findAndCountAccounts(
+      page,
+      limit,
+      UserRole.COMPETITOR,
+    );
 
     const totalPages = Math.ceil(total / limit);
 
@@ -96,31 +56,11 @@ export class AdminService {
     role?: string,
   ): Promise<PaginatedResponse<User>> {
     const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
-
-    // Build where condition
-    const whereCondition: any = {};
-    if (role) {
-      whereCondition.role = role as UserRole;
-    }
-
-    const [accounts, total] = await this.usersRepository.findAndCount({
-      where: whereCondition,
-      skip,
-      take: limit,
-      order: { createdAt: 'DESC' },
-      select: {
-        userId: true,
-        username: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        positionLevel: true,
-      },
-    });
+    const [accounts, total] = await this.usersService.findAndCountAccounts(
+      page,
+      limit,
+      role ? (role as UserRole) : undefined,
+    );
 
     const totalPages = Math.ceil(total / limit);
 
@@ -142,9 +82,7 @@ export class AdminService {
     message: string;
     data: { userId: string; status: number };
   }> {
-    const user = await this.usersRepository.findOne({
-      where: { userId: id },
-    });
+    const user = await this.usersService.findUserById(id);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -161,7 +99,7 @@ export class AdminService {
       };
     }
 
-    await this.usersRepository.update(id, { status: 0 });
+    await this.usersService.updateUserStatus(id, 0);
 
     return {
       success: true,
@@ -178,9 +116,7 @@ export class AdminService {
     message: string;
     data: { userId: string; status: number };
   }> {
-    const user = await this.usersRepository.findOne({
-      where: { userId: id },
-    });
+    const user = await this.usersService.findUserById(id);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -197,7 +133,7 @@ export class AdminService {
       };
     }
 
-    await this.usersRepository.update(id, { status: 1 });
+    await this.usersService.updateUserStatus(id, 1);
 
     return {
       success: true,
@@ -213,103 +149,82 @@ export class AdminService {
    * Thống kê tổng quan toàn hệ thống
    */
   async getSystemStatistics() {
-    // Tổng số users theo từng role
-    const totalUsers = await this.usersRepository.count();
-    const totalCompetitors = await this.usersRepository.count({
-      where: { role: UserRole.COMPETITOR },
+    const totalUsers = await this.usersService.countUsers();
+    const totalCompetitors = await this.usersService.countUsers({
+      role: UserRole.COMPETITOR,
     });
-    const totalExaminers = await this.usersRepository.count({
-      where: { role: UserRole.EXAMINER },
+    const totalExaminers = await this.usersService.countUsers({
+      role: UserRole.EXAMINER,
     });
-    const totalGuardians = await this.usersRepository.count({
-      where: { role: UserRole.GUARDIAN },
+    const totalGuardians = await this.usersService.countUsers({
+      role: UserRole.GUARDIAN,
     });
-    const totalStaffs = await this.usersRepository.count({
-      where: { role: UserRole.STAFF },
+    const totalStaffs = await this.usersService.countUsers({
+      role: UserRole.STAFF,
     });
-    const totalAdmins = await this.usersRepository.count({
-      where: { role: UserRole.ADMIN },
-    });
-
-    // Active users
-    const activeUsers = await this.usersRepository.count({
-      where: { status: 1 },
-    });
-    const inactiveUsers = await this.usersRepository.count({
-      where: { status: 0 },
+    const totalAdmins = await this.usersService.countUsers({
+      role: UserRole.ADMIN,
     });
 
-    // Tổng số cuộc thi
-    const totalContests = await this.contestsRepository.count();
-    const activeContests = await this.contestsRepository.count({
-      where: { status: ContestStatus.ACTIVE },
+    const activeUsers = await this.usersService.countUsers({ status: 1 });
+    const inactiveUsers = await this.usersService.countUsers({ status: 0 });
+
+    const totalContests = await this.contestsQueryService.countContests();
+    const activeContests = await this.contestsQueryService.countContests({
+      status: ContestStatus.ACTIVE,
     });
-    const upcomingContests = await this.contestsRepository.count({
-      where: { status: ContestStatus.UPCOMING },
+    const upcomingContests = await this.contestsQueryService.countContests({
+      status: ContestStatus.UPCOMING,
     });
-    const endedContests = await this.contestsRepository.count({
-      where: { status: ContestStatus.ENDED },
+    const endedContests = await this.contestsQueryService.countContests({
+      status: ContestStatus.ENDED,
     });
-    const completedContests = await this.contestsRepository.count({
-      where: { status: ContestStatus.COMPLETED },
-    });
-    const draftContests = await this.contestsRepository.count({
-      where: { status: ContestStatus.DRAFT },
+    const draftContests = await this.contestsQueryService.countContests({
+      status: ContestStatus.DRAFT,
     });
 
-    // Tổng số bài dự thi
-    const totalPaintings = await this.paintingsRepository.count();
-    const approvedPaintings = await this.paintingsRepository.count({
-      where: { status: 'ACCEPTED' },
+    const totalPaintings = await this.paintingsService.countPaintings();
+    const approvedPaintings = await this.paintingsService.countPaintings({
+      status: 'ACCEPTED',
     });
-    const pendingPaintings = await this.paintingsRepository.count({
-      where: { status: 'PENDING' },
+    const pendingPaintings = await this.paintingsService.countPaintings({
+      status: 'PENDING',
     });
-    const rejectedPaintings = await this.paintingsRepository.count({
-      where: { status: 'REJECTED' },
-    });
-
-    // Tổng số đánh giá
-    const totalEvaluations = await this.evaluationsRepository.count();
-
-    // Tổng số vote
-    const totalVotes = await this.votesRepository.count();
-
-    // Tổng số giải thưởng
-    const totalAwards = await this.awardsRepository.count();
-
-    // Tổng số triển lãm
-    const totalExhibitions = await this.exhibitionsRepository.count();
-    const activeExhibitions = await this.exhibitionsRepository.count({
-      where: { status: 'ACTIVE' },
-    });
-    const draftExhibitions = await this.exhibitionsRepository.count({
-      where: { status: 'DRAFT' },
+    const rejectedPaintings = await this.paintingsService.countPaintings({
+      status: 'REJECTED',
     });
 
-    // Tổng số campaign
-    const totalCampaigns = await this.campaignsRepository.count();
-    const activeCampaigns = await this.campaignsRepository.count({
-      where: { status: CampaignStatus.ACTIVE },
+    const totalEvaluations = await this.paintingsService.countEvaluations();
+    const totalVotes = await this.votesService.countVotes();
+    const totalAwards = await this.awardsService.countAwards();
+
+    const totalExhibitions = await this.exhibitionsService.countExhibitions();
+    const activeExhibitions = await this.exhibitionsService.countExhibitions({
+      status: 'ACTIVE',
     });
-    const draftCampaigns = await this.campaignsRepository.count({
-      where: { status: CampaignStatus.DRAFT },
+    const draftExhibitions = await this.exhibitionsService.countExhibitions({
+      status: 'DRAFT',
     });
 
-    // Tìm trường có nhiều học sinh đạt giải nhất
-    const paintingsWithAwards = await this.paintingsRepository.find({
-      where: { awardId: Not(IsNull()) },
-      relations: ['award'],
+    const totalCampaigns = await this.campaignsService.countCampaigns();
+    const activeCampaigns = await this.campaignsService.countCampaigns({
+      status: CampaignStatus.ACTIVE,
     });
+    const draftCampaigns = await this.campaignsService.countCampaigns({
+      status: CampaignStatus.DRAFT,
+    });
+
+    const paintingsWithAwards =
+      await this.paintingsService.findAwardedPaintingsWithAward();
 
     const schoolAwardCounts = new Map<string, number>();
 
     for (const painting of paintingsWithAwards) {
       if (!painting.competitorId) continue;
 
-      const competitor = await this.competitorsRepository.findOne({
-        where: { competitorId: painting.competitorId },
-      });
+      const competitor = await this.competitorsService.findCompetitorById(
+        painting.competitorId,
+      );
 
       if (competitor?.schoolName) {
         const normalizedSchoolName = competitor.schoolName
@@ -328,19 +243,14 @@ export class AdminService {
       .map(([schoolName, awardCount]) => ({ schoolName, awardCount }));
 
     // Tìm 3 contest gần nhất
-    const recentContests = await this.contestsRepository.find({
-      order: { contestId: 'DESC' },
-      take: 3,
-    });
+    const recentContests =
+      await this.contestsQueryService.listRecentContests(3);
 
     const recentContestIds = recentContests.map((c) => c.contestId);
 
     // Tìm học sinh đạt nhiều giải nhất trong 3 contest gần nhất
-    const recentAwardedPaintings = await this.paintingsRepository.find({
-      where: {
-        contestId: In(recentContestIds),
-      },
-    });
+    const recentAwardedPaintings =
+      await this.paintingsService.findByContestIds(recentContestIds);
 
     const competitorAwardCounts = new Map<
       string,
@@ -369,13 +279,11 @@ export class AdminService {
 
     const topCompetitorsWithDetails = await Promise.all(
       topCompetitors.map(async (item) => {
-        const user = await this.usersRepository.findOne({
-          where: { userId: item.competitorId },
-        });
+        const user = await this.usersService.findUserById(item.competitorId);
 
-        const competitor = await this.competitorsRepository.findOne({
-          where: { competitorId: item.competitorId },
-        });
+        const competitor = await this.competitorsService.findCompetitorById(
+          item.competitorId,
+        );
 
         return {
           competitorId: item.competitorId,
@@ -407,7 +315,6 @@ export class AdminService {
           active: activeContests,
           upcoming: upcomingContests,
           ended: endedContests,
-          completed: completedContests,
           draft: draftContests,
         },
         paintings: {
@@ -451,48 +358,50 @@ export class AdminService {
    * Thống kê chi tiết theo cuộc thi
    */
   async getContestStatistics(contestId: number) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
+    const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
       throw new NotFoundException(`Contest with ID ${contestId} not found`);
     }
 
-    const totalSubmissions = await this.paintingsRepository.count({
-      where: { contestId },
+    const totalSubmissions = await this.paintingsService.countPaintings({
+      contestId,
     });
-    const acceptedSubmissions = await this.paintingsRepository.count({
-      where: { contestId, status: 'ACCEPTED' },
+    const acceptedSubmissions = await this.paintingsService.countPaintings({
+      contestId,
+      status: 'ACCEPTED',
     });
-    const pendingSubmissions = await this.paintingsRepository.count({
-      where: { contestId, status: 'PENDING' },
+    const pendingSubmissions = await this.paintingsService.countPaintings({
+      contestId,
+      status: 'PENDING',
     });
-    const rejectedSubmissions = await this.paintingsRepository.count({
-      where: { contestId, status: 'REJECTED' },
+    const rejectedSubmissions = await this.paintingsService.countPaintings({
+      contestId,
+      status: 'REJECTED',
     });
 
     // Số lượng bài theo vòng thi
-    const paintings = await this.paintingsRepository.find({
-      where: { contestId },
-    });
+    const paintings = await this.paintingsService.findPaintings({ contestId });
 
     // Lấy round IDs từ bảng rounds dựa trên name
-    const round1 = await this.roundsRepository.findOne({
-      where: { contestId, name: 'ROUND_1' },
-    });
+    const round1 = await this.contestsQueryService.findRoundByContestAndName(
+      contestId,
+      'ROUND_1',
+    );
 
     // ROUND_2 có thể có nhiều tables (A, B, C, ...) dựa vào numberOfTablesRound2
-    const round2Rounds = await this.roundsRepository.find({
-      where: { contestId, name: 'ROUND_2' },
-    });
+    const round2Rounds =
+      await this.contestsQueryService.findRoundsByContestAndName(
+        contestId,
+        'ROUND_2',
+      );
 
     const round1Submissions = round1
-      ? paintings.filter((p) => p.roundId === String(round1.roundId)).length
+      ? paintings.filter((p) => p.roundId === round1.roundId).length
       : 0;
 
     // Đếm tất cả submissions trong ROUND_2 (tất cả các tables)
-    const round2RoundIds = round2Rounds.map((r) => String(r.roundId));
+    const round2RoundIds = round2Rounds.map((r) => r.roundId);
     const round2Submissions = paintings.filter((p) =>
       round2RoundIds.includes(p.roundId),
     ).length;
@@ -501,7 +410,7 @@ export class AdminService {
     const round2ByTable: Record<string, number> = {};
     round2Rounds.forEach((round) => {
       const tableSubmissions = paintings.filter(
-        (p) => p.roundId === String(round.roundId),
+        (p) => p.roundId === round.roundId,
       ).length;
       round2ByTable[round.table || 'Unknown'] = tableSubmissions;
     });
@@ -513,20 +422,14 @@ export class AdminService {
 
     // Số lượng evaluations
     const paintingIds = paintings.map((p) => p.paintingId);
-    const totalEvaluations = await this.evaluationsRepository
-      .createQueryBuilder('evaluation')
-      .where('evaluation.painting_id IN (:...paintingIds)', { paintingIds })
-      .getCount();
+    const totalEvaluations =
+      await this.paintingsService.countEvaluationsByPaintingIds(paintingIds);
 
     // Số lượng votes
-    const totalVotes = await this.votesRepository.count({
-      where: { contestId },
-    });
+    const totalVotes = await this.votesService.countVotes({ contestId });
 
     // Số lượng giải thưởng
-    const totalAwards = await this.awardsRepository.count({
-      where: { contestId },
-    });
+    const totalAwards = await this.awardsService.countAwards({ contestId });
 
     // Số lượng bài đã được trao giải
     const awardedPaintings = paintings.filter((p) => p.awardId !== null).length;
@@ -575,9 +478,7 @@ export class AdminService {
    * Thống kê top competitors (theo số bài thi và giải thưởng)
    */
   async getTopCompetitors(limit: number = 10) {
-    const paintings = await this.paintingsRepository.find({
-      where: { status: 'ACCEPTED' },
-    });
+    const paintings = await this.paintingsService.findAcceptedPaintings();
 
     // Group by competitor
     const competitorStats = new Map<string, any>();
@@ -615,7 +516,7 @@ export class AdminService {
 
     // Fetch competitor details
     const competitorIds = sortedCompetitors.map((c) => c.competitorId);
-    const users = await this.usersRepository.findByIds(competitorIds);
+    const users = await this.usersService.findUsersByIds(competitorIds);
     const userMap = new Map(users.map((u) => [u.userId, u]));
 
     const result = sortedCompetitors.map((stat) => {
@@ -639,7 +540,7 @@ export class AdminService {
    * Thống kê top examiners (theo số lượng bài đã chấm)
    */
   async getTopExaminers(limit: number = 10) {
-    const evaluations = await this.evaluationsRepository.find();
+    const evaluations = await this.paintingsService.findEvaluations();
 
     // Group by examiner
     const examinerStats = new Map<string, any>();
@@ -661,7 +562,7 @@ export class AdminService {
 
     // Fetch examiner details
     const examinerIds = sortedExaminers.map((e) => e.examinerId);
-    const users = await this.usersRepository.findByIds(examinerIds);
+    const users = await this.usersService.findUsersByIds(examinerIds);
     const userMap = new Map(users.map((u) => [u.userId, u]));
 
     const result = sortedExaminers.map((stat) => {
@@ -684,7 +585,7 @@ export class AdminService {
    * Thống kê paintings có nhiều votes nhất
    */
   async getMostVotedPaintings(limit: number = 10) {
-    const votes = await this.votesRepository.find();
+    const votes = await this.votesService.findVotes();
 
     // Group by painting
     const paintingVotes = new Map<string, number>();
@@ -700,12 +601,13 @@ export class AdminService {
 
     // Fetch painting details
     const paintingIds = topPaintings.map(([id]) => id);
-    const paintings = await this.paintingsRepository.findByIds(paintingIds);
+    const paintings =
+      await this.paintingsService.findPaintingsByIds(paintingIds);
     const paintingMap = new Map(paintings.map((p) => [p.paintingId, p]));
 
     // Fetch competitor details
     const competitorIds = paintings.map((p) => p.competitorId).filter(Boolean);
-    const users = await this.usersRepository.findByIds(competitorIds);
+    const users = await this.usersService.findUsersByIds(competitorIds);
     const userMap = new Map(users.map((u) => [u.userId, u]));
 
     const result = topPaintings.map(([paintingId, voteCount]) => {
@@ -752,10 +654,7 @@ export class AdminService {
     }
 
     // Fetch all users within date range
-    const users = await this.usersRepository.find({
-      where: whereCondition,
-      order: { createdAt: 'ASC' },
-    });
+    const users = await this.usersService.findUsersByCreatedAt(whereCondition);
 
     // Group users by time period
     const groupedData = new Map<string, any>();
@@ -838,7 +737,7 @@ export class AdminService {
 
     // Get total user count at the end of period
     const totalUsersInRange = users.length;
-    const totalUsersCurrent = await this.usersRepository.count();
+    const totalUsersCurrent = await this.usersService.countUsers();
 
     return {
       success: true,

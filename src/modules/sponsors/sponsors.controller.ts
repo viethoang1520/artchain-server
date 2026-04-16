@@ -27,7 +27,7 @@ import { memoryStorage } from 'multer';
 @ApiTags('Sponsors')
 @Controller('api/sponsors')
 export class SponsorsController {
-  constructor(private readonly sponsorsService: SponsorsService) {}
+  constructor(private readonly sponsorsService: SponsorsService) { }
 
   @Get('')
   @ApiOperation({
@@ -70,8 +70,8 @@ export class SponsorsController {
   async getAllSponsors(@Query('status') status?: string) {
     try {
       return await this.sponsorsService.getAllSponsors(status);
-    } catch (error) {
-      throw new BadRequestException(error.message || 'Failed to get sponsors');
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'Không thể lấy danh sách nhà tài trợ');
     }
   }
 
@@ -110,9 +110,9 @@ export class SponsorsController {
   async getSponsorById(@Param('id') id: number) {
     try {
       return await this.sponsorsService.getSponsorById(id);
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException(
-        error.message || 'Failed to get sponsor detail',
+        error.message || 'Không thể lấy chi tiết nhà tài trợ',
       );
     }
   }
@@ -193,9 +193,9 @@ export class SponsorsController {
   ) {
     try {
       return await this.sponsorsService.createSponsor(createSponsorDto, file);
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException(
-        error.message || 'Failed to create sponsor',
+        error.message || 'Không thể tạo mới nhà tài trợ',
       );
     }
   }

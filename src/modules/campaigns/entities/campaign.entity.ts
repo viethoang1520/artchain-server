@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { Sponsor } from '../../sponsors/entities/sponsor.entity';
+import { SponsorshipTier } from '../../tiers/entities/sponsorship-tier.entity';
 
 export enum CampaignStatus {
   ACTIVE = 'ACTIVE',
@@ -27,7 +37,7 @@ export class Campaign {
     type: 'decimal',
     precision: 15,
     scale: 2,
-    nullable: false
+    nullable: false,
   })
   goalAmount: number;
 
@@ -40,7 +50,7 @@ export class Campaign {
       to: (value: number) => value, // khi lưu
       from: (value: string) => parseFloat(value), // khi đọc
     },
-    default: 0
+    default: 0,
   })
   currentAmount: number;
 
@@ -51,12 +61,22 @@ export class Campaign {
     name: 'status',
     type: 'enum',
     enum: CampaignStatus,
-    default: CampaignStatus.DRAFT
+    default: CampaignStatus.DRAFT,
   })
   status: CampaignStatus;
 
-  @Column({ name: 'staff_id', nullable: false })
+  @Column({ name: 'staff_id', type: 'uuid', nullable: false })
   staffId: string;
+
+  @ManyToOne(() => User, (user) => user.campaigns)
+  @JoinColumn({ name: 'staff_id' })
+  staff: User;
+
+  @OneToMany(() => Sponsor, (sponsor) => sponsor.campaign)
+  sponsors: Sponsor[];
+
+  @OneToMany(() => SponsorshipTier, (sponsorshipTier) => sponsorshipTier.campaign)
+  sponsorshipTiers: SponsorshipTier[];
 
   @Column({
     name: 'created_at',

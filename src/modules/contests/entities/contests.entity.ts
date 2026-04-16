@@ -1,5 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Award } from '../../awards/entities/award.entity';
+import { User } from '../../users/entities/user.entity';
+import { Painting } from '../../paintings/entities/paintings.entity';
+import { Schedule } from '../../examiners/entities/schedule.entity';
+import { Round } from './round.entity';
 
 export enum ContestStatus {
   UPCOMING = 'UPCOMING',
@@ -58,4 +69,17 @@ export class Contest {
 
   @OneToMany(() => Award, (award) => award.contest)
   awards: Award[];
+
+  @OneToMany(() => Painting, (painting) => painting.contest)
+  paintings: Painting[];
+
+  @OneToMany(() => Schedule, (schedule) => schedule.contest)
+  schedules: Schedule[];
+
+  @OneToMany(() => Round, (round) => round.contest)
+  rounds: Round[];
+
+  @ManyToOne(() => User, (user) => user.createdContests)
+  @JoinColumn({ name: 'created_by' })
+  creator: User;
 }

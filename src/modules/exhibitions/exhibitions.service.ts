@@ -7,13 +7,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Exhibition } from './entities/exhibition.entity';
 import { ExhibitionPainting } from './entities/exhibition-painting.entity';
-import { Painting } from '../paintings/entities/paintings.entity';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddPaintingsToExhibitionDto } from './dto/add-paintings.dto';
-import { User } from '../users/entities/user.entity';
-import { Competitor } from '../competitors/entities/competitors.entity';
-import { Award } from '../awards/entities/award.entity';
+import { UpdatePaintingDto } from './dto/update-paintings.dto';
+import { PaintingsService } from '../paintings/paintings.service';
+import { CompetitorsService } from '../competitors/competitor.service';
+import { AwardsService } from '../awards/awards.service';
 
 @Injectable()
 export class ExhibitionsService {
@@ -22,14 +22,9 @@ export class ExhibitionsService {
     private exhibitionRepository: Repository<Exhibition>,
     @InjectRepository(ExhibitionPainting)
     private exhibitionPaintingRepository: Repository<ExhibitionPainting>,
-    @InjectRepository(Painting)
-    private paintingRepository: Repository<Painting>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Competitor)
-    private competitorRepository: Repository<Competitor>,
-    @InjectRepository(Award)
-    private awardRepository: Repository<Award>,
+    private readonly paintingsService: PaintingsService,
+    private readonly competitorsService: CompetitorsService,
+    private readonly awardsService: AwardsService,
   ) {}
 
   /**
@@ -63,17 +58,30 @@ export class ExhibitionsService {
 
       return {
         success: true,
-        message: 'Exhibition created successfully',
+        message: 'Triển lãm được tạo thành công',
         data: savedExhibition,
       };
     } catch (error) {
-      if (error.code === '22021') {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === '22021'
+      ) {
         throw new BadRequestException(
-          'Invalid characters detected in input. Please remove special characters or emojis.',
+          'Đã phát hiện ký tự không hợp lệ trong đầu vào. Vui lòng loại bỏ các ký tự đặc biệt hoặc biểu tượng cảm xúc.',
         );
       }
       throw error;
     }
+  }
+
+  async countExhibitions(where?: any) {
+    if (!where) {
+      return this.exhibitionRepository.count();
+    }
+
+    return this.exhibitionRepository.count({ where });
   }
 
   async findAll(status?: string) {
@@ -103,7 +111,7 @@ export class ExhibitionsService {
     });
 
     if (!exhibition) {
-      throw new NotFoundException(`Exhibition with ID ${id} not found`);
+      throw new NotFoundException(`Triển lãm với ID ${id} không tìm thấy`);
     }
 
     // Enrich painting data with competitor and award information
@@ -114,34 +122,27 @@ export class ExhibitionsService {
         // Get competitor info
         let competitorInfo: any = null;
         if (painting.competitorId) {
-          const competitor = await this.competitorRepository.findOne({
-            where: { competitorId: painting.competitorId },
-          });
+          const { competitor, user } =
+            await this.competitorsService.getCompetitorWithUser(
+              painting.competitorId,
+            );
 
-          if (competitor) {
-            const user = await this.userRepository.findOne({
-              where: { userId: competitor.competitorId },
-            });
-
-            if (user) {
-              competitorInfo = {
-                competitorId: competitor.competitorId,
-                fullName: user.fullName,
-                email: user.email,
-                birthday: competitor.birthday,
-                schoolName: competitor.schoolName,
-                grade: competitor.grade,
-              };
-            }
+          if (competitor && user) {
+            competitorInfo = {
+              competitorId: competitor.competitorId,
+              fullName: user.fullName,
+              email: user.email,
+              birthday: competitor.birthday,
+              schoolName: competitor.schoolName,
+              grade: competitor.grade,
+            };
           }
         }
 
         // Get award info
         let awardInfo: any = null;
         if (painting.awardId) {
-          const award = await this.awardRepository.findOne({
-            where: { awardId: painting.awardId },
-          });
+          const award = await this.awardsService.findById(painting.awardId);
 
           if (award) {
             awardInfo = {
@@ -156,6 +157,9 @@ export class ExhibitionsService {
 
         return {
           ...painting,
+          position: ep.position ? JSON.parse(ep.position) : null,
+          rotation: ep.rotation ? JSON.parse(ep.rotation) : null,
+          scale: ep.scale ? JSON.parse(ep.scale) : null,
           competitor: competitorInfo,
           award: awardInfo,
           addedAt: ep.createdAt,
@@ -179,7 +183,7 @@ export class ExhibitionsService {
     });
 
     if (!exhibition) {
-      throw new NotFoundException(`Exhibition with ID ${id} not found`);
+      throw new NotFoundException(`Triển lãm với ID ${id} không tìm thấy`);
     }
 
     const updatedExhibition = this.exhibitionRepository.merge(
@@ -192,7 +196,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Exhibition updated successfully',
+      message: 'Triển lãm được cập nhật thành công',
       data: savedExhibition,
     };
   }
@@ -214,7 +218,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Exhibition deleted successfully',
+      message: 'Triển lãm đã được xóa thành công',
     };
   }
 
@@ -228,17 +232,17 @@ export class ExhibitionsService {
 
     if (!exhibition) {
       throw new NotFoundException(
-        `Exhibition with ID ${exhibitionId} not found`,
+        `Triển lãm với ID ${exhibitionId} không tìm thấy`,
       );
     }
 
     // Validate all paintings exist
-    const paintings = await this.paintingRepository.find({
-      where: { paintingId: In(addPaintingsDto.paintingIds) },
-    });
+    const paintings = await this.paintingsService.findPaintingsByIds(
+      addPaintingsDto.paintingIds,
+    );
 
     if (paintings.length !== addPaintingsDto.paintingIds.length) {
-      throw new BadRequestException('Some paintings do not exist');
+      throw new BadRequestException('Một số tác phẩm không tồn tại');
     }
 
     // Check for duplicates
@@ -252,7 +256,7 @@ export class ExhibitionsService {
     if (existingPaintings.length > 0) {
       const duplicateIds = existingPaintings.map((ep) => ep.paintingId);
       throw new BadRequestException(
-        `Some paintings are already in this exhibition: ${duplicateIds.join(', ')}`,
+        `Một số tác phẩm đã có trong triển lãm này: ${duplicateIds.join(', ')}`,
       );
     }
 
@@ -290,7 +294,7 @@ export class ExhibitionsService {
 
     if (!exhibitionPainting) {
       throw new NotFoundException(
-        `Painting ${paintingId} not found in exhibition ${exhibitionId}`,
+        `Tác phẩm ${paintingId} không tìm thấy trong triển lãm ${exhibitionId}`,
       );
     }
 
@@ -311,7 +315,7 @@ export class ExhibitionsService {
 
     return {
       success: true,
-      message: 'Painting removed from exhibition successfully',
+      message: 'Tác phẩm đã được xóa khỏi triển lãm thành công',
     };
   }
 
@@ -322,7 +326,7 @@ export class ExhibitionsService {
 
     if (!exhibition) {
       throw new NotFoundException(
-        `Exhibition with ID ${exhibitionId} not found`,
+        `Triển lãm với ID ${exhibitionId} không tìm thấy`,
       );
     }
 
@@ -334,13 +338,79 @@ export class ExhibitionsService {
     const paintings = exhibitionPaintings.map((ep) => ({
       ...ep.painting,
       addedAt: ep.createdAt,
+      position: ep.position ? JSON.parse(ep.position) : null,
+      rotation: ep.rotation ? JSON.parse(ep.rotation) : null,
+      scale: ep.scale ? JSON.parse(ep.scale) : null,
     }));
 
     return {
       success: true,
-      message: 'Exhibition paintings retrieved successfully',
+      message: 'Tác phẩm trong triển lãm được lấy thành công',
       data: paintings,
       count: paintings.length,
     };
+  }
+
+  async updatePaintings(
+    exhibitionId: number,
+    updatePaintingDto: UpdatePaintingDto,
+  ) {
+    const exhibition = await this.exhibitionRepository.findOne({
+      where: { exhibitionId },
+    });
+
+    if (!exhibition) {
+      throw new NotFoundException(
+        `Triển lãm với ID ${exhibitionId} không tìm thấy`,
+      );
+    }
+
+    if (updatePaintingDto.data.length === 0) {
+      await this.exhibitionPaintingRepository.update(
+        { exhibitionId },
+        { position: null, rotation: null, scale: null },
+      );
+      return {
+        success: true,
+        message: 'Không có tác phẩm nào để cập nhật',
+      };
+    }
+
+    // Validate all paintings exist
+    const paintings = await this.paintingsService.findPaintingsByIds(
+      updatePaintingDto.data.map((item) => item.paintingId),
+    );
+
+    if (paintings.length !== updatePaintingDto.data.length) {
+      throw new BadRequestException('Một số tác phẩm không tồn tại');
+    }
+
+    const results = await Promise.allSettled(
+      updatePaintingDto.data.map(async (item) => {
+        const exhibitionPainting =
+          await this.exhibitionPaintingRepository.findOne({
+            where: { exhibitionId, paintingId: item.paintingId },
+          });
+
+        if (!exhibitionPainting) {
+          throw new NotFoundException(
+            `Tác phẩm ${item.paintingId} không tìm thấy trong triển lãm ${exhibitionId}`,
+          );
+        }
+
+        exhibitionPainting.position = item.position
+          ? JSON.stringify(item.position)
+          : item.position;
+        exhibitionPainting.rotation = item.rotation
+          ? JSON.stringify(item.rotation)
+          : item.rotation;
+        exhibitionPainting.scale = item.scale
+          ? JSON.stringify(item.scale)
+          : item.scale;
+        return await this.exhibitionPaintingRepository.save(exhibitionPainting);
+      }),
+    );
+
+    return results;
   }
 }
