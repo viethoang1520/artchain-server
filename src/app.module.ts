@@ -26,6 +26,7 @@ import { AuctionsModule } from './modules/auctions/auctions.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { AiModule } from './modules/ai/ai.module';
 import { NftModule } from './modules/nft/nft.module';
+import { TiersModule } from './modules/tiers/tiers.module';
 
 @Module({
   imports: [
@@ -54,8 +55,9 @@ import { NftModule } from './modules/nft/nft.module';
     WalletsModule,
     AiModule,
     NftModule,
+    TiersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

@@ -6,7 +6,7 @@ import {
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 import { Campaign } from './entities/campaign.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { UsersService } from '../users/users.service';
@@ -22,18 +22,26 @@ export class CampaignsService {
     private readonly usersService: UsersService,
     private readonly sponsorsService: SponsorsService,
     private readonly paymentsService: PaymentsService,
-  ) {}
+  ) { }
 
   async createCampaignByStaff(data: {
     createCampaignDto: CreateCampaignDto;
     staffId: string;
     imageFile?: Express.Multer.File;
   }) {
+    const {
+      bronzeMinPrice,
+      silverMinPrice,
+      goldMinPrice,
+      diamondMinPrice,
+      ...createCampaignPayload
+    } = data.createCampaignDto;
+
     const user = await this.usersService.findUserById(data.staffId);
     const role = user?.role;
     if (role !== 'STAFF' && role !== 'ADMIN') {
       throw new BadRequestException(
-        'Only staff or admin users can create campaigns',
+        'Chỉ người dùng có vai trò staff hoặc admin mới được tạo campaign',
       );
     }
 
@@ -54,12 +62,13 @@ export class CampaignsService {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error';
-        throw new BadRequestException(`Failed to upload image: ${message}`);
+        throw new BadRequestException(`Tải ảnh lên thất bại: ${message}`);
       }
     }
 
-    const campaignData: any = {
-      ...data.createCampaignDto,
+    const campaignData: DeepPartial<Campaign> = {
+      ...createCampaignPayload,
+      deadline: new Date(createCampaignPayload.deadline),
       staffId: data.staffId,
     };
 
@@ -68,12 +77,22 @@ export class CampaignsService {
     }
 
     const campaign = this.campaignRepository.create(campaignData);
-    await this.campaignRepository.save(campaign);
+    const savedCampaign = await this.campaignRepository.save(campaign);
+
+    await this.sponsorsService.createCampaignSponsorshipTiers(
+      savedCampaign.campaignId,
+      {
+        bronze: bronzeMinPrice,
+        silver: silverMinPrice,
+        gold: goldMinPrice,
+        diamond: diamondMinPrice,
+      },
+    );
 
     return {
       success: true,
       message: 'Campaign created successfully',
-      data: campaign,
+      data: savedCampaign,
     };
   }
 
@@ -96,7 +115,7 @@ export class CampaignsService {
       const role = user?.role;
       if (role !== 'STAFF' && role !== 'ADMIN') {
         throw new BadRequestException(
-          'Only staff or admin users can update campaigns',
+          'Chỉ người dùng có vai trò staff hoặc admin mới được cập nhật campaign',
         );
       }
     }
@@ -118,7 +137,7 @@ export class CampaignsService {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown error';
-        throw new BadRequestException(`Failed to upload image: ${message}`);
+        throw new BadRequestException(`Tải ảnh lên thất bại: ${message}`);
       }
     }
 
@@ -240,5 +259,9 @@ export class CampaignsService {
         currentAmount,
       },
     };
+  }
+
+  async getCampaignSponsorshipTiers(campaignId: number) {
+    return this.sponsorsService.getCampaignSponsorshipTiers(campaignId);
   }
 }
