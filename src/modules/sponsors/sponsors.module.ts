@@ -7,10 +7,12 @@ import { Sponsor } from './entities/sponsor.entity';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { Tier } from '../tiers/entities/tier.entity';
+import { SponsorshipTier } from '../tiers/entities/sponsorship-tier.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Sponsor, Campaign]),
+    TypeOrmModule.forFeature([Sponsor, Campaign, Tier, SponsorshipTier]),
     FirebaseModule,
     PaymentsModule,
   ],
@@ -18,4 +20,4 @@ import { PaymentsModule } from '../payments/payments.module';
   providers: [SponsorsService],
   exports: [SponsorsService],
 })
-export class SponsorsModule {}
+export class SponsorsModule { }

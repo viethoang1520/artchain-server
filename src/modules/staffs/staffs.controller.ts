@@ -67,7 +67,7 @@ export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) {}
+  ) { }
 
   @Get('wallet-withdraw-requests')
   @UseGuards(AuthGuard)
@@ -1098,8 +1098,36 @@ export class StaffController {
           description: 'Campaign status',
           example: 'DRAFT',
         },
+        bronzeMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Bronze tier',
+          example: 500000,
+        },
+        silverMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Silver tier',
+          example: 1000000,
+        },
+        goldMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Gold tier',
+          example: 2000000,
+        },
+        diamondMinPrice: {
+          type: 'number',
+          description: 'Minimum sponsorship amount for Diamond tier',
+          example: 5000000,
+        },
       },
-      required: ['title', 'goalAmount', 'deadline'],
+      required: [
+        'title',
+        'goalAmount',
+        'deadline',
+        'bronzeMinPrice',
+        'silverMinPrice',
+        'goldMinPrice',
+        'diamondMinPrice',
+      ],
     },
   })
   @ApiResponse({

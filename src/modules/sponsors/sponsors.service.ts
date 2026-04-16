@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSponsorDto } from './dto/create-sponsor.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Sponsor } from './entities/sponsor.entity';
@@ -6,6 +6,15 @@ import { Repository } from 'typeorm/repository/Repository';
 import { Campaign } from '../campaigns/entities/campaign.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PaymentsService } from '../payments/payments.service';
+import { Tier } from '../tiers/entities/tier.entity';
+import { SponsorshipTier } from '../tiers/entities/sponsorship-tier.entity';
+
+type CampaignTierMinPrices = {
+  bronze: number;
+  silver: number;
+  gold: number;
+  diamond: number;
+};
 
 @Injectable()
 export class SponsorsService {
@@ -14,9 +23,72 @@ export class SponsorsService {
     private readonly sponsorRepository: Repository<Sponsor>,
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
+    @InjectRepository(Tier)
+    private readonly tierRepository: Repository<Tier>,
+    @InjectRepository(SponsorshipTier)
+    private readonly sponsorshipTierRepository: Repository<SponsorshipTier>,
     private readonly firebaseService: FirebaseService,
     private readonly paymentService: PaymentsService,
-  ) {}
+  ) { }
+
+  async createCampaignSponsorshipTiers(
+    campaignId: number,
+    minPrices: CampaignTierMinPrices,
+  ) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+
+    const requiredTierNames = ['bronze', 'silver', 'gold', 'diamond'];
+    const tiers = await this.tierRepository.find({
+      where: requiredTierNames.map((name) => ({ name })),
+    });
+
+    if (tiers.length !== requiredTierNames.length) {
+      throw new BadRequestException(
+        'Missing required tiers in database: bronze, silver, gold, diamond',
+      );
+    }
+
+    const tierMap = new Map(tiers.map((tier) => [tier.name.toLowerCase(), tier]));
+
+    const sponsorshipTiers = this.sponsorshipTierRepository.create([
+      {
+        campaignId,
+        tierId: tierMap.get('bronze')!.id,
+        minPrice: minPrices.bronze,
+        maxPrice: null,
+        isActive: true,
+      },
+      {
+        campaignId,
+        tierId: tierMap.get('silver')!.id,
+        minPrice: minPrices.silver,
+        maxPrice: null,
+        isActive: true,
+      },
+      {
+        campaignId,
+        tierId: tierMap.get('gold')!.id,
+        minPrice: minPrices.gold,
+        maxPrice: null,
+        isActive: true,
+      },
+      {
+        campaignId,
+        tierId: tierMap.get('diamond')!.id,
+        minPrice: minPrices.diamond,
+        maxPrice: null,
+        isActive: true,
+      },
+    ]);
+
+    return this.sponsorshipTierRepository.save(sponsorshipTiers);
+  }
 
   async createSponsor(
     createSponsorDto: CreateSponsorDto,

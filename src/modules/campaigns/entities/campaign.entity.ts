@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Sponsor } from '../../sponsors/entities/sponsor.entity';
+import { SponsorshipTier } from '../../tiers/entities/sponsorship-tier.entity';
 
 export enum CampaignStatus {
   ACTIVE = 'ACTIVE',
@@ -73,6 +74,9 @@ export class Campaign {
 
   @OneToMany(() => Sponsor, (sponsor) => sponsor.campaign)
   sponsors: Sponsor[];
+
+  @OneToMany(() => SponsorshipTier, (sponsorshipTier) => sponsorshipTier.campaign)
+  sponsorshipTiers: SponsorshipTier[];
 
   @Column({
     name: 'created_at',

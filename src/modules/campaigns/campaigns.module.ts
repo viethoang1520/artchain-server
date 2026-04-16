@@ -20,4 +20,4 @@ import { PaymentsModule } from '../payments/payments.module';
   providers: [CampaignsService],
   exports: [CampaignsService],
 })
-export class CampaignsModule {}
+export class CampaignsModule { }
