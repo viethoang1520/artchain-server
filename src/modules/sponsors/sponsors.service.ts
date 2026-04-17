@@ -29,18 +29,7 @@ export class SponsorsService {
     private readonly paymentService: PaymentsService,
   ) { }
 
-  async createCampaignSponsorshipTiers(
-    campaignId: number,
-    tiersInput: CampaignTierInput[],
-  ) {
-    const campaign = await this.campaignRepository.findOne({
-      where: { campaignId },
-    });
-
-    if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
-    }
-
+  async validateCampaignSponsorshipTiersInput(tiersInput: CampaignTierInput[]) {
     if (!tiersInput?.length) {
       throw new BadRequestException('Danh sách tier không được để trống');
     }
@@ -55,12 +44,53 @@ export class SponsorsService {
     });
 
     if (tiers.length !== uniqueTierIds.length) {
-      throw new BadRequestException(
-        'Có tierId không tồn tại trong hệ thống',
-      );
+      throw new BadRequestException('Có tierId không tồn tại trong hệ thống');
     }
 
     const tierMap = new Map(tiers.map((tier) => [tier.id, tier]));
+
+    const tiersWithPriority = tiersInput.map((item) => {
+      if (item.minPrice <= 0) {
+        throw new BadRequestException('Mức tài trợ tối thiểu phải lớn hơn 0');
+      }
+
+      const tier = tierMap.get(item.tierId)!;
+      return {
+        ...item,
+        priority: tier.priority,
+        tierName: tier.name,
+      };
+    });
+
+    const sortedByPriority = [...tiersWithPriority].sort(
+      (a, b) => a.priority - b.priority,
+    );
+
+    for (let index = 1; index < sortedByPriority.length; index++) {
+      const previousTier = sortedByPriority[index - 1];
+      const currentTier = sortedByPriority[index];
+
+      if (previousTier.minPrice > currentTier.minPrice) {
+        throw new BadRequestException(
+          `Mức tài trợ tối thiểu của tier ưu tiên thấp hơn (${previousTier.tierName}) không được lớn hơn tier ưu tiên cao hơn (${currentTier.tierName})`,
+        );
+      }
+    }
+  }
+
+  async createCampaignSponsorshipTiers(
+    campaignId: number,
+    tiersInput: CampaignTierInput[],
+  ) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
+
+    await this.validateCampaignSponsorshipTiersInput(tiersInput);
 
     const sponsorshipTiers = this.sponsorshipTierRepository.create(
       tiersInput.map((item) => {
@@ -70,7 +100,7 @@ export class SponsorsService {
 
         return {
           campaignId,
-          tierId: tierMap.get(item.tierId)!.id,
+          tierId: item.tierId,
           minPrice: item.minPrice,
           maxPrice: null,
           isActive: true,
