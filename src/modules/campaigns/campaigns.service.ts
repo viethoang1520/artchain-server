@@ -30,12 +30,11 @@ export class CampaignsService {
     imageFile?: Express.Multer.File;
   }) {
     const {
-      bronzeMinPrice,
-      silverMinPrice,
-      goldMinPrice,
-      diamondMinPrice,
+      tiers,
       ...createCampaignPayload
     } = data.createCampaignDto;
+
+    await this.sponsorsService.validateCampaignSponsorshipTiersInput(tiers);
 
     const user = await this.usersService.findUserById(data.staffId);
     const role = user?.role;
@@ -81,12 +80,7 @@ export class CampaignsService {
 
     await this.sponsorsService.createCampaignSponsorshipTiers(
       savedCampaign.campaignId,
-      {
-        bronze: bronzeMinPrice,
-        silver: silverMinPrice,
-        gold: goldMinPrice,
-        diamond: diamondMinPrice,
-      },
+      tiers,
     );
 
     return {
