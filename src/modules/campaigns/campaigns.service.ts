@@ -97,6 +97,11 @@ export class CampaignsService {
     imageFile?: Express.Multer.File,
     staffId?: string,
   ) {
+    const {
+      tiers,
+      ...updateCampaignPayload
+    } = updateCampaignDto;
+
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
     });
@@ -136,13 +141,20 @@ export class CampaignsService {
       }
     }
 
-    const updateData: any = { ...updateCampaignDto };
+    const updateData: any = { ...updateCampaignPayload };
     if (imageUrl) {
       updateData.image = imageUrl;
     }
 
     const updatedCampaign = this.campaignRepository.merge(campaign, updateData);
     await this.campaignRepository.save(updatedCampaign);
+
+    if (tiers !== undefined) {
+      await this.sponsorsService.updateCampaignSponsorshipTiersMinPrice(
+        campaignId,
+        tiers,
+      );
+    }
 
     return {
       success: true,

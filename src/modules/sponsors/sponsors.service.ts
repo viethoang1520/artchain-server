@@ -156,6 +156,63 @@ export class SponsorsService {
     return this.sponsorshipTierRepository.save(sponsorshipTiers);
   }
 
+  async updateCampaignSponsorshipTiersMinPrice(
+    campaignId: number,
+    tiersInput: unknown,
+  ) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
+    }
+
+    const normalizedTiersInput =
+      await this.validateCampaignSponsorshipTiersInput(tiersInput);
+
+    const currentSponsorshipTiers = await this.sponsorshipTierRepository.find({
+      where: { campaignId, isActive: true },
+    });
+
+    if (!currentSponsorshipTiers.length) {
+      throw new NotFoundException('Campaign chưa có cấu hình tier tài trợ để cập nhật');
+    }
+
+    const currentTierMap = new Map(
+      currentSponsorshipTiers.map((item) => [item.tierId, item]),
+    );
+
+    for (const inputTier of normalizedTiersInput) {
+      if (!currentTierMap.has(inputTier.tierId)) {
+        throw new BadRequestException(
+          `Tier ${inputTier.tierId} không thuộc campaign này nên không thể cập nhật`,
+        );
+      }
+    }
+
+    const mergedTiersForValidation = currentSponsorshipTiers.map((item) => {
+      const updatedTier = normalizedTiersInput.find(
+        (tier) => tier.tierId === item.tierId,
+      );
+
+      return {
+        tierId: item.tierId,
+        minPrice: updatedTier ? updatedTier.minPrice : item.minPrice,
+      };
+    });
+
+    await this.validateCampaignSponsorshipTiersInput(mergedTiersForValidation);
+
+    const entitiesToUpdate = normalizedTiersInput.map((tier) => {
+      const sponsorshipTier = currentTierMap.get(tier.tierId)!;
+      sponsorshipTier.minPrice = tier.minPrice;
+      return sponsorshipTier;
+    });
+
+    return this.sponsorshipTierRepository.save(entitiesToUpdate);
+  }
+
   async getCampaignSponsorshipTiers(campaignId: number) {
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },

@@ -67,7 +67,7 @@ export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) {}
+  ) { }
 
   @Get('wallet-withdraw-requests')
   @UseGuards(AuthGuard)
@@ -1225,6 +1225,29 @@ export class StaffController {
           enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
           description: 'Campaign status',
           example: 'ACTIVE',
+        },
+        tiers: {
+          type: 'array',
+          description:
+            'Danh sách tier cần cập nhật minPrice. Có thể gửi 1 hoặc nhiều tier thuộc campaign hiện tại',
+          items: {
+            type: 'object',
+            properties: {
+              tierId: {
+                type: 'number',
+                example: 1,
+              },
+              minPrice: {
+                type: 'number',
+                example: 750000,
+              },
+            },
+            required: ['tierId', 'minPrice'],
+          },
+          example: [
+            { tierId: 1, minPrice: 750000 },
+            { tierId: 2, minPrice: 1500000 },
+          ],
         },
       },
     },
