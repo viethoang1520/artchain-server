@@ -12,9 +12,8 @@ import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { ContestsService } from '../contests/contests.service';
-import { SchedulesService } from '../schedules/schedules.service';
-import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
-import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
+import { CreateScheduleDto } from '../examiners/dto/create-schedule.dto';
+import { UpdateScheduleDto } from '../examiners/dto/update-schedule.dto';
 import { FirebaseService } from '../firebase/firebase.service';
 import { WalletsService } from '../wallets/wallet.service';
 import { PaintingsService } from '../paintings/paintings.service';
@@ -31,7 +30,6 @@ export class StaffService {
     private contestsService: ContestsService,
     private paintingsService: PaintingsService,
     private examinersService: ExaminersService,
-    private schedulesService: SchedulesService,
     private walletsService: WalletsService,
   ) {}
 
@@ -242,26 +240,26 @@ export class StaffService {
   }
 
   async createSchedule(createScheduleDto: CreateScheduleDto) {
-    return this.schedulesService.createSchedule(createScheduleDto);
+    return this.examinersService.createSchedule(createScheduleDto);
   }
 
   async getSchedulesByExaminer(examinerId: string) {
-    return this.schedulesService.getSchedulesByExaminer(examinerId);
+    return this.examinersService.getSchedulesByExaminer(examinerId);
   }
 
   async getSchedulesByContest(contestId: number) {
-    return this.schedulesService.getSchedulesByContest(contestId);
+    return this.examinersService.getSchedulesByContest(contestId);
   }
 
   async updateSchedule(
     scheduleId: number,
     updateScheduleDto: UpdateScheduleDto,
   ) {
-    return this.schedulesService.updateSchedule(scheduleId, updateScheduleDto);
+    return this.examinersService.updateSchedule(scheduleId, updateScheduleDto);
   }
 
   async deleteSchedule(scheduleId: number) {
-    return this.schedulesService.deleteSchedule(scheduleId);
+    return this.examinersService.deleteSchedule(scheduleId);
   }
 
   async createRound2WithTables(

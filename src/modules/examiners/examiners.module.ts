@@ -3,17 +3,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ExaminersController } from './examiners.controller';
 import { Examiner } from './entities/examiners.entity';
 import { AuthModule } from '../auth/auth.module';
-import { SchedulesModule } from '../schedules/schedules.module';
 import { ExaminersService } from './examiners.service';
 import { ContestExaminer } from '../contests/entities/contest-examiner.entity';
 import { UsersModule } from '../users/users.module';
+import { Schedule } from './entities/schedule.entity';
+import { ContestsModule } from '../contests/contests.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Examiner, ContestExaminer]),
+    TypeOrmModule.forFeature([Examiner, ContestExaminer, Schedule]),
     AuthModule,
     UsersModule,
-    forwardRef(() => SchedulesModule),
+    forwardRef(() => ContestsModule),
   ],
   controllers: [ExaminersController],
   providers: [ExaminersService],

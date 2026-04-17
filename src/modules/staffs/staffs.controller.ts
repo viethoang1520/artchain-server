@@ -50,8 +50,8 @@ import { CreateTagDto } from '../posts/dto/create-tag.dto';
 import { AssignExaminerDto } from '../contests/dto/assign-examiner.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
-import { CreateScheduleDto } from '../schedules/dto/create-schedule.dto';
-import { UpdateScheduleDto } from '../schedules/dto/update-schedule.dto';
+import { CreateScheduleDto } from '../examiners/dto/create-schedule.dto';
+import { UpdateScheduleDto } from '../examiners/dto/update-schedule.dto';
 import { ContestStatus } from '../contests/entities/contests.entity';
 import { AssignAwardToPaintingDto } from './dto/assign-award-to-painting.dto';
 import { AcceptMultipleSubmissionsDto } from './dto/accept-multiple-submissions.dto';
@@ -67,7 +67,7 @@ export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) { }
+  ) {}
 
   @Get('wallet-withdraw-requests')
   @UseGuards(AuthGuard)
@@ -806,8 +806,10 @@ export class StaffController {
         },
         file,
       );
+
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to create post');
+
     }
   }
 
@@ -1328,6 +1330,7 @@ Lấy danh sách lịch chấm bài của examiner với thông tin canEvaluate.
             contestId: 1,
             examinerId: 'uuid-123',
             task: 'Chấm vòng 1',
+            round2Table: 'A',
             date: '2025-11-08',
             status: 'ACTIVE',
             createdAt: '2025-11-01T00:00:00Z',

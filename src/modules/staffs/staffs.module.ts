@@ -6,7 +6,6 @@ import { PostsModule } from '../posts/posts.module';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { WalletsModule } from '../wallets/wallets.module';
 import { CampaignsModule } from '../campaigns/campaigns.module';
-import { SchedulesModule } from '../schedules/schedules.module';
 import { ContestsModule } from '../contests/contests.module';
 import { PaintingsModule } from '../paintings/paintings.module';
 import { ExaminersModule } from '../examiners/examiners.module';
@@ -17,7 +16,6 @@ import { ExaminersModule } from '../examiners/examiners.module';
     PostsModule,
     ContestsModule,
     CampaignsModule,
-    SchedulesModule,
     FirebaseModule,
     PaintingsModule,
     ExaminersModule,
