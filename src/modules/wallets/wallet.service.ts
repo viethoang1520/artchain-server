@@ -41,7 +41,7 @@ export class WalletsService {
     private readonly bankAccountsRepository: Repository<BankAccount>,
     private readonly usersService: UsersService,
     private readonly paymentsService: PaymentsService,
-  ) {}
+  ) { }
 
   private async ensureStaffUser(staffId: string) {
     const staff = await this.usersService.findUserById(staffId);
@@ -236,7 +236,7 @@ export class WalletsService {
 
   async getMyBankAccounts(accountId: string) {
     const data = await this.bankAccountsRepository.find({
-      where: { accountId },
+      where: { accountId, status: BankAccountStatus.ACTIVE },
       order: { bankAccountId: 'DESC' },
     });
 
@@ -244,6 +244,29 @@ export class WalletsService {
       success: true,
       message: 'Lấy danh sách tài khoản ngân hàng thành công',
       data,
+    };
+  }
+
+  async softDeleteMyBankAccount(accountId: string, bankAccountId: string) {
+    const bankAccount = await this.bankAccountsRepository.findOne({
+      where: {
+        bankAccountId,
+        accountId,
+        status: BankAccountStatus.ACTIVE,
+      },
+    });
+
+    if (!bankAccount || bankAccount.status !== BankAccountStatus.ACTIVE) {
+      throw new NotFoundException('Không tìm thấy tài khoản ngân hàng để xóa');
+    }
+
+    bankAccount.status = BankAccountStatus.INACTIVE;
+    const updated = await this.bankAccountsRepository.save(bankAccount);
+
+    return {
+      success: true,
+      message: 'Xóa tài khoản ngân hàng thành công',
+      data: updated,
     };
   }
 
@@ -379,9 +402,9 @@ export class WalletsService {
         ...item,
         user: item.account
           ? {
-              userId: item.account.userId,
-              fullName: item.account.fullName,
-            }
+            userId: item.account.userId,
+            fullName: item.account.fullName,
+          }
           : null,
       })),
       pagination: {
@@ -422,9 +445,9 @@ export class WalletsService {
         ...item,
         user: item.account
           ? {
-              userId: item.account.userId,
-              fullName: item.account.fullName,
-            }
+            userId: item.account.userId,
+            fullName: item.account.fullName,
+          }
           : null,
       })),
       pagination: {
