@@ -34,6 +34,8 @@ export class CampaignsService {
       ...createCampaignPayload
     } = data.createCampaignDto;
 
+    await this.sponsorsService.validateCampaignSponsorshipTiersInput(tiers);
+
     const user = await this.usersService.findUserById(data.staffId);
     const role = user?.role;
     if (role !== 'STAFF' && role !== 'ADMIN') {
