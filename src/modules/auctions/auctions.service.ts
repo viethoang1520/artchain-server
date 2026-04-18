@@ -43,7 +43,7 @@ import { PaintingsService } from '../paintings/paintings.service';
 
 @Injectable()
 export class AuctionsService {
-  private static readonly ANTI_SNIPING_WINDOW_MS = 10_000;
+  private static readonly ANTI_SNIPING_WINDOW_MS = 60_000;
   private static readonly ANTI_SNIPING_EXTENSION_MS = 60_000;
   private readonly logger = new Logger(AuctionsService.name);
 
@@ -333,12 +333,6 @@ export class AuctionsService {
         );
       }
 
-      if (activePainting.ceilPrice && bidAmount > activePainting.ceilPrice) {
-        throw new BadRequestException(
-          `Giá đặt không được vượt quá giá trần ${activePainting.ceilPrice.toLocaleString('vi-VN')} VNĐ`,
-        );
-      }
-
       const bidderWallet = await this.getActiveWalletForUpdate(manager, userId);
       if (Number(bidderWallet.balance) < Number(bidAmount)) {
         throw new BadRequestException('Số dư ví không đủ để đặt giá');
@@ -360,51 +354,27 @@ export class AuctionsService {
       });
       await bidHistoryRepo.save(bidHistory);
 
-      const hitCeilPrice =
+      const hitOrExceedCeilPrice =
         activePainting.ceilPrice !== null &&
-        bidAmount === activePainting.ceilPrice;
+        activePainting.ceilPrice !== undefined &&
+        bidAmount >= activePainting.ceilPrice;
 
       activePainting.currentBid = bidAmount;
       activePainting.currentBidderId = userId;
 
       const remainingMs = paintingEndTime.getTime() - now.getTime();
-      if (
-        !hitCeilPrice &&
-        remainingMs <= AuctionsService.ANTI_SNIPING_WINDOW_MS
-      ) {
+      if (hitOrExceedCeilPrice) {
+        activePainting.auctionEndTime = new Date(
+          now.getTime() + AuctionsService.ANTI_SNIPING_EXTENSION_MS,
+        );
+      } else if (remainingMs <= AuctionsService.ANTI_SNIPING_WINDOW_MS) {
         paintingEndTime = new Date(
           paintingEndTime.getTime() + AuctionsService.ANTI_SNIPING_EXTENSION_MS,
         );
         activePainting.auctionEndTime = paintingEndTime;
       }
 
-      if (hitCeilPrice) {
-        activePainting.isSold = true;
-        activePainting.status = AuctionPaintingStatus.END;
-        if (!activePainting.auctionStartTime) {
-          activePainting.auctionStartTime = now;
-        }
-        activePainting.auctionEndTime = now;
-      }
-
       await auctionPaintingRepo.save(activePainting);
-
-      if (hitCeilPrice) {
-        await this.debitWinnerWallet(
-          manager,
-          userId,
-          bidAmount,
-          activePainting.auctionPaintingId,
-        );
-
-        await this.paintingsService.markPaintingSoldToOwner(
-          activePainting.paintingId,
-          userId,
-          manager,
-        );
-
-        await this.ensureActivePaintingForAuction(manager, auction, now);
-      }
 
       return {
         bidHistory,

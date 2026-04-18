@@ -41,7 +41,44 @@ export class WalletsService {
     private readonly bankAccountsRepository: Repository<BankAccount>,
     private readonly usersService: UsersService,
     private readonly paymentsService: PaymentsService,
-  ) { }
+  ) {}
+
+  private resolveWalletImpact(
+    transaction: Transaction,
+  ): 'CREDIT' | 'DEBIT' | 'NONE' {
+    const note = (transaction.note || '').toUpperCase();
+
+    if (note.includes('NAP TIEN VI')) {
+      return transaction.status === TransactionStatus.SUCCESS
+        ? 'CREDIT'
+        : 'NONE';
+    }
+
+    if (note.includes('THANH TOAN DAU GIA TRANH')) {
+      return transaction.status === TransactionStatus.SUCCESS
+        ? 'DEBIT'
+        : 'NONE';
+    }
+
+    if (
+      note.includes('XỬ LÝ YÊU CẦU RÚT TIỀN') ||
+      note.includes('XU LY YEU CAU RUT TIEN')
+    ) {
+      if (transaction.status === TransactionStatus.SUCCESS) {
+        return 'DEBIT';
+      }
+
+      // Pending withdraw request means amount is being held from wallet balance.
+      if (transaction.status === TransactionStatus.PENDING) {
+        return 'DEBIT';
+      }
+
+      // Failed hold transaction itself does not change current wallet balance.
+      return 'NONE';
+    }
+
+    return 'NONE';
+  }
 
   private async ensureStaffUser(staffId: string) {
     const staff = await this.usersService.findUserById(staffId);
@@ -185,10 +222,26 @@ export class WalletsService {
     const monthlyStats =
       await this.paymentsService.getMonthlyWalletStats(accountId);
 
+    const data = transactions.map((transaction) => {
+      const walletImpact = this.resolveWalletImpact(transaction);
+      const amount = Number(transaction.amount || 0);
+
+      return {
+        ...transaction,
+        walletImpact,
+        signedAmount:
+          walletImpact === 'DEBIT'
+            ? -amount
+            : walletImpact === 'CREDIT'
+              ? amount
+              : 0,
+      };
+    });
+
     return {
       success: true,
       message: 'Lấy lịch sử giao dịch ví thành công',
-      data: transactions,
+      data,
       summary: {
         totalTopupThisMonth: Number(monthlyStats?.totalTopupThisMonth ?? 0),
         totalSpendThisMonth: Number(monthlyStats?.totalSpendThisMonth ?? 0),
@@ -402,9 +455,9 @@ export class WalletsService {
         ...item,
         user: item.account
           ? {
-            userId: item.account.userId,
-            fullName: item.account.fullName,
-          }
+              userId: item.account.userId,
+              fullName: item.account.fullName,
+            }
           : null,
       })),
       pagination: {
@@ -445,9 +498,9 @@ export class WalletsService {
         ...item,
         user: item.account
           ? {
-            userId: item.account.userId,
-            fullName: item.account.fullName,
-          }
+              userId: item.account.userId,
+              fullName: item.account.fullName,
+            }
           : null,
       })),
       pagination: {
