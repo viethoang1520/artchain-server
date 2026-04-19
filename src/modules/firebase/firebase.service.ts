@@ -1,23 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
-import { join } from 'path';
 
 @Injectable()
 export class FirebaseService {
   private storage: admin.storage.Storage;
 
   constructor() {
-    const serviceAccount = require(
-      join(
-        process.cwd(),
-        'artchain-c46a7-firebase-adminsdk-fbsvc-c7e439fdf3.json',
-      ),
-    );
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      storageBucket: 'gs://artchain-c46a7.firebasestorage.app',
-    });
+    const serviceAccount = {
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    };
+
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      });
+    }
+
     this.storage = admin.storage();
   }
 
