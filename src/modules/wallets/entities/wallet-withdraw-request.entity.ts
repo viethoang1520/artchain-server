@@ -56,20 +56,20 @@ export class WalletWithdrawRequest {
   bankName: string;
 
   @Column({
-    name: 'bank_account_number',
+    name: 'recipient_bank_account_number',
     type: 'varchar',
     length: 64,
     nullable: false,
   })
-  bankAccountNumber: string;
+  RecipientBankAccountNumber: string;
 
   @Column({
-    name: 'bank_account_name',
+    name: 'recipient_bank_account_name',
     type: 'varchar',
     length: 255,
     nullable: false,
   })
-  bankAccountName: string;
+  RecipientBankAccountName: string;
 
   @Column({ name: 'bank_branch', type: 'varchar', length: 255, nullable: true })
   bankBranch: string | null;
@@ -91,9 +91,6 @@ export class WalletWithdrawRequest {
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
-  updatedAt: Date;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'account_id' })

@@ -394,8 +394,8 @@ export class WalletsService {
         amount: Number(amount),
         status: WalletWithdrawRequestStatus.PENDING,
         bankName: bankAccount.bankName,
-        bankAccountName: bankAccount.accountHolderName,
-        bankAccountNumber: bankAccount.accountNumber,
+        RecipientBankAccountName: bankAccount.accountHolderName,
+        RecipientBankAccountNumber: bankAccount.accountNumber,
         bankBranch: null,
       });
 
