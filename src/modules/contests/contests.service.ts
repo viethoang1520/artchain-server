@@ -33,7 +33,7 @@ export class ContestsService {
     private competitorsService: CompetitorsService,
     private awardsService: AwardsService,
     private contestsRoundsService: ContestsRoundsService,
-  ) {}
+  ) { }
 
   async findAll(query: GetContestDto) {
     const page = query.page || 1;
@@ -372,6 +372,33 @@ export class ContestsService {
       data: {
         contestId: updatedContest.contestId,
         isScheduleEnforced: updatedContest.isScheduleEnforced,
+      },
+    };
+  }
+
+  async toggleIgnoreAiCheck(contestId: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+    }
+
+    contest.ignoreAiCheck = !contest.ignoreAiCheck;
+
+    const updatedContest = await this.contestsRepository.save(contest);
+
+    const message = contest.ignoreAiCheck
+      ? 'Kiểm duyêt AI đã được tắt.'
+      : 'Kiểm duyêt AI đã được bật.';
+
+    return {
+      success: true,
+      message,
+      data: {
+        contestId: updatedContest.contestId,
+        ignoreAiCheck: updatedContest.ignoreAiCheck,
       },
     };
   }

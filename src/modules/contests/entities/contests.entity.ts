@@ -52,6 +52,14 @@ export class Contest {
   })
   isScheduleEnforced: boolean;
 
+  @Column({
+    name: 'ignore_ai_check',
+    nullable: true,
+    default: false,
+    comment: 'Bật/tắt kiểm tra AI cho cuộc thi'
+  })
+  ignoreAiCheck: boolean;
+
   @Column({ name: 'rule', nullable: true })
   ruleUrl: string;
 
