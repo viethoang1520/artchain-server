@@ -537,6 +537,40 @@ export class StaffController {
     return this.staffService.toggleScheduleEnforcement(id);
   }
 
+  @Patch('contests/:id/ignore-ai-check')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Bật/tắt bỏ qua kiểm tra AI của contest',
+    description: `
+- **true**: Bỏ qua kiểm tra AI khi submit painting (dùng cho demo hoặc testing)
+- **false**: Bật lại kiểm tra AI bình thường
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cập nhật thành công',
+    schema: {
+      example: {
+        success: true,
+        message: 'AI check has been disabled for this contest.',
+        data: {
+          contestId: 1,
+          ignoreAiCheck: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  toggleIgnoreAiCheck(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.toggleIgnoreAiCheck(id);
+  }
+
   @Post('contests/:id/create-round2')
   @UseGuards(AuthGuard)
   @ApiOperation({

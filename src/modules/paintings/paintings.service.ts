@@ -1283,9 +1283,13 @@ export class PaintingsService {
     if (!file) throw new NotFoundException('No file uploaded!');
     const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
     const { ignoreAiCheck, competitorId, contestId, roundId } = parsedData;
+    const contest = await this.contestsQueryService.findContestById(contestId);
+    if (!contest) {
+      throw new NotFoundException(`Không tìm thấy cuộc thi với ID ${contestId}`);
+    }
     const isFlagged =
       parsedData?.isFlagged === true || parsedData?.isFlagged === 'true';
-    if (ignoreAiCheck !== 'true') {
+    if (!(ignoreAiCheck && contest?.ignoreAiCheck)) {
       const validationResult = await this.aiService.checkValidSubmission(
         file.buffer.toString('base64'),
       );
