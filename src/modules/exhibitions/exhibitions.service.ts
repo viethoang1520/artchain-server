@@ -25,7 +25,7 @@ export class ExhibitionsService {
     private readonly paintingsService: PaintingsService,
     private readonly competitorsService: CompetitorsService,
     private readonly awardsService: AwardsService,
-  ) {}
+  ) { }
 
   /**
    * Sanitize string to remove invalid UTF-8 characters
