@@ -43,12 +43,25 @@ export class ExhibitionsService {
       this.sanitizeString(createExhibitionDto.name) || createExhibitionDto.name;
     const sanitizedDescription =
       this.sanitizeString(createExhibitionDto.description) || undefined;
+    const startDate = createExhibitionDto.startDate
+      ? new Date(createExhibitionDto.startDate)
+      : null;
+    const endDate = createExhibitionDto.endDate
+      ? new Date(createExhibitionDto.endDate)
+      : null;
+
+    if (
+      (startDate && isNaN(startDate.getTime())) ||
+      (endDate && isNaN(endDate.getTime()))
+    ) {
+      throw new BadRequestException('Ngày bắt đầu hoặc kết thúc không hợp lệ');
+    }
 
     const exhibition = this.exhibitionRepository.create({
       name: sanitizedName,
       description: sanitizedDescription,
-      startDate: createExhibitionDto.startDate,
-      endDate: createExhibitionDto.endDate,
+      startDate,
+      endDate,
       numberOfPaintings: 0,
       status: createExhibitionDto.status || 'DRAFT',
     });
@@ -186,10 +199,43 @@ export class ExhibitionsService {
       throw new NotFoundException(`Triển lãm với ID ${id} không tìm thấy`);
     }
 
-    const updatedExhibition = this.exhibitionRepository.merge(
-      exhibition,
-      updateExhibitionDto,
-    );
+    const payload: Partial<Exhibition> = {};
+
+    if (Object.prototype.hasOwnProperty.call(updateExhibitionDto, 'name')) {
+      payload.name = updateExhibitionDto.name;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(updateExhibitionDto, 'description')
+    ) {
+      payload.description = updateExhibitionDto.description;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateExhibitionDto, 'status')) {
+      payload.status = updateExhibitionDto.status;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateExhibitionDto, 'startDate')) {
+      payload.startDate = updateExhibitionDto.startDate
+        ? new Date(updateExhibitionDto.startDate)
+        : null;
+
+      if (payload.startDate && isNaN(payload.startDate.getTime())) {
+        throw new BadRequestException('Ngày bắt đầu không hợp lệ');
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateExhibitionDto, 'endDate')) {
+      payload.endDate = updateExhibitionDto.endDate
+        ? new Date(updateExhibitionDto.endDate)
+        : null;
+
+      if (payload.endDate && isNaN(payload.endDate.getTime())) {
+        throw new BadRequestException('Ngày kết thúc không hợp lệ');
+      }
+    }
+
+    const updatedExhibition = this.exhibitionRepository.merge(exhibition, payload);
 
     const savedExhibition =
       await this.exhibitionRepository.save(updatedExhibition);
