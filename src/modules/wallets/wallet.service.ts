@@ -394,9 +394,8 @@ export class WalletsService {
         amount: Number(amount),
         status: WalletWithdrawRequestStatus.PENDING,
         bankName: bankAccount.bankName,
-        RecipientBankAccountName: bankAccount.accountHolderName,
-        RecipientBankAccountNumber: bankAccount.accountNumber,
-        bankBranch: null,
+        recipientBankAccountName: bankAccount.accountHolderName,
+        recipientBankAccountNumber: bankAccount.accountNumber,
       });
 
       const savedRequest = await requestRepo.save(request);

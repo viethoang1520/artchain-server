@@ -214,7 +214,7 @@ export class ExaminersService {
 
     if (!user || user.role !== UserRole.EXAMINER) {
       throw new NotFoundException(
-        `Examiner with ID ${createScheduleDto.examinerId} not found`,
+        `Giám khảo với ID ${createScheduleDto.examinerId} không tìm thấy`,
       );
     }
 
@@ -224,7 +224,7 @@ export class ExaminersService {
 
     if (!contest) {
       throw new NotFoundException(
-        `Contest with ID ${createScheduleDto.contestId} not found`,
+        `Cuộc thi với ID ${createScheduleDto.contestId} không tìm thấy`,
       );
     }
 
@@ -235,7 +235,7 @@ export class ExaminersService {
 
     if (!contestExaminer) {
       throw new BadRequestException(
-        `Giám khảo ${createScheduleDto.examinerId} is not assigned to contest ${createScheduleDto.contestId}`,
+        `Giám khảo ${createScheduleDto.examinerId} chưa được phân công cho cuộc thi ${createScheduleDto.contestId}`,
       );
     }
 
@@ -250,7 +250,7 @@ export class ExaminersService {
 
     if (isRound2Task && !round2Table) {
       throw new BadRequestException(
-        'Lịch làm việc của ROUND_2 phải bao gồm việc phân công bảng thông qua round2Table (khuyến nghị) hoặc nhiệm vụ, ví dụ: "Chấm ROUND_2 bảng A"',
+        'Lịch làm việc của vòng chung khảo phải bao gồm việc phân công bảng thông qua round2Table (khuyến nghị) hoặc nhiệm vụ, ví dụ: "Chấm ROUND_2 bảng A"',
       );
     }
 
@@ -293,7 +293,7 @@ export class ExaminersService {
 
     return {
       success: true,
-      message: 'Schedule created successfully',
+      message: 'Lịch làm việc đã được tạo thành công',
       data: savedSchedule,
     };
   }
@@ -424,7 +424,7 @@ export class ExaminersService {
 
       if (conflict) {
         throw new BadRequestException(
-          `Each examiner can only evaluate one ROUND_2 table per contest. Conflict with schedule ${conflict.scheduleId}.`,
+          `Mỗi giám khảo chỉ có thể đánh giá một bảng vòng chung khảo của mỗi cuộc thi. Xung đột với lịch làm việc ${conflict.scheduleId}.`,
         );
       }
     }
@@ -436,7 +436,7 @@ export class ExaminersService {
 
     return {
       success: true,
-      message: 'Schedule updated successfully',
+      message: 'Lịch làm việc đã được cập nhật thành công',
       data: updatedSchedule,
     };
   }
@@ -454,7 +454,7 @@ export class ExaminersService {
 
     return {
       success: true,
-      message: 'Schedule deleted successfully',
+      message: 'Lịch làm việc đã được xóa thành công',
     };
   }
 

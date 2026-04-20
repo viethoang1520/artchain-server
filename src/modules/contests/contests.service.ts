@@ -222,7 +222,7 @@ export class ContestsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Không tìm thấy cuộc thi có ID ${contestId}`);
     }
 
     const examiner = await this.examinersService.findExaminerById(
@@ -231,7 +231,7 @@ export class ContestsService {
 
     if (!examiner) {
       throw new NotFoundException(
-        `Examiner with ID ${assignExaminerDto.examiner_id} not found`,
+        `Không tìm thấy giám khảo có ID ${assignExaminerDto.examiner_id}`,
       );
     }
 
@@ -242,7 +242,7 @@ export class ContestsService {
 
     if (existingAssignment) {
       throw new BadRequestException(
-        `Examiner ${assignExaminerDto.examiner_id} is already assigned to contest ${contestId}`,
+        `Giám khảo ${assignExaminerDto.examiner_id} đã được phân công cho cuộc thi ${contestId}`,
       );
     }
 
@@ -259,7 +259,7 @@ export class ContestsService {
 
     return {
       success: true,
-      message: 'Examiner assigned to contest successfully',
+      message: 'Giám khảo đã được phân công cho cuộc thi thành công',
       data: result,
     };
   }
@@ -270,7 +270,7 @@ export class ContestsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Không tìm thấy cuộc thi có ID ${contestId}`);
     }
 
     const examiners =
@@ -318,13 +318,13 @@ export class ContestsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy cuộc thi ${id}`);
     }
 
     if (contest.status !== ContestStatus.DRAFT) {
       return {
         success: false,
-        message: `Contest can only be published from DRAFT status. Current status: ${contest.status}`,
+        message: `Cuộc thi chỉ có thể được công bố từ trạng thái DRAFT. Trạng thái hiện tại: ${contest.status}`,
       };
     }
 
@@ -334,7 +334,7 @@ export class ContestsService {
         contest.numberOfTablesRound2 > 26
       ) {
         throw new BadRequestException(
-          `Invalid numberOfTablesRound2: ${contest.numberOfTablesRound2}. Must be between 2 and 26 before publishing.`,
+          `Số lượng bảng vòng chung khảo không hợp lệ: ${contest.numberOfTablesRound2}. Phải nằm trong khoảng từ 2 đến 26 trước khi công bố.`,
         );
       }
     }
@@ -344,7 +344,7 @@ export class ContestsService {
 
     return {
       success: true,
-      message: `Contest published successfully with status: ${contest.status}. Contest configuration is now locked and cannot be updated.`,
+      message: `Cuộc thi đã được công bố thành công với trạng thái: ${contest.status}. Cấu hình cuộc thi hiện đã bị khóa và không thể được cập nhật.`,
       data: publishedContest,
     };
   }
@@ -355,7 +355,7 @@ export class ContestsService {
     });
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Không tìm thấy cuộc thi có ID ${contestId}`);
     }
 
     contest.isScheduleEnforced = !contest.isScheduleEnforced;
@@ -363,7 +363,7 @@ export class ContestsService {
     const updatedContest = await this.contestsRepository.save(contest);
 
     const message = contest.isScheduleEnforced
-      ? 'Schedule enforcement has been enabled. Examiners can only evaluate on their scheduled dates.'
+      ? ' enforcement has been enabled. Examiners can only evaluate on their scheduled dates.'
       : 'Schedule enforcement has been disabled. Examiners can evaluate at any time (useful for demo).';
 
     return {
@@ -647,7 +647,7 @@ export class ContestsService {
 
       if (hasDisallowedUpdates || bannerFile || ruleFile) {
         throw new BadRequestException(
-          `Cannot update contest. Contest has been published (status: ${contest.status}). Only round2Quantity and numberOfTablesRound2 can be updated for published contests.`,
+          `Không thể cập nhật cuộc thi. Cuộc thi đã được công bố (status: ${contest.status}). Chỉ có thể cập nhật round2Quantity và numberOfTablesRound2 cho các cuộc thi đã công bố.`,
         );
       }
     }
@@ -705,7 +705,7 @@ export class ContestsService {
 
       return {
         success: true,
-        message: 'Contest updated successfully',
+        message: 'Cập nhật cuộc thi thành công',
         data: {
           ...savedContest,
           rounds,

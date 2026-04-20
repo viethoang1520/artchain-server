@@ -753,7 +753,7 @@ export class PaintingsService {
     const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Không tìm thấy cuộc thi ${contestId}`);
     }
 
     if (!contest.round2Quantity) {
@@ -887,7 +887,7 @@ export class PaintingsService {
     const contest = await this.contestsQueryService.findContestById(contestId);
 
     if (!contest) {
-      throw new NotFoundException(`Contest with ID ${contestId} not found`);
+      throw new NotFoundException(`Không tìm thấy cuộc thi ${contestId}`);
     }
 
     const painting = await this.paintingRepository.findOne({
@@ -895,7 +895,7 @@ export class PaintingsService {
     });
 
     if (!painting) {
-      throw new NotFoundException(`Painting with ID ${paintingId} not found`);
+      throw new NotFoundException(`Không tìm thấy tranh có ID ${paintingId} trong cuộc thi ${contestId}`);
     }
 
     painting.status = hasSubmittedOriginal
