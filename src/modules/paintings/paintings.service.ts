@@ -41,7 +41,7 @@ export class PaintingsService {
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
-  ) {}
+  ) { }
 
   async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
     const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
@@ -1028,7 +1028,7 @@ export class PaintingsService {
           contestId,
           roundId: savedRound.roundId,
           title: `Bảng ${tableNames[i]} - ${competitorName}`,
-          description: `Tranh cho Vòng 2, Bảng ${tableNames[i]}. Đang chờ giám khảo tải lên.`,
+          description: `Tranh vòng chung khảo, Bảng ${tableNames[i]}.`,
           status: 'ACCEPTED',
         });
 
@@ -1191,22 +1191,22 @@ export class PaintingsService {
               ...painting,
               competitor: competitor
                 ? {
-                    competitorId: competitor.competitorId,
-                    birthday: competitor.birthday,
-                    schoolName: competitor.schoolName,
-                    ward: competitor.ward,
-                    grade: competitor.grade,
-                    guardianId: competitor.guardianId,
-                  }
+                  competitorId: competitor.competitorId,
+                  birthday: competitor.birthday,
+                  schoolName: competitor.schoolName,
+                  ward: competitor.ward,
+                  grade: competitor.grade,
+                  guardianId: competitor.guardianId,
+                }
                 : null,
               user: user
                 ? {
-                    userId: user.userId,
-                    username: user.username,
-                    email: user.email,
-                    fullName: user.fullName,
-                    phone: user.phone,
-                  }
+                  userId: user.userId,
+                  username: user.username,
+                  email: user.email,
+                  fullName: user.fullName,
+                  phone: user.phone,
+                }
                 : null,
             };
           }),
@@ -1252,22 +1252,22 @@ export class PaintingsService {
           ...painting,
           competitor: competitor
             ? {
-                competitorId: competitor.competitorId,
-                birthday: competitor.birthday,
-                schoolName: competitor.schoolName,
-                ward: competitor.ward,
-                grade: competitor.grade,
-                guardianId: competitor.guardianId,
-              }
+              competitorId: competitor.competitorId,
+              birthday: competitor.birthday,
+              schoolName: competitor.schoolName,
+              ward: competitor.ward,
+              grade: competitor.grade,
+              guardianId: competitor.guardianId,
+            }
             : null,
           user: user
             ? {
-                userId: user.userId,
-                username: user.username,
-                email: user.email,
-                fullName: user.fullName,
-                phone: user.phone,
-              }
+              userId: user.userId,
+              username: user.username,
+              email: user.email,
+              fullName: user.fullName,
+              phone: user.phone,
+            }
             : null,
         };
       }),
@@ -1283,9 +1283,22 @@ export class PaintingsService {
     if (!file) throw new NotFoundException('No file uploaded!');
     const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
     const { ignoreAiCheck, competitorId, contestId, roundId } = parsedData;
+    const contest = await this.contestsQueryService.findContestById(contestId);
+    if (!contest) {
+      throw new NotFoundException(`Không tìm thấy cuộc thi với ID ${contestId}`);
+    }
     const isFlagged =
       parsedData?.isFlagged === true || parsedData?.isFlagged === 'true';
-    if (ignoreAiCheck !== 'true') {
+    const shouldIgnoreAiCheckByRetry =
+      ignoreAiCheck === true ||
+      ignoreAiCheck === 'true' ||
+      (typeof ignoreAiCheck === 'string' &&
+        ignoreAiCheck.trim().toLowerCase() === 'retry');
+
+    const shouldRunAiValidation =
+      !contest?.ignoreAiCheck && !shouldIgnoreAiCheckByRetry;
+
+    if (shouldRunAiValidation) {
       const validationResult = await this.aiService.checkValidSubmission(
         file.buffer.toString('base64'),
       );

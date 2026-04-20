@@ -20,10 +20,10 @@ export class Exhibition {
   description: string;
 
   @Column({ type: 'timestamp', name: 'start_date', nullable: true })
-  startDate?: Date;
+  startDate: Date | null;
 
   @Column({ type: 'timestamp', name: 'end_date', nullable: true })
-  endDate?: Date;
+  endDate: Date | null;
 
   @Column({ type: 'int', default: 0, name: 'number_of_paintings' })
   numberOfPaintings: number;
