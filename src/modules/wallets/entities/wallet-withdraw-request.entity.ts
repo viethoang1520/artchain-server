@@ -61,7 +61,7 @@ export class WalletWithdrawRequest {
     length: 64,
     nullable: false,
   })
-  RecipientBankAccountNumber: string;
+  recipientBankAccountNumber: string;
 
   @Column({
     name: 'recipient_bank_account_name',
@@ -69,10 +69,8 @@ export class WalletWithdrawRequest {
     length: 255,
     nullable: false,
   })
-  RecipientBankAccountName: string;
+  recipientBankAccountName: string;
 
-  @Column({ name: 'bank_branch', type: 'varchar', length: 255, nullable: true })
-  bankBranch: string | null;
 
   @Column({ name: 'proof_image_url', type: 'text', nullable: true })
   proofImageUrl: string | null;
