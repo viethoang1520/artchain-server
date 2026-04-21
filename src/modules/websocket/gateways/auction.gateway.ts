@@ -77,6 +77,40 @@ export class AuctionGateway
       });
   }
 
+  static broadcastCeilPriceReached(payload: {
+    auctionId: number;
+    auctionPaintingId: number;
+    paintingId: string;
+    bidderId: string;
+    bidderFullName: string | null;
+    bidAmount: number;
+    ceilPrice: number;
+    timestamp: Date;
+  }) {
+    if (!AuctionGateway.io) {
+      AuctionGateway.logger.warn(
+        `[EMIT:${AUCTION_EVENTS.CEIL_PRICE_REACHED}] Skipped because io is not initialized`,
+      );
+      return;
+    }
+
+    AuctionGateway.logger.log(
+      `[EMIT:${AUCTION_EVENTS.CEIL_PRICE_REACHED}] room=auction_${payload.auctionId} auctionPaintingId=${payload.auctionPaintingId} bidderId=${payload.bidderId} bidAmount=${payload.bidAmount} ceilPrice=${payload.ceilPrice}`,
+    );
+
+    AuctionGateway.io
+      .to(`auction_${payload.auctionId}`)
+      .emit(AUCTION_EVENTS.CEIL_PRICE_REACHED, {
+        auctionPaintingId: payload.auctionPaintingId,
+        paintingId: payload.paintingId,
+        bidderId: payload.bidderId,
+        userName: payload.bidderFullName,
+        bidAmount: payload.bidAmount,
+        ceilPrice: payload.ceilPrice,
+        timestamp: payload.timestamp,
+      });
+  }
+
   constructor(private readonly auctionsService: AuctionsService) {}
 
   private getAuctionParticipantCount(auctionId: number): number {
@@ -401,6 +435,24 @@ export class AuctionGateway
         paintingAuctionEndTime: result.auctionPainting.auctionEndTime,
         timestamp: result.bidHistory.bidTime,
       });
+
+      if (result.shouldEmitCeilPriceReached && result.ceilPrice !== null) {
+        AuctionGateway.logger.log(
+          `[EMIT:${AUCTION_EVENTS.CEIL_PRICE_REACHED}] room=auction_${auctionId} auctionPaintingId=${auctionPaintingId} bidderId=${userId} bidAmount=${bidAmount} ceilPrice=${result.ceilPrice}`,
+        );
+
+        this.server
+          .to(`auction_${auctionId}`)
+          .emit(AUCTION_EVENTS.CEIL_PRICE_REACHED, {
+            auctionPaintingId,
+            paintingId: result.auctionPainting.paintingId,
+            bidderId: userId,
+            userName: result.bidderFullName,
+            bidAmount,
+            ceilPrice: result.ceilPrice,
+            timestamp: result.bidHistory.bidTime,
+          });
+      }
 
       AuctionGateway.logger.log(
         `[EMIT:${AUCTION_EVENTS.BID_PLACED}] socketId=${socket.id} auctionId=${auctionId} userId=${userId}`,
