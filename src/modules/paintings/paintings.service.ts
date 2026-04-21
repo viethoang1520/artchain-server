@@ -1317,7 +1317,7 @@ export class PaintingsService {
     });
     if (existingSubmission) {
       throw new BadRequestException(
-        'You have already submitted a painting for this round and contest.',
+        'Bạn đã có một bài dự thi cho vòng này.',
       );
     }
 

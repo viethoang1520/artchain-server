@@ -103,6 +103,19 @@ export class AuctionsController {
       timestamp: result.bidHistory.bidTime,
     });
 
+    if (result.shouldEmitCeilPriceReached && result.ceilPrice !== null) {
+      AuctionGateway.broadcastCeilPriceReached({
+        auctionId: result.auctionPainting.auctionId,
+        auctionPaintingId: result.auctionPainting.auctionPaintingId,
+        paintingId: result.auctionPainting.paintingId,
+        bidderId: userId,
+        bidderFullName: result.bidderFullName,
+        bidAmount: placeBidDto.bidAmount,
+        ceilPrice: result.ceilPrice,
+        timestamp: result.bidHistory.bidTime,
+      });
+    }
+
     return result;
   }
 
@@ -137,6 +150,19 @@ export class AuctionsController {
       paintingAuctionEndTime: result.auctionPainting.auctionEndTime,
       timestamp: result.bidHistory.bidTime,
     });
+
+    if (result.shouldEmitCeilPriceReached && result.ceilPrice !== null) {
+      AuctionGateway.broadcastCeilPriceReached({
+        auctionId: result.auctionPainting.auctionId,
+        auctionPaintingId: result.auctionPainting.auctionPaintingId,
+        paintingId: result.auctionPainting.paintingId,
+        bidderId: userId,
+        bidderFullName: result.bidderFullName,
+        bidAmount,
+        ceilPrice: result.ceilPrice,
+        timestamp: result.bidHistory.bidTime,
+      });
+    }
 
     return result;
   }

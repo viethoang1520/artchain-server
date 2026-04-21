@@ -227,6 +227,8 @@ export class AuctionsService {
     bidHistory: BidHistory;
     auctionPainting: AuctionPainting;
     bidderFullName: string | null;
+    ceilPrice: number | null;
+    shouldEmitCeilPriceReached: boolean;
   }> {
     const { auctionPaintingId, bidAmount } = placeBidDto;
     return await this.dataSource.transaction(async (manager) => {
@@ -359,6 +361,22 @@ export class AuctionsService {
         activePainting.ceilPrice !== undefined &&
         bidAmount >= activePainting.ceilPrice;
 
+      let shouldEmitCeilPriceReached = false;
+      if (hitOrExceedCeilPrice) {
+        const previousCeilHitCount = await bidHistoryRepo
+          .createQueryBuilder('bidHistory')
+          .where('bidHistory.auctionPaintingId = :auctionPaintingId', {
+            auctionPaintingId: activePainting.auctionPaintingId,
+          })
+          .andWhere('bidHistory.bidderId = :bidderId', { bidderId: userId })
+          .andWhere('bidHistory.bidAmount >= :ceilPrice', {
+            ceilPrice: activePainting.ceilPrice,
+          })
+          .getCount();
+
+        shouldEmitCeilPriceReached = previousCeilHitCount === 0;
+      }
+
       activePainting.currentBid = bidAmount;
       activePainting.currentBidderId = userId;
 
@@ -380,6 +398,8 @@ export class AuctionsService {
         bidHistory,
         auctionPainting: activePainting,
         bidderFullName: participant.user?.fullName || null,
+        ceilPrice: activePainting.ceilPrice,
+        shouldEmitCeilPriceReached,
       };
     });
   }
@@ -393,6 +413,8 @@ export class AuctionsService {
     bidHistory: BidHistory;
     auctionPainting: AuctionPainting;
     bidderFullName: string | null;
+    ceilPrice: number | null;
+    shouldEmitCeilPriceReached: boolean;
   }> {
     const auctionPainting = await this.auctionPaintingRepository.findOne({
       where: { auctionId, paintingId },
