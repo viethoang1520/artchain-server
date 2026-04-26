@@ -22,7 +22,7 @@ export class ContestCronService {
 
     try {
       const now = new Date();
-      now.setHours(0, 0, 0, 0); 
+      now.setHours(0, 0, 0, 0);
 
       const expiredContests = await this.contestsRepository.find({
         where: [
@@ -73,10 +73,10 @@ export class ContestCronService {
   }
 
   /**
-   * Cron job chạy mỗi giờ để cập nhật status của contests
+   * Cron job chạy mỗi phút để cập nhật status của contests
    * - DRAFT hoặc UPCOMING → ACTIVE nếu hôm nay nằm trong khoảng startDate và endDate
    */
-  @Cron(CronExpression.EVERY_HOUR, {
+  @Cron(CronExpression.EVERY_MINUTE, {
     name: 'update-active-contests',
     timeZone: 'Asia/Ho_Chi_Minh',
   })
@@ -85,7 +85,7 @@ export class ContestCronService {
 
     try {
       const now = new Date();
-      now.setHours(0, 0, 0, 0); // Set to start of today
+      now.setSeconds(0, 0); // Set to start of current minute
 
       // Tìm các contests có startDate <= hôm nay <= endDate và status là UPCOMING
       const contestsToActivate = await this.contestsRepository

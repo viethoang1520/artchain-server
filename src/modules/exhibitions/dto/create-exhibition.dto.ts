@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsOptional,
   IsEnum,
+  ValidateIf,
 } from 'class-validator';
 
 export enum ExhibitionStatus {
@@ -35,18 +36,24 @@ export class CreateExhibitionDto {
   @ApiProperty({
     description: 'Ngày bắt đầu triển lãm',
     example: '2025-12-01T00:00:00.000Z',
+    required: false,
+    nullable: true,
   })
-  @IsNotEmpty()
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsDateString()
-  startDate: string;
+  startDate?: string | null;
 
   @ApiProperty({
     description: 'Ngày kết thúc triển lãm',
     example: '2025-12-31T00:00:00.000Z',
+    required: false,
+    nullable: true,
   })
-  @IsNotEmpty()
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsDateString()
-  endDate: string;
+  endDate?: string | null;
 
   @ApiProperty({
     description: 'Trạng thái triển lãm',

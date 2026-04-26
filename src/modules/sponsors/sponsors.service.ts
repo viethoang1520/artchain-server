@@ -29,13 +29,55 @@ export class SponsorsService {
     private readonly paymentService: PaymentsService,
   ) { }
 
-  async validateCampaignSponsorshipTiersInput(tiersInput: CampaignTierInput[]) {
-    if (!tiersInput?.length) {
+  private normalizeCampaignTiersInput(input: unknown): CampaignTierInput[] {
+    let parsedInput: unknown = input;
+
+    if (typeof parsedInput === 'string') {
+      try {
+        parsedInput = JSON.parse(parsedInput);
+      } catch {
+        throw new BadRequestException('Dữ liệu tiers không đúng định dạng JSON');
+      }
+    }
+
+    if (parsedInput && typeof parsedInput === 'object' && !Array.isArray(parsedInput)) {
+      const maybeTier = parsedInput as Record<string, unknown>;
+      if ('tierId' in maybeTier && 'minPrice' in maybeTier) {
+        parsedInput = [maybeTier];
+      }
+    }
+
+    if (!Array.isArray(parsedInput)) {
+      throw new BadRequestException('Danh sách tiers phải là một mảng');
+    }
+
+    return parsedInput.map((item) => {
+      if (!item || typeof item !== 'object') {
+        throw new BadRequestException('Mỗi phần tử trong tiers phải là một object hợp lệ');
+      }
+
+      const tierId = Number((item as Record<string, unknown>).tierId);
+      const minPrice = Number((item as Record<string, unknown>).minPrice);
+
+      if (!Number.isFinite(tierId) || !Number.isFinite(minPrice)) {
+        throw new BadRequestException('tierId và minPrice phải là số hợp lệ');
+      }
+
+      return { tierId, minPrice };
+    });
+  }
+
+  async validateCampaignSponsorshipTiersInput(
+    tiersInput: unknown,
+  ): Promise<CampaignTierInput[]> {
+    const normalizedTiersInput = this.normalizeCampaignTiersInput(tiersInput);
+
+    if (!normalizedTiersInput.length) {
       throw new BadRequestException('Danh sách tier không được để trống');
     }
 
-    const uniqueTierIds = [...new Set(tiersInput.map((item) => item.tierId))];
-    if (uniqueTierIds.length !== tiersInput.length) {
+    const uniqueTierIds = [...new Set(normalizedTiersInput.map((item) => item.tierId))];
+    if (uniqueTierIds.length !== normalizedTiersInput.length) {
       throw new BadRequestException('Danh sách tier bị trùng tierId');
     }
 
@@ -49,7 +91,7 @@ export class SponsorsService {
 
     const tierMap = new Map(tiers.map((tier) => [tier.id, tier]));
 
-    const tiersWithPriority = tiersInput.map((item) => {
+    const tiersWithPriority = normalizedTiersInput.map((item) => {
       if (item.minPrice <= 0) {
         throw new BadRequestException('Mức tài trợ tối thiểu phải lớn hơn 0');
       }
@@ -76,24 +118,27 @@ export class SponsorsService {
         );
       }
     }
+
+    return normalizedTiersInput;
   }
 
   async createCampaignSponsorshipTiers(
     campaignId: number,
-    tiersInput: CampaignTierInput[],
+    tiersInput: unknown,
   ) {
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
     }
 
-    await this.validateCampaignSponsorshipTiersInput(tiersInput);
+    const normalizedTiersInput =
+      await this.validateCampaignSponsorshipTiersInput(tiersInput);
 
     const sponsorshipTiers = this.sponsorshipTierRepository.create(
-      tiersInput.map((item) => {
+      normalizedTiersInput.map((item) => {
         if (item.minPrice <= 0) {
           throw new BadRequestException('Mức tài trợ tối thiểu phải lớn hơn 0');
         }
@@ -109,6 +154,63 @@ export class SponsorsService {
     );
 
     return this.sponsorshipTierRepository.save(sponsorshipTiers);
+  }
+
+  async updateCampaignSponsorshipTiersMinPrice(
+    campaignId: number,
+    tiersInput: unknown,
+  ) {
+    const campaign = await this.campaignRepository.findOne({
+      where: { campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
+    }
+
+    const normalizedTiersInput =
+      await this.validateCampaignSponsorshipTiersInput(tiersInput);
+
+    const currentSponsorshipTiers = await this.sponsorshipTierRepository.find({
+      where: { campaignId, isActive: true },
+    });
+
+    if (!currentSponsorshipTiers.length) {
+      throw new NotFoundException('Campaign chưa có cấu hình tier tài trợ để cập nhật');
+    }
+
+    const currentTierMap = new Map(
+      currentSponsorshipTiers.map((item) => [item.tierId, item]),
+    );
+
+    for (const inputTier of normalizedTiersInput) {
+      if (!currentTierMap.has(inputTier.tierId)) {
+        throw new BadRequestException(
+          `Tier ${inputTier.tierId} không thuộc campaign này nên không thể cập nhật`,
+        );
+      }
+    }
+
+    const mergedTiersForValidation = currentSponsorshipTiers.map((item) => {
+      const updatedTier = normalizedTiersInput.find(
+        (tier) => tier.tierId === item.tierId,
+      );
+
+      return {
+        tierId: item.tierId,
+        minPrice: updatedTier ? updatedTier.minPrice : item.minPrice,
+      };
+    });
+
+    await this.validateCampaignSponsorshipTiersInput(mergedTiersForValidation);
+
+    const entitiesToUpdate = normalizedTiersInput.map((tier) => {
+      const sponsorshipTier = currentTierMap.get(tier.tierId)!;
+      sponsorshipTier.minPrice = tier.minPrice;
+      return sponsorshipTier;
+    });
+
+    return this.sponsorshipTierRepository.save(entitiesToUpdate);
   }
 
   async getCampaignSponsorshipTiers(campaignId: number) {
@@ -218,7 +320,7 @@ export class SponsorsService {
     });
 
     if (!sponsor) {
-      throw new NotFoundException(`Sponsor with ID ${id} not found`);
+      throw new NotFoundException(`Không tìm thấy nhà tài trợ với ID ${id}`);
     }
 
     return sponsor;

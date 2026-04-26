@@ -43,6 +43,43 @@ export class WalletsService {
     private readonly paymentsService: PaymentsService,
   ) {}
 
+  private resolveWalletImpact(
+    transaction: Transaction,
+  ): 'CREDIT' | 'DEBIT' | 'NONE' {
+    const note = (transaction.note || '').toUpperCase();
+
+    if (note.includes('NAP TIEN VI')) {
+      return transaction.status === TransactionStatus.SUCCESS
+        ? 'CREDIT'
+        : 'NONE';
+    }
+
+    if (note.includes('THANH TOAN DAU GIA TRANH')) {
+      return transaction.status === TransactionStatus.SUCCESS
+        ? 'DEBIT'
+        : 'NONE';
+    }
+
+    if (
+      note.includes('XỬ LÝ YÊU CẦU RÚT TIỀN') ||
+      note.includes('XU LY YEU CAU RUT TIEN')
+    ) {
+      if (transaction.status === TransactionStatus.SUCCESS) {
+        return 'DEBIT';
+      }
+
+      // Pending withdraw request means amount is being held from wallet balance.
+      if (transaction.status === TransactionStatus.PENDING) {
+        return 'DEBIT';
+      }
+
+      // Failed hold transaction itself does not change current wallet balance.
+      return 'NONE';
+    }
+
+    return 'NONE';
+  }
+
   private async ensureStaffUser(staffId: string) {
     const staff = await this.usersService.findUserById(staffId);
 
@@ -185,10 +222,26 @@ export class WalletsService {
     const monthlyStats =
       await this.paymentsService.getMonthlyWalletStats(accountId);
 
+    const data = transactions.map((transaction) => {
+      const walletImpact = this.resolveWalletImpact(transaction);
+      const amount = Number(transaction.amount || 0);
+
+      return {
+        ...transaction,
+        walletImpact,
+        signedAmount:
+          walletImpact === 'DEBIT'
+            ? -amount
+            : walletImpact === 'CREDIT'
+              ? amount
+              : 0,
+      };
+    });
+
     return {
       success: true,
       message: 'Lấy lịch sử giao dịch ví thành công',
-      data: transactions,
+      data,
       summary: {
         totalTopupThisMonth: Number(monthlyStats?.totalTopupThisMonth ?? 0),
         totalSpendThisMonth: Number(monthlyStats?.totalSpendThisMonth ?? 0),
@@ -236,7 +289,7 @@ export class WalletsService {
 
   async getMyBankAccounts(accountId: string) {
     const data = await this.bankAccountsRepository.find({
-      where: { accountId },
+      where: { accountId, status: BankAccountStatus.ACTIVE },
       order: { bankAccountId: 'DESC' },
     });
 
@@ -244,6 +297,29 @@ export class WalletsService {
       success: true,
       message: 'Lấy danh sách tài khoản ngân hàng thành công',
       data,
+    };
+  }
+
+  async softDeleteMyBankAccount(accountId: string, bankAccountId: string) {
+    const bankAccount = await this.bankAccountsRepository.findOne({
+      where: {
+        bankAccountId,
+        accountId,
+        status: BankAccountStatus.ACTIVE,
+      },
+    });
+
+    if (!bankAccount || bankAccount.status !== BankAccountStatus.ACTIVE) {
+      throw new NotFoundException('Không tìm thấy tài khoản ngân hàng để xóa');
+    }
+
+    bankAccount.status = BankAccountStatus.INACTIVE;
+    const updated = await this.bankAccountsRepository.save(bankAccount);
+
+    return {
+      success: true,
+      message: 'Xóa tài khoản ngân hàng thành công',
+      data: updated,
     };
   }
 
@@ -318,9 +394,8 @@ export class WalletsService {
         amount: Number(amount),
         status: WalletWithdrawRequestStatus.PENDING,
         bankName: bankAccount.bankName,
-        bankAccountName: bankAccount.accountHolderName,
-        bankAccountNumber: bankAccount.accountNumber,
-        bankBranch: null,
+        recipientBankAccountName: bankAccount.accountHolderName,
+        recipientBankAccountNumber: bankAccount.accountNumber,
       });
 
       const savedRequest = await requestRepo.save(request);

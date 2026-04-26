@@ -19,11 +19,11 @@ export class Exhibition {
   @Column({ type: 'text', nullable: true, name: 'description' })
   description: string;
 
-  @Column({ type: 'timestamp', name: 'start_date' })
-  startDate: Date;
+  @Column({ type: 'timestamp', name: 'start_date', nullable: true })
+  startDate: Date | null;
 
-  @Column({ type: 'timestamp', name: 'end_date' })
-  endDate: Date;
+  @Column({ type: 'timestamp', name: 'end_date', nullable: true })
+  endDate: Date | null;
 
   @Column({ type: 'int', default: 0, name: 'number_of_paintings' })
   numberOfPaintings: number;

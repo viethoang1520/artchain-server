@@ -34,7 +34,8 @@ export class CampaignsService {
       ...createCampaignPayload
     } = data.createCampaignDto;
 
-    await this.sponsorsService.validateCampaignSponsorshipTiersInput(tiers);
+    const normalizedTiers =
+      await this.sponsorsService.validateCampaignSponsorshipTiersInput(tiers);
 
     const user = await this.usersService.findUserById(data.staffId);
     const role = user?.role;
@@ -60,7 +61,7 @@ export class CampaignsService {
         imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Unknown error';
+          error instanceof Error ? error.message : 'Lỗi không xác định';
         throw new BadRequestException(`Tải ảnh lên thất bại: ${message}`);
       }
     }
@@ -80,7 +81,7 @@ export class CampaignsService {
 
     await this.sponsorsService.createCampaignSponsorshipTiers(
       savedCampaign.campaignId,
-      tiers,
+      normalizedTiers,
     );
 
     return {
@@ -96,12 +97,17 @@ export class CampaignsService {
     imageFile?: Express.Multer.File,
     staffId?: string,
   ) {
+    const {
+      tiers,
+      ...updateCampaignPayload
+    } = updateCampaignDto;
+
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
     }
 
     if (staffId) {
@@ -130,18 +136,25 @@ export class CampaignsService {
         imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Unknown error';
+          error instanceof Error ? error.message : 'Lỗi không xác định';
         throw new BadRequestException(`Tải ảnh lên thất bại: ${message}`);
       }
     }
 
-    const updateData: any = { ...updateCampaignDto };
+    const updateData: any = { ...updateCampaignPayload };
     if (imageUrl) {
       updateData.image = imageUrl;
     }
 
     const updatedCampaign = this.campaignRepository.merge(campaign, updateData);
     await this.campaignRepository.save(updatedCampaign);
+
+    if (tiers !== undefined) {
+      await this.sponsorsService.updateCampaignSponsorshipTiersMinPrice(
+        campaignId,
+        tiers,
+      );
+    }
 
     return {
       success: true,
@@ -206,7 +219,7 @@ export class CampaignsService {
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
     }
 
     const skip = (page - 1) * limit;
@@ -240,7 +253,7 @@ export class CampaignsService {
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
     }
 
     const currentAmount =

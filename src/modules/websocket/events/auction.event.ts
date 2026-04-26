@@ -11,6 +11,7 @@ export const AUCTION_EVENTS = {
   JOINED_PAINTING: 'joinedPainting',
   USER_JOINED: 'userJoined',
   NEW_BID: 'newBid',
+  CEIL_PRICE_REACHED: 'ceilPriceReached',
   BID_PLACED: 'bidPlaced',
   BID_ERROR: 'bidError',
   LEFT_AUCTION: 'leftAuction',

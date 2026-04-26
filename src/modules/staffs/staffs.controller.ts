@@ -67,7 +67,7 @@ export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) {}
+  ) { }
 
   @Get('wallet-withdraw-requests')
   @UseGuards(AuthGuard)
@@ -535,6 +535,40 @@ export class StaffController {
     @Request() req: any,
   ) {
     return this.staffService.toggleScheduleEnforcement(id);
+  }
+
+  @Patch('contests/:id/ignore-ai-check')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Bật/tắt bỏ qua kiểm tra AI của contest',
+    description: `
+- **true**: Bỏ qua kiểm tra AI khi submit painting (dùng cho demo hoặc testing)
+- **false**: Bật lại kiểm tra AI bình thường
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cập nhật thành công',
+    schema: {
+      example: {
+        success: true,
+        message: 'AI check has been disabled for this contest.',
+        data: {
+          contestId: 1,
+          ignoreAiCheck: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest not found',
+  })
+  toggleIgnoreAiCheck(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.toggleIgnoreAiCheck(id);
   }
 
   @Post('contests/:id/create-round2')
@@ -1225,6 +1259,29 @@ export class StaffController {
           enum: ['ACTIVE', 'CLOSED', 'COMPLETED', 'DRAFT', 'CANCELLED'],
           description: 'Campaign status',
           example: 'ACTIVE',
+        },
+        tiers: {
+          type: 'array',
+          description:
+            'Danh sách tier cần cập nhật minPrice. Có thể gửi 1 hoặc nhiều tier thuộc campaign hiện tại',
+          items: {
+            type: 'object',
+            properties: {
+              tierId: {
+                type: 'number',
+                example: 1,
+              },
+              minPrice: {
+                type: 'number',
+                example: 750000,
+              },
+            },
+            required: ['tierId', 'minPrice'],
+          },
+          example: [
+            { tierId: 1, minPrice: 750000 },
+            { tierId: 2, minPrice: 1500000 },
+          ],
         },
       },
     },

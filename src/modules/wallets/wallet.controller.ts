@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Get,
+  Delete,
   Param,
   ParseUUIDPipe,
   Query,
@@ -22,7 +23,7 @@ import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto'
 @ApiBearerAuth()
 @Controller('api/wallets')
 export class WalletsController {
-  constructor(private readonly walletsService: WalletsService) {}
+  constructor(private readonly walletsService: WalletsService) { }
 
   @Post('/create')
   @ApiOperation({ summary: 'Create a new wallet' })
@@ -81,6 +82,25 @@ export class WalletsController {
   getMyBankAccounts(@Req() req: any) {
     const userId = req.user.sub;
     return this.walletsService.getMyBankAccounts(userId);
+  }
+
+  @Delete('bank-accounts/:bankAccountId')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'User xóa mềm tài khoản ngân hàng của mình' })
+  @ApiParam({
+    name: 'bankAccountId',
+    description: 'ID tài khoản ngân hàng',
+    type: 'string',
+    format: 'uuid',
+  })
+  @ApiResponse({ status: 200, description: 'Xóa tài khoản ngân hàng thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy tài khoản ngân hàng để xóa' })
+  softDeleteMyBankAccount(
+    @Req() req: any,
+    @Param('bankAccountId', ParseUUIDPipe) bankAccountId: string,
+  ) {
+    const userId = req.user.sub;
+    return this.walletsService.softDeleteMyBankAccount(userId, bankAccountId);
   }
 
   @Get('withdraw-requests/me')
