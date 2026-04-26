@@ -36,6 +36,13 @@ export class Wallet {
   currency: string;
 
   @Column({
+    name: 'withdrawal_available_at',
+    type: 'timestamp',
+    nullable: true,
+  })
+  withdrawalAvailableAt: Date | null;
+
+  @Column({
     name: 'status',
     type: 'enum',
     enum: WalletStatus,

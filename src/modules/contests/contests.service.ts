@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contest, ContestStatus } from './entities/contests.entity';
 import { CreateContestDto } from './dto/create-contest.dto';
+import { CreateRound2EvaluationCriteriaConfigDto } from './dto/create-round2-evaluation-criteria-config.dto';
 import { UpdateContestDto } from './dto/update-contest.dto';
 import { GetContestDto } from './dto/get-contest.dto';
 import { GetAllContestsDto } from './dto/get-all-contests.dto';
@@ -297,6 +298,12 @@ export class ContestsService {
       );
     }
 
+    const deletedEvaluationsResult =
+      await this.paintingsService.softDeleteExaminerEvaluationsInContest(
+        contestId,
+        examinerId,
+      );
+
     const deleteResult =
       await this.examinersService.removeAssignment(assignment);
 
@@ -309,6 +316,9 @@ export class ContestsService {
     return {
       success: true,
       message: 'Giám khảo được xóa thành công',
+      data: {
+        updatedEvaluationsCount: deletedEvaluationsResult.affected,
+      },
     };
   }
 
@@ -346,6 +356,40 @@ export class ContestsService {
       success: true,
       message: `Cuộc thi đã được công bố thành công với trạng thái: ${contest.status}. Cấu hình cuộc thi hiện đã bị khóa và không thể được cập nhật.`,
       data: publishedContest,
+    };
+  }
+
+  async activateContest(id: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Không tìm thấy cuộc thi ${id}`);
+    }
+
+    if (contest.status !== ContestStatus.UPCOMING) {
+      throw new BadRequestException(
+        `Chỉ có thể kích hoạt contest từ trạng thái UPCOMING. Trạng thái hiện tại: ${contest.status}`,
+      );
+    }
+
+    const now = new Date();
+    if (now > new Date(contest.endDate)) {
+      throw new BadRequestException(
+        'Không thể kích hoạt contest vì đã quá thời gian kết thúc.',
+      );
+    }
+
+    contest.status = ContestStatus.ACTIVE;
+    contest.startDate = now;
+
+    const activatedContest = await this.contestsRepository.save(contest);
+
+    return {
+      success: true,
+      message: 'Contest đã được kích hoạt thủ công thành công.',
+      data: activatedContest,
     };
   }
 

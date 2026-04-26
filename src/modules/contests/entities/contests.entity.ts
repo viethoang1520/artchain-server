@@ -56,7 +56,7 @@ export class Contest {
     name: 'ignore_ai_check',
     nullable: true,
     default: false,
-    comment: 'Bật/tắt kiểm tra AI cho cuộc thi'
+    comment: 'Bật/tắt kiểm tra AI cho cuộc thi',
   })
   ignoreAiCheck: boolean;
 

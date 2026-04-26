@@ -59,6 +59,7 @@ import { UpdateOriginalSubmissionStatusDto } from './dto/update-original-submiss
 import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
 import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
 import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
+import { CreateRound2EvaluationCriteriaConfigDto } from '../contests/dto/create-round2-evaluation-criteria-config.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -67,7 +68,7 @@ export class StaffController {
   constructor(
     private readonly staffService: StaffService,
     private readonly postsService: PostsService,
-  ) { }
+  ) {}
 
   @Get('wallet-withdraw-requests')
   @UseGuards(AuthGuard)
@@ -502,6 +503,40 @@ export class StaffController {
     return this.staffService.publishContest(id);
   }
 
+  @Patch('contests/:id/activate')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Kích hoạt contest thủ công',
+    description:
+      'Chuyển contest từ UPCOMING sang ACTIVE. Khi kích hoạt, startDate sẽ được cập nhật thành thời điểm bấm nút ACTIVE.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Kích hoạt contest thành công',
+    schema: {
+      example: {
+        success: true,
+        message: 'Contest đã được kích hoạt thủ công thành công.',
+        data: {
+          contestId: 1,
+          status: 'ACTIVE',
+          startDate: '2026-04-22T12:34:56.000Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contest không ở trạng thái UPCOMING hoặc đã quá hạn',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest không tồn tại',
+  })
+  activateContest(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.staffService.activateContest(id);
+  }
+
   @Patch('contests/:id/schedule-enforcement')
   @UseGuards(AuthGuard)
   @ApiOperation({
@@ -840,10 +875,8 @@ export class StaffController {
         },
         file,
       );
-
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to create post');
-
     }
   }
 
@@ -1136,7 +1169,8 @@ export class StaffController {
         },
         tiers: {
           type: 'array',
-          description: 'Danh sách tier và mức tài trợ tối thiểu do người dùng cấu hình',
+          description:
+            'Danh sách tier và mức tài trợ tối thiểu do người dùng cấu hình',
           items: {
             type: 'object',
             properties: {
@@ -1158,12 +1192,7 @@ export class StaffController {
           ],
         },
       },
-      required: [
-        'title',
-        'goalAmount',
-        'deadline',
-        'tiers',
-      ],
+      required: ['title', 'goalAmount', 'deadline', 'tiers'],
     },
   })
   @ApiResponse({

@@ -21,6 +21,7 @@ import { ExaminersService } from '../examiners/examiners.service';
 import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
 import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
 import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
+import { CreateRound2EvaluationCriteriaConfigDto } from '../contests/dto/create-round2-evaluation-criteria-config.dto';
 
 @Injectable()
 export class StaffService {
@@ -31,7 +32,7 @@ export class StaffService {
     private paintingsService: PaintingsService,
     private examinersService: ExaminersService,
     private walletsService: WalletsService,
-  ) { }
+  ) {}
 
   async getWithdrawRequests(
     staffId: string,
@@ -113,6 +114,10 @@ export class StaffService {
 
   async publishContest(id: number) {
     return this.contestsService.publishContest(id);
+  }
+
+  async activateContest(id: number) {
+    return this.contestsService.activateContest(id);
   }
 
   async toggleScheduleEnforcement(contestId: number) {

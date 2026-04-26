@@ -148,6 +148,7 @@ export class UsersService {
           balance: Number(user.wallet.balance),
           currency: user.wallet.currency,
           status: user.wallet.status,
+          withdrawalAvailableAt: user.wallet.withdrawalAvailableAt,
         }
       : null;
 
