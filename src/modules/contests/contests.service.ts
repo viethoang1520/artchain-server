@@ -37,7 +37,7 @@ export class ContestsService {
     private competitorsService: CompetitorsService,
     private awardsService: AwardsService,
     private contestsRoundsService: ContestsRoundsService,
-  ) {}
+  ) { }
 
   async findAll(query: GetContestDto) {
     const page = query.page || 1;
@@ -301,6 +301,12 @@ export class ContestsService {
       );
     }
 
+    const deletedEvaluationsResult =
+      await this.paintingsService.softDeleteExaminerEvaluationsInContest(
+        contestId,
+        examinerId,
+      );
+
     const deleteResult =
       await this.examinersService.removeAssignment(assignment);
 
@@ -313,6 +319,9 @@ export class ContestsService {
     return {
       success: true,
       message: 'Giám khảo được xóa thành công',
+      data: {
+        updatedEvaluationsCount: deletedEvaluationsResult.affected,
+      },
     };
   }
 
