@@ -34,7 +34,10 @@ export class Order {
   orderCode: number;
 
   @Column({
-    type: 'decimal', precision: 12, scale: 2, transformer: {
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    transformer: {
       to: (value: number) => value,
       from: (value: string) => parseFloat(value),
     },
@@ -50,8 +53,8 @@ export class Order {
   @Column({ type: 'varchar', length: 255 })
   cancelUrl: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  transactionId: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  transactionId: string | null;
 
   @Column({
     type: 'enum',

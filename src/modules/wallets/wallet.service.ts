@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User, UserRole } from '../users/entities/user.entity';
 import {
   Transaction,
@@ -62,7 +62,8 @@ export class WalletsService {
 
     if (
       note.includes('XỬ LÝ YÊU CẦU RÚT TIỀN') ||
-      note.includes('XU LY YEU CAU RUT TIEN')
+      note.includes('XU LY YEU CAU RUT TIEN') ||
+      note.includes('WITHDRAW_APPROVED #')
     ) {
       if (transaction.status === TransactionStatus.SUCCESS) {
         return 'DEBIT';
@@ -343,7 +344,6 @@ export class WalletsService {
       const walletRepo = manager.getRepository(Wallet);
       const bankAccountRepo = manager.getRepository(BankAccount);
       const requestRepo = manager.getRepository(WalletWithdrawRequest);
-      const transactionRepo = manager.getRepository(Transaction);
 
       const wallet = await walletRepo
         .createQueryBuilder('wallet')
@@ -399,15 +399,6 @@ export class WalletsService {
       });
 
       const savedRequest = await requestRepo.save(request);
-
-      const holdTransaction = transactionRepo.create({
-        userId: accountId,
-        amount: Number(amount),
-        paymentDate: new Date(),
-        status: TransactionStatus.PENDING,
-        note: `Xử lý yêu cầu rút tiền #${savedRequest.requestId}`,
-      });
-      await transactionRepo.save(holdTransaction);
 
       return {
         success: true,
@@ -549,13 +540,13 @@ export class WalletsService {
         where: {
           userId: request.accountId,
           status: TransactionStatus.PENDING,
-          note: Like(`Xử lý yêu cầu rút tiền #${requestId}%`),
+          note: `Xử lý yêu cầu rút tiền #${requestId}`,
         },
       });
 
       if (holdTransaction) {
         holdTransaction.status = TransactionStatus.SUCCESS;
-        holdTransaction.note = `Xử lý yêu cầu rút tiền #${requestId}`;
+        holdTransaction.note = `WITHDRAW_APPROVED #${requestId}`;
         holdTransaction.paymentDate = new Date();
         await transactionRepo.save(holdTransaction);
       } else {
@@ -564,7 +555,7 @@ export class WalletsService {
           amount: Number(request.amount),
           status: TransactionStatus.SUCCESS,
           paymentDate: new Date(),
-          note: `Xử lý yêu cầu rút tiền #${requestId}`,
+          note: `WITHDRAW_APPROVED #${requestId}`,
         });
         await transactionRepo.save(fallbackTransaction);
       }
@@ -631,25 +622,16 @@ export class WalletsService {
         where: {
           userId: request.accountId,
           status: TransactionStatus.PENDING,
-          note: Like(`Xử lý yêu cầu rút tiền #${requestId}%`),
+          note: `Xử lý yêu cầu rút tiền #${requestId}`,
         },
       });
 
       if (holdTransaction) {
         holdTransaction.status = TransactionStatus.FAILED;
-        holdTransaction.note = `Xử lý yêu cầu rút tiền #${requestId}`;
+        holdTransaction.note = `WITHDRAW_REJECTED #${requestId}`;
         holdTransaction.paymentDate = new Date();
         await transactionRepo.save(holdTransaction);
       }
-
-      const refundTransaction = transactionRepo.create({
-        userId: request.accountId,
-        amount: Number(request.amount),
-        status: TransactionStatus.SUCCESS,
-        paymentDate: new Date(),
-        note: `Xử lý yêu cầu rút tiền #${requestId}`,
-      });
-      await transactionRepo.save(refundTransaction);
 
       return {
         success: true,

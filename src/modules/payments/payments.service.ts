@@ -10,7 +10,7 @@ import { Sponsor, SponsorStatus } from '../sponsors/entities/sponsor.entity';
 import PayOS from '../../common/config/payos.config';
 import { Order, OrderStatus, OrderType } from './entities/order.entity';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, DeepPartial, EntityManager } from 'typeorm';
 import { Wallet } from '../wallets/entities';
 
 @Injectable()
@@ -54,20 +54,13 @@ export class PaymentsService {
     try {
       const orderCode = Number(String(new Date().getTime()).slice(-6));
 
-      // bấm vào nút thanh toán -> tạo mới sponsor (api khác) + transaction + update tiền campaign
+      // bấm vào nút thanh toán -> tạo request order, transaction sẽ chỉ tạo khi webhook success
       const campaign = await queryRunner.manager.findOne(Campaign, {
         where: { campaignId },
       });
       if (!campaign || campaign.deadline < new Date()) {
         throw new Error('Campaign not found or expired');
       }
-      const newTransaction = queryRunner.manager.create(Transaction, {
-        sponsorId,
-        campaignId,
-        amount: totalAmount,
-        status: TransactionStatus.PENDING,
-      });
-      const savedTransaction = await queryRunner.manager.save(newTransaction);
 
       // // update tiền cho campaign
       // campaign.currentAmount += Number(totalAmount);
@@ -87,7 +80,6 @@ export class PaymentsService {
         orderCode,
         totalAmount,
         `THANH TOAN TAI TRO ${orderCode}`,
-        savedTransaction.transactionId,
         queryRunner.manager,
       );
       await queryRunner.commitTransaction();
@@ -131,13 +123,6 @@ export class PaymentsService {
       }
 
       const description = `NAP TIEN VI ${orderCode}`;
-      const newTransaction = queryRunner.manager.create(Transaction, {
-        userId,
-        amount: totalAmount,
-        status: TransactionStatus.PENDING,
-        note: description,
-      });
-      const savedTransaction = await queryRunner.manager.save(newTransaction);
 
       const order = {
         orderCode,
@@ -154,7 +139,6 @@ export class PaymentsService {
         orderCode,
         totalAmount,
         description,
-        savedTransaction.transactionId,
         queryRunner.manager,
       );
 
@@ -197,10 +181,8 @@ export class PaymentsService {
     orderCode: number,
     totalAmount: number,
     description: string,
-    transactionId: string,
     manager: EntityManager,
   ) {
-    const redirectUrls = this.getPaymentRedirectUrls();
     const newOrder = manager.create(Order, {
       sponsorId: orderRef.sponsorId,
       walletId: orderRef.walletId,
@@ -210,7 +192,7 @@ export class PaymentsService {
       description,
       returnUrl: `${this.configService.get('CLIENT_URL')}/payment/success`,
       cancelUrl: `${this.configService.get('CLIENT_URL')}/payment/cancel`,
-      transactionId,
+      transactionId: null,
     });
     return await manager.save(newOrder);
   }
@@ -225,11 +207,6 @@ export class PaymentsService {
         where: { orderCode: data.orderCode },
       });
       if (!order) throw new Error('Order not found');
-
-      const transaction = await queryRunner.manager.findOne(Transaction, {
-        where: { transactionId: order.transactionId },
-      });
-      if (!transaction) throw new Error('Transaction not found');
 
       const sponsor =
         order.orderType === OrderType.SPONSOR && order.sponsorId
@@ -250,14 +227,45 @@ export class PaymentsService {
         return;
       }
 
+      let transaction: Transaction | null = null;
+
+      if (order.transactionId) {
+        transaction = await queryRunner.manager.findOne(Transaction, {
+          where: { transactionId: order.transactionId },
+        });
+      }
+
       if (code === '00') {
-        if (transaction.status !== TransactionStatus.PENDING) {
+        if (
+          transaction &&
+          transaction.status !== TransactionStatus.PENDING &&
+          transaction.status !== TransactionStatus.SUCCESS
+        ) {
           await queryRunner.commitTransaction();
           return;
         }
-
-        transaction.status = TransactionStatus.SUCCESS;
         order.status = OrderStatus.COMPLETED;
+
+        if (!transaction) {
+          const newTransactionPayload: DeepPartial<Transaction> = {
+            sponsorId: order.sponsorId ?? undefined,
+            campaignId: sponsor?.campaignId ?? undefined,
+            userId: wallet?.accountId ?? undefined,
+            amount: Number(order.amount),
+            status: TransactionStatus.SUCCESS,
+            note: order.description,
+            paymentDate: new Date(),
+          };
+
+          transaction = queryRunner.manager
+            .getRepository(Transaction)
+            .create(newTransactionPayload);
+          transaction = await queryRunner.manager.save(transaction);
+          order.transactionId = transaction.transactionId;
+        } else {
+          transaction.status = TransactionStatus.SUCCESS;
+          transaction.paymentDate = new Date();
+        }
 
         if (order.orderType === OrderType.SPONSOR) {
           if (!sponsor) {
@@ -274,11 +282,18 @@ export class PaymentsService {
         }
       } else {
         order.status = OrderStatus.CANCELLED;
-        transaction.status = TransactionStatus.FAILED;
+
+        // Backward compatibility for old flow where PENDING transaction was created up-front.
+        if (transaction && transaction.status === TransactionStatus.PENDING) {
+          transaction.status = TransactionStatus.FAILED;
+          transaction.paymentDate = new Date();
+        }
       }
 
       await queryRunner.manager.save(order);
-      await queryRunner.manager.save(transaction);
+      if (transaction) {
+        await queryRunner.manager.save(transaction);
+      }
       if (sponsor) {
         await queryRunner.manager.save(sponsor);
       }
