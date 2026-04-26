@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contest, ContestStatus } from './entities/contests.entity';
-import { EvaluationCriteria } from './entities/evaluation-criteria.entity';
 import { CreateContestDto } from './dto/create-contest.dto';
 import { CreateRound2EvaluationCriteriaConfigDto } from './dto/create-round2-evaluation-criteria-config.dto';
 import { UpdateContestDto } from './dto/update-contest.dto';
@@ -29,8 +28,6 @@ export class ContestsService {
   constructor(
     @InjectRepository(Contest)
     private contestsRepository: Repository<Contest>,
-    @InjectRepository(EvaluationCriteria)
-    private evaluationCriteriaRepository: Repository<EvaluationCriteria>,
     private firebaseService: FirebaseService,
     private paintingsService: PaintingsService,
     private examinersService: ExaminersService,
@@ -573,93 +570,6 @@ export class ContestsService {
 
   async getRound2QualifiedPaintings(contestId: number) {
     return this.paintingsService.getRound2QualifiedPaintingsByStaff(contestId);
-  }
-
-  async createRound2EvaluationCriteriaConfig(
-    contestId: number,
-    createDto: CreateRound2EvaluationCriteriaConfigDto,
-  ) {
-    const contest = await this.contestsRepository.findOne({
-      where: { contestId },
-    });
-
-    if (!contest) {
-      throw new NotFoundException(`Không tìm thấy contest có ID ${contestId}`);
-    }
-
-    if (
-      contest.status === ContestStatus.ENDED ||
-      contest.status === ContestStatus.COMPLETED
-    ) {
-      throw new BadRequestException(
-        'Không thể cấu hình tiêu chí chấm điểm cho contest đã kết thúc.',
-      );
-    }
-
-    const normalizedCriteria = createDto.criteria.map((item) => ({
-      name: item.name.trim(),
-      description: item.description?.trim(),
-      maxScore: Number(item.maxScore),
-      weight: Number(item.weight),
-    }));
-
-    const duplicateName = normalizedCriteria.find(
-      (item, index) =>
-        normalizedCriteria.findIndex(
-          (x) => x.name.toLowerCase() === item.name.toLowerCase(),
-        ) !== index,
-    );
-
-    if (duplicateName) {
-      throw new BadRequestException(
-        `Tên tiêu chí bị trùng: ${duplicateName.name}`,
-      );
-    }
-
-    const totalWeight = normalizedCriteria.reduce(
-      (sum, item) => sum + item.weight,
-      0,
-    );
-
-    if (totalWeight > 100) {
-      throw new BadRequestException('Tổng trọng số không được vượt quá 100%.');
-    }
-
-    const savedCriteria =
-      await this.evaluationCriteriaRepository.manager.transaction(
-        async (manager) => {
-          const criteriaRepo = manager.getRepository(EvaluationCriteria);
-
-          await criteriaRepo.update(
-            { contestId, isActive: true },
-            { isActive: false },
-          );
-
-          const newCriteria = criteriaRepo.create(
-            normalizedCriteria.map((item) => ({
-              contestId,
-              name: item.name,
-              description: item.description || undefined,
-              maxScore: item.maxScore,
-              weight: item.weight,
-              isActive: true,
-            })),
-          );
-
-          return criteriaRepo.save(newCriteria);
-        },
-      );
-
-    return {
-      success: true,
-      message: 'Tạo cấu hình tiêu chí chấm điểm vòng 2 thành công',
-      data: {
-        contestId,
-        totalCriteria: savedCriteria.length,
-        totalWeight,
-        criteria: savedCriteria,
-      },
-    };
   }
 
   async updateOriginalSubmissionStatus(

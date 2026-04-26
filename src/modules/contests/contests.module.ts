@@ -6,7 +6,6 @@ import { ContestCronService } from './contest-cron.service';
 import { Contest } from './entities/contests.entity';
 import { AuthModule } from '../auth/auth.module';
 import { Round } from './entities/round.entity';
-import { EvaluationCriteria } from './entities/evaluation-criteria.entity';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { PaintingsModule } from '../paintings/paintings.module';
 import { ExaminersModule } from '../examiners/examiners.module';
@@ -17,7 +16,7 @@ import { ContestsQueryService } from './contests-query.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Contest, Round, EvaluationCriteria]),
+    TypeOrmModule.forFeature([Contest, Round]),
     AuthModule,
     FirebaseModule,
     forwardRef(() => PaintingsModule),
