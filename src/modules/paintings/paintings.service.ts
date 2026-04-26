@@ -247,6 +247,45 @@ export class PaintingsService {
     });
   }
 
+  async softDeleteExaminerEvaluationsInContest(
+    contestId: number,
+    examinerId: string,
+  ) {
+    const evaluatedEvaluationIds = await this.evaluationRepository
+      .createQueryBuilder('evaluation')
+      .innerJoin(
+        Painting,
+        'painting',
+        'painting.painting_id = evaluation.painting_id',
+      )
+      .select('evaluation.id', 'evaluationId')
+      .where('evaluation.examiner_id = :examinerId', { examinerId })
+      .andWhere('evaluation.status = :evaluationStatus', {
+        evaluationStatus: 'COMPLETED',
+      })
+      .andWhere('painting.contest_id = :contestId', { contestId })
+      .getRawMany<{ evaluationId: string }>();
+
+    const evaluationIds = evaluatedEvaluationIds.map(
+      (item) => item.evaluationId,
+    );
+
+    if (evaluationIds.length === 0) {
+      return {
+        affected: 0,
+      };
+    }
+
+    await this.evaluationRepository.update(
+      { id: In(evaluationIds) },
+      { status: 'DELETED' },
+    );
+
+    return {
+      affected: evaluationIds.length,
+    };
+  }
+
   async listByAwardAndContest(awardId: number, contestId: number) {
     return this.paintingRepository.find({
       where: { awardId, contestId },
@@ -499,7 +538,7 @@ export class PaintingsService {
     paintingId: string,
   ): Promise<number | null> {
     const evaluations = await this.evaluationRepository.find({
-      where: { paintingId },
+      where: { paintingId},
     });
 
     if (evaluations.length === 0) {
@@ -724,7 +763,7 @@ export class PaintingsService {
 
         const paintingIds = competitorPaintings.map((p) => p.paintingId);
         const evaluations = await this.evaluationRepository.find({
-          where: paintingIds.map((paintingId) => ({ paintingId })),
+          where: paintingIds.map((paintingId) => ({ paintingId, status: 'COMPLETED' })),
         });
 
         let avgScore = 0;
@@ -797,7 +836,7 @@ export class PaintingsService {
         const paintingsWithScores = await Promise.all(
           competitorPaintings.map(async (painting) => {
             const evaluations = await this.evaluationRepository.find({
-              where: { paintingId: painting.paintingId },
+              where: { paintingId: painting.paintingId, status: 'COMPLETED' },
             });
 
             if (evaluations.length === 0) return null;
