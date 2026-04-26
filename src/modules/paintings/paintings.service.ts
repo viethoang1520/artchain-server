@@ -13,8 +13,12 @@ import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
 import { EvaluatePaintingDto } from './dto/evaluate-painting.dto';
 import { PreliminaryEvaluationDto } from './dto/preliminary-evaluation.dto';
-import { EvaluateRound2Dto } from './dto/evaluate-round2.dto';
+import {
+  EvaluateRound2Dto,
+  Round2CriteriaScoreDto,
+} from './dto/evaluate-round2.dto';
 import { Round } from '../contests/entities/round.entity';
+import { EvaluationCriteria } from '../contests/entities/evaluation-criteria.entity';
 import {
   PreliminaryReviewDto,
   PaintingReviewItem,
@@ -41,7 +45,95 @@ export class PaintingsService {
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
+    @InjectRepository(EvaluationCriteria)
+    private readonly evaluationCriteriaRepository: Repository<EvaluationCriteria>,
   ) { }
+
+  private computeRound2TotalScoreByDynamicCriteria(
+    criteria: EvaluationCriteria[],
+    criteriaScores: Round2CriteriaScoreDto[],
+  ): {
+    totalScore: number;
+    scoreDetails: Array<{
+      criterionId: number;
+      criterionName: string;
+      score: number;
+      maxScore: number;
+      weight: number;
+      weightedScore: number;
+    }>;
+  } {
+    const criteriaMap = new Map(criteria.map((item) => [item.id, item]));
+
+    const scoreMap = new Map<number, number>();
+    for (const item of criteriaScores) {
+      if (!criteriaMap.has(item.criterionId)) {
+        throw new BadRequestException(
+          `Tiêu chí #${item.criterionId} không thuộc cấu hình chấm điểm hiện tại`,
+        );
+      }
+
+      if (scoreMap.has(item.criterionId)) {
+        throw new BadRequestException(
+          `Tiêu chí #${item.criterionId} bị gửi trùng điểm`,
+        );
+      }
+
+      scoreMap.set(item.criterionId, Number(item.score));
+    }
+
+    const missingCriteria = criteria.filter((item) => !scoreMap.has(item.id));
+    if (missingCriteria.length > 0) {
+      throw new BadRequestException(
+        'Thiếu điểm cho một số tiêu chí trong cấu hình chấm điểm hiện tại',
+      );
+    }
+
+    let totalScore = 0;
+    const scoreDetails: Array<{
+      criterionId: number;
+      criterionName: string;
+      score: number;
+      maxScore: number;
+      weight: number;
+      weightedScore: number;
+    }> = [];
+
+    for (const criterion of criteria) {
+      const score = Number(scoreMap.get(criterion.id));
+      const maxScore = Number(criterion.maxScore || 0);
+      const weight = Number(criterion.weight || 0);
+
+      if (maxScore <= 0) {
+        throw new BadRequestException(
+          `Tiêu chí ${criterion.name} có maxScore không hợp lệ`,
+        );
+      }
+
+      if (score < 0 || score > maxScore) {
+        throw new BadRequestException(
+          `Điểm tiêu chí ${criterion.name} phải nằm trong khoảng 0 - ${maxScore}`,
+        );
+      }
+
+      const weightedScore = Number(((score / maxScore) * weight).toFixed(2));
+      totalScore += weightedScore;
+
+      scoreDetails.push({
+        criterionId: criterion.id,
+        criterionName: criterion.name,
+        score,
+        maxScore,
+        weight,
+        weightedScore,
+      });
+    }
+
+    return {
+      totalScore: Number(totalScore.toFixed(2)),
+      scoreDetails,
+    };
+  }
 
   async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
     const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
@@ -456,7 +548,7 @@ export class PaintingsService {
     }
 
     const totalScore = validScores.reduce(
-      (sum, evaluation) => sum + evaluation.scoreRound2,
+      (sum, evaluation) => sum + (evaluation.scoreRound2 ?? 0),
       0,
     );
     const totalCreativity = validScores.reduce(
@@ -1487,12 +1579,8 @@ export class PaintingsService {
     const {
       paintingId,
       examinerId,
-      creativityScore,
-      compositionScore,
-      colorScore,
-      technicalScore,
-      aestheticScore,
       feedback,
+      criteriaScores,
     } = evaluateDto;
 
     // Validate painting exists
@@ -1582,24 +1670,95 @@ export class PaintingsService {
       };
     }
 
-    const totalScore =
-      creativityScore +
-      compositionScore +
-      colorScore +
-      technicalScore +
-      aestheticScore;
+    const activeCriteria = await this.evaluationCriteriaRepository.find({
+      where: {
+        contestId: painting.contestId,
+        isActive: true,
+      },
+      order: { id: 'ASC' },
+    });
+
+    let totalScore = 0;
+    let dynamicScoreDetails: Array<{
+      criterionId: number;
+      criterionName: string;
+      score: number;
+      maxScore: number;
+      weight: number;
+      weightedScore: number;
+    }> | null = null;
+
+    const resolvedLegacyScores: {
+      creativityScore?: number;
+      compositionScore?: number;
+      colorScore?: number;
+      technicalScore?: number;
+      aestheticScore?: number;
+    } = {};
+
+    if (activeCriteria.length > 0) {
+      if (!criteriaScores || criteriaScores.length === 0) {
+        throw new BadRequestException(
+          'Contest đã cấu hình tiêu chí động. Vui lòng gửi criteriaScores để chấm điểm.',
+        );
+      }
+
+      const computed = this.computeRound2TotalScoreByDynamicCriteria(
+        activeCriteria,
+        criteriaScores,
+      );
+      totalScore = computed.totalScore;
+      dynamicScoreDetails = computed.scoreDetails;
+    } else {
+      const {
+        creativityScore,
+        compositionScore,
+        colorScore,
+        technicalScore,
+        aestheticScore,
+      } = evaluateDto;
+
+      if (
+        creativityScore === undefined ||
+        compositionScore === undefined ||
+        colorScore === undefined ||
+        technicalScore === undefined ||
+        aestheticScore === undefined
+      ) {
+        throw new BadRequestException(
+          'Thiếu điểm 5 tiêu chí mặc định cho chấm vòng 2',
+        );
+      }
+
+      totalScore =
+        creativityScore +
+        compositionScore +
+        colorScore +
+        technicalScore +
+        aestheticScore;
+      resolvedLegacyScores.creativityScore = creativityScore;
+      resolvedLegacyScores.compositionScore = compositionScore;
+      resolvedLegacyScores.colorScore = colorScore;
+      resolvedLegacyScores.technicalScore = technicalScore;
+      resolvedLegacyScores.aestheticScore = aestheticScore;
+    }
 
     const existingEvaluation = await this.evaluationRepository.findOne({
       where: { paintingId, examinerId },
     });
 
     if (existingEvaluation) {
-      existingEvaluation.creativityScore = creativityScore;
-      existingEvaluation.compositionScore = compositionScore;
-      existingEvaluation.colorScore = colorScore;
-      existingEvaluation.technicalScore = technicalScore;
-      existingEvaluation.aestheticScore = aestheticScore;
+      existingEvaluation.creativityScore =
+        resolvedLegacyScores.creativityScore ?? null;
+      existingEvaluation.compositionScore =
+        resolvedLegacyScores.compositionScore ?? null;
+      existingEvaluation.colorScore = resolvedLegacyScores.colorScore ?? null;
+      existingEvaluation.technicalScore =
+        resolvedLegacyScores.technicalScore ?? null;
+      existingEvaluation.aestheticScore =
+        resolvedLegacyScores.aestheticScore ?? null;
       existingEvaluation.scoreRound2 = totalScore;
+      existingEvaluation.round2CriteriaScores = dynamicScoreDetails;
       existingEvaluation.feedback = feedback || '';
       existingEvaluation.evaluationDate = new Date();
       existingEvaluation.status = 'COMPLETED';
@@ -1614,19 +1773,19 @@ export class PaintingsService {
       };
     }
 
-    const newEvaluation = this.evaluationRepository.create({
-      paintingId,
-      examinerId,
-      creativityScore,
-      compositionScore,
-      colorScore,
-      technicalScore,
-      aestheticScore,
-      scoreRound2: totalScore,
-      feedback: feedback || '',
-      evaluationDate: new Date(),
-      status: 'COMPLETED',
-    });
+    const newEvaluation = new Evaluation();
+    newEvaluation.paintingId = paintingId;
+    newEvaluation.examinerId = examinerId;
+    newEvaluation.creativityScore = resolvedLegacyScores.creativityScore ?? null;
+    newEvaluation.compositionScore = resolvedLegacyScores.compositionScore ?? null;
+    newEvaluation.colorScore = resolvedLegacyScores.colorScore ?? null;
+    newEvaluation.technicalScore = resolvedLegacyScores.technicalScore ?? null;
+    newEvaluation.aestheticScore = resolvedLegacyScores.aestheticScore ?? null;
+    newEvaluation.scoreRound2 = totalScore;
+    newEvaluation.round2CriteriaScores = dynamicScoreDetails;
+    newEvaluation.feedback = feedback || '';
+    newEvaluation.evaluationDate = new Date();
+    newEvaluation.status = 'COMPLETED';
 
     const savedEvaluation = await this.evaluationRepository.save(newEvaluation);
 
@@ -1722,7 +1881,7 @@ export class PaintingsService {
 
               if (validScores.length > 0) {
                 const totalScore = validScores.reduce(
-                  (sum, evaluation) => sum + evaluation.scoreRound2,
+                  (sum, evaluation) => sum + (evaluation.scoreRound2 ?? 0),
                   0,
                 );
                 const totalCreativity = validScores.reduce(
@@ -1801,24 +1960,12 @@ export class PaintingsService {
           }),
         );
 
-        // Sắp xếp: Ưu tiên avgScoreRound2, nếu bằng nhau thì so sánh lần lượt các tiêu chí khác
+        // Sắp xếp: Ưu tiên avgScoreRound2, nếu bằng nhau thì ưu tiên bài có nhiều lượt chấm hơn.
         paintingsWithAvgScore.sort((a, b) => {
           if (b.avgScoreRound2 !== a.avgScoreRound2) {
             return b.avgScoreRound2 - a.avgScoreRound2;
           }
-          if (b.avgCreativityScore !== a.avgCreativityScore) {
-            return b.avgCreativityScore - a.avgCreativityScore;
-          }
-          if (b.avgCompositionScore !== a.avgCompositionScore) {
-            return b.avgCompositionScore - a.avgCompositionScore;
-          }
-          if (b.avgColorScore !== a.avgColorScore) {
-            return b.avgColorScore - a.avgColorScore;
-          }
-          if (b.avgTechnicalScore !== a.avgTechnicalScore) {
-            return b.avgTechnicalScore - a.avgTechnicalScore;
-          }
-          return b.avgAestheticScore - a.avgAestheticScore;
+          return b.evaluationCount - a.evaluationCount;
         });
 
         return {
@@ -1838,9 +1985,7 @@ export class PaintingsService {
       if (b.topPainting.avgScoreRound2 !== a.topPainting.avgScoreRound2) {
         return b.topPainting.avgScoreRound2 - a.topPainting.avgScoreRound2;
       }
-      return (
-        b.topPainting.avgCreativityScore - a.topPainting.avgCreativityScore
-      );
+      return b.topPainting.evaluationCount - a.topPainting.evaluationCount;
     });
 
     const totalPaintings = tableResults.reduce(

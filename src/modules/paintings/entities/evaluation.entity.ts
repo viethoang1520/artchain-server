@@ -23,37 +23,55 @@ export class Evaluation {
 
   // Round 1 score - Simple scoring
   @Column({ type: 'int', nullable: true, name: 'score' })
-  scoreRound1: number;
+  scoreRound1: number | null;
 
   // Round 2 score - Detailed scoring with criteria
-  @Column({ type: 'int', nullable: true, name: 'score_round_2' })
-  scoreRound2: number;
+  @Column({
+    type: 'decimal',
+    precision: 7,
+    scale: 2,
+    nullable: true,
+    name: 'score_round_2',
+  })
+  scoreRound2: number | null;
+
+  @Column({ type: 'jsonb', nullable: true, name: 'round2_criteria_scores' })
+  round2CriteriaScores:
+    | Array<{
+        criterionId: number;
+        criterionName: string;
+        score: number;
+        maxScore: number;
+        weight: number;
+        weightedScore: number;
+      }>
+    | null;
 
   // Creativity & Originality - Max 30 points (Round 2 only)
   @Column({ type: 'int', nullable: true, name: 'creativity_score' })
-  creativityScore: number;
+  creativityScore: number | null;
 
   // Composition - Max 20 points (Round 2 only)
   @Column({ type: 'int', nullable: true, name: 'composition_score' })
-  compositionScore: number;
+  compositionScore: number | null;
 
   // Color & Technique - Max 20 points (Round 2 only)
   @Column({ type: 'int', nullable: true, name: 'color_score' })
-  colorScore: number;
+  colorScore: number | null;
 
   // Relevance to Theme - Max 20 points (Round 2 only)
   @Column({ type: 'int', nullable: true, name: 'technical_score' })
-  technicalScore: number;
+  technicalScore: number | null;
 
   // Overall Aesthetic - Max 10 points (Round 2 only)
   @Column({ type: 'int', nullable: true, name: 'aesthetic_score' })
-  aestheticScore: number;
+  aestheticScore: number | null;
 
   @Column({ type: 'text', nullable: true, name: 'feedback' })
-  feedback: string;
+  feedback: string | null;
 
   @Column({ type: 'timestamp', nullable: true, name: 'evaluation_date' })
-  evaluationDate: Date;
+  evaluationDate: Date | null;
 
   @Column({ type: 'varchar', length: 50, default: 'PENDING', name: 'status' })
   status: string;

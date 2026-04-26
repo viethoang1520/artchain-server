@@ -1,13 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsArray,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class Round2CriteriaScoreDto {
+  @ApiProperty({
+    description: 'ID tiêu chí chấm điểm',
+    example: 1,
+  })
+  @IsNotEmpty()
+  @IsInt()
+  criterionId: number;
+
+  @ApiProperty({
+    description: 'Điểm chấm cho tiêu chí tương ứng',
+    example: 24,
+  })
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  score: number;
+}
 
 export class EvaluateRound2Dto {
   @ApiProperty({
@@ -27,16 +51,28 @@ export class EvaluateRound2Dto {
 
   @ApiProperty({
     description:
+      'Danh sách điểm theo tiêu chí động. Khi contest đã cấu hình tiêu chí động, nên dùng trường này.',
+    type: [Round2CriteriaScoreDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => Round2CriteriaScoreDto)
+  criteriaScores?: Round2CriteriaScoreDto[];
+
+  @ApiProperty({
+    description:
       'Creativity & Originality - Unique idea, imagination, expression (0-30 points)',
     example: 25,
     minimum: 0,
     maximum: 30,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(30)
-  creativityScore: number;
+  creativityScore?: number;
 
   @ApiProperty({
     description:
@@ -45,11 +81,11 @@ export class EvaluateRound2Dto {
     minimum: 0,
     maximum: 20,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(20)
-  compositionScore: number;
+  compositionScore?: number;
 
   @ApiProperty({
     description:
@@ -58,11 +94,11 @@ export class EvaluateRound2Dto {
     minimum: 0,
     maximum: 20,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(20)
-  colorScore: number;
+  colorScore?: number;
 
   @ApiProperty({
     description:
@@ -71,11 +107,11 @@ export class EvaluateRound2Dto {
     minimum: 0,
     maximum: 20,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(20)
-  technicalScore: number;
+  technicalScore?: number;
 
   @ApiProperty({
     description:
@@ -84,11 +120,11 @@ export class EvaluateRound2Dto {
     minimum: 0,
     maximum: 10,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(10)
-  aestheticScore: number;
+  aestheticScore?: number;
 
   @ApiProperty({
     description: 'Nhận xét chi tiết về bức tranh',

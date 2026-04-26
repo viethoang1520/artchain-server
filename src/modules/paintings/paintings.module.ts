@@ -12,6 +12,7 @@ import { CompetitorsModule } from '../competitors/competitors.module';
 import { ExaminersModule } from '../examiners/examiners.module';
 import { AwardsModule } from '../awards/awards.module';
 import { ContestsModule } from '../contests/contests.module';
+import { EvaluationCriteria } from '../contests/entities/evaluation-criteria.entity';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { ContestsModule } from '../contests/contests.module';
     ExaminersModule,
     forwardRef(() => AwardsModule),
     forwardRef(() => ContestsModule),
-    TypeOrmModule.forFeature([Painting, Evaluation, Nft]),
+    TypeOrmModule.forFeature([Painting, Evaluation, Nft, EvaluationCriteria]),
   ],
   controllers: [PaintingsController],
   providers: [PaintingsService],
