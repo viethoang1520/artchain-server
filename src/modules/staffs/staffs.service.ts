@@ -31,7 +31,7 @@ export class StaffService {
     private paintingsService: PaintingsService,
     private examinersService: ExaminersService,
     private walletsService: WalletsService,
-  ) { }
+  ) {}
 
   async getWithdrawRequests(
     staffId: string,
@@ -113,6 +113,10 @@ export class StaffService {
 
   async publishContest(id: number) {
     return this.contestsService.publishContest(id);
+  }
+
+  async activateContest(id: number) {
+    return this.contestsService.activateContest(id);
   }
 
   async toggleScheduleEnforcement(contestId: number) {

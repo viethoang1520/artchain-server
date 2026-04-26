@@ -33,7 +33,7 @@ export class ContestsService {
     private competitorsService: CompetitorsService,
     private awardsService: AwardsService,
     private contestsRoundsService: ContestsRoundsService,
-  ) { }
+  ) {}
 
   async findAll(query: GetContestDto) {
     const page = query.page || 1;
@@ -346,6 +346,40 @@ export class ContestsService {
       success: true,
       message: `Cuộc thi đã được công bố thành công với trạng thái: ${contest.status}. Cấu hình cuộc thi hiện đã bị khóa và không thể được cập nhật.`,
       data: publishedContest,
+    };
+  }
+
+  async activateContest(id: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Không tìm thấy cuộc thi ${id}`);
+    }
+
+    if (contest.status !== ContestStatus.UPCOMING) {
+      throw new BadRequestException(
+        `Chỉ có thể kích hoạt contest từ trạng thái UPCOMING. Trạng thái hiện tại: ${contest.status}`,
+      );
+    }
+
+    const now = new Date();
+    if (now > new Date(contest.endDate)) {
+      throw new BadRequestException(
+        'Không thể kích hoạt contest vì đã quá thời gian kết thúc.',
+      );
+    }
+
+    contest.status = ContestStatus.ACTIVE;
+    contest.startDate = now;
+
+    const activatedContest = await this.contestsRepository.save(contest);
+
+    return {
+      success: true,
+      message: 'Contest đã được kích hoạt thủ công thành công.',
+      data: activatedContest,
     };
   }
 
