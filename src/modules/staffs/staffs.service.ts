@@ -309,16 +309,6 @@ export class StaffService {
     return this.contestsService.getRound2QualifiedPaintings(contestId);
   }
 
-  async createRound2EvaluationCriteriaConfig(
-    contestId: number,
-    createDto: CreateRound2EvaluationCriteriaConfigDto,
-  ) {
-    return this.contestsService.createRound2EvaluationCriteriaConfig(
-      contestId,
-      createDto,
-    );
-  }
-
   async updateOriginalSubmissionStatus(
     contestId: number,
     paintingId: string,
