@@ -45,6 +45,7 @@ import { PaintingsService } from '../paintings/paintings.service';
 export class AuctionsService {
   private static readonly ANTI_SNIPING_WINDOW_MS = 60_000;
   private static readonly ANTI_SNIPING_EXTENSION_MS = 60_000;
+  private static readonly WITHDRAW_LOCK_MS = 2 * 24 * 60 * 60 * 1000;
   private readonly logger = new Logger(AuctionsService.name);
 
   constructor(
@@ -207,6 +208,26 @@ export class AuctionsService {
     const savedParticipant =
       await this.auctionParticipantRepository.save(participant);
 
+    const nextWithdrawalAvailableAt = new Date(
+      Date.now() + AuctionsService.WITHDRAW_LOCK_MS,
+    );
+    const wallet = await this.auctionRepository.manager
+      .getRepository(Wallet)
+      .findOne({
+        where: {
+          accountId: userId,
+          status: WalletStatus.ACTIVE,
+        },
+      });
+    if (
+      wallet &&
+      (!wallet.withdrawalAvailableAt ||
+        wallet.withdrawalAvailableAt < nextWithdrawalAvailableAt)
+    ) {
+      wallet.withdrawalAvailableAt = nextWithdrawalAvailableAt;
+      await this.auctionRepository.manager.getRepository(Wallet).save(wallet);
+    }
+
     const participantWithRelations =
       await this.auctionParticipantRepository.findOne({
         where: { participantId: savedParticipant.participantId },
@@ -338,6 +359,17 @@ export class AuctionsService {
       const bidderWallet = await this.getActiveWalletForUpdate(manager, userId);
       if (Number(bidderWallet.balance) < Number(bidAmount)) {
         throw new BadRequestException('Số dư ví không đủ để đặt giá');
+      }
+
+      const nextWithdrawalAvailableAt = new Date(
+        now.getTime() + AuctionsService.WITHDRAW_LOCK_MS,
+      );
+      if (
+        !bidderWallet.withdrawalAvailableAt ||
+        bidderWallet.withdrawalAvailableAt < nextWithdrawalAvailableAt
+      ) {
+        bidderWallet.withdrawalAvailableAt = nextWithdrawalAvailableAt;
+        await manager.getRepository(Wallet).save(bidderWallet);
       }
 
       await bidHistoryRepo.update(
