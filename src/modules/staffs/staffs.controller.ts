@@ -59,6 +59,7 @@ import { UpdateOriginalSubmissionStatusDto } from './dto/update-original-submiss
 import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
 import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
 import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
+import { CreateRound2EvaluationCriteriaConfigDto } from '../contests/dto/create-round2-evaluation-criteria-config.dto';
 
 @ApiTags('Staff Management')
 @ApiBearerAuth()
@@ -702,6 +703,41 @@ export class StaffController {
       contestId,
       date,
       numberOfTables,
+    );
+  }
+
+  @Post('contests/:id/round2-evaluation-criteria')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Staff tạo cấu hình tiêu chí chấm điểm vòng 2 theo contest',
+    description:
+      'API này cho phép staff cấu hình linh hoạt tiêu chí chấm điểm vòng 2 thay cho bộ 5 tiêu chí fix cứng trước đây. Mỗi lần gọi sẽ vô hiệu bộ tiêu chí đang active và tạo bộ mới.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Contest ID',
+    example: 1,
+  })
+  @ApiBody({ type: CreateRound2EvaluationCriteriaConfigDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Tạo cấu hình tiêu chí thành công',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dữ liệu cấu hình không hợp lệ',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy contest',
+  })
+  createRound2EvaluationCriteriaConfig(
+    @Param('id', ParseIntPipe) contestId: number,
+    @Body() createDto: CreateRound2EvaluationCriteriaConfigDto,
+  ) {
+    return this.staffService.createRound2EvaluationCriteriaConfig(
+      contestId,
+      createDto,
     );
   }
 

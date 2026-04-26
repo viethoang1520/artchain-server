@@ -21,6 +21,7 @@ import { ExaminersService } from '../examiners/examiners.service';
 import { QueryWithdrawRequestDto } from '../wallets/dto/query-withdraw-request.dto';
 import { ApproveWithdrawRequestDto } from '../wallets/dto/approve-withdraw-request.dto';
 import { RejectWithdrawRequestDto } from '../wallets/dto/reject-withdraw-request.dto';
+import { CreateRound2EvaluationCriteriaConfigDto } from '../contests/dto/create-round2-evaluation-criteria-config.dto';
 
 @Injectable()
 export class StaffService {
@@ -306,6 +307,16 @@ export class StaffService {
 
   async getRound2QualifiedPaintings(contestId: number) {
     return this.contestsService.getRound2QualifiedPaintings(contestId);
+  }
+
+  async createRound2EvaluationCriteriaConfig(
+    contestId: number,
+    createDto: CreateRound2EvaluationCriteriaConfigDto,
+  ) {
+    return this.contestsService.createRound2EvaluationCriteriaConfig(
+      contestId,
+      createDto,
+    );
   }
 
   async updateOriginalSubmissionStatus(
