@@ -35,7 +35,11 @@ export class Wallet {
   @Column({ name: 'currency', nullable: false, default: 'VND' })
   currency: string;
 
-  @Column({ name: 'withdrawal_available_at', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'withdrawal_available_at',
+    type: 'timestamp',
+    nullable: true,
+  })
   withdrawalAvailableAt: Date | null;
 
   @Column({

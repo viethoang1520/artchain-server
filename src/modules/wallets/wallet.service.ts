@@ -361,7 +361,10 @@ export class WalletsService {
         throw new NotFoundException('Không tìm thấy ví của người dùng');
       }
 
-      if (wallet.withdrawalAvailableAt && wallet.withdrawalAvailableAt > new Date()) {
+      if (
+        wallet.withdrawalAvailableAt &&
+        wallet.withdrawalAvailableAt > new Date()
+      ) {
         throw new BadRequestException(
           `Bạn chỉ có thể rút tiền sau ${wallet.withdrawalAvailableAt.toLocaleString('vi-VN')}`,
         );
