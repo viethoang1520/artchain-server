@@ -1,25 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 @Injectable()
 export class AiService {
-  private readonly genAI: GoogleGenerativeAI;
+  private readonly openai: OpenAI;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY') ?? '';
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.openai = new OpenAI({
+      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
+    });
   }
 
-  private extractJsonObject(
-    text: string,
-  ): { valid: boolean; reason: string } | null {
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    const candidate = fenced?.[1] ?? text;
-    const jsonMatch = candidate.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return null;
-    }
+  private extractJsonObject(text: string) {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
 
     try {
       return JSON.parse(jsonMatch[0]);
@@ -30,17 +25,11 @@ export class AiService {
 
   async checkValidSubmission(base64Input: string): Promise<any> {
     try {
-      const model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-      });
-
       const base64 = base64Input.includes(',')
         ? base64Input.split(',').pop()
         : base64Input;
 
-      if (!base64) {
-        return false;
-      }
+      if (!base64) return false;
 
       const prompt = `
         You are an image validation system.
@@ -91,22 +80,30 @@ export class AiService {
           "reason": "short reason in Vietnamese"
         }
       `;
-
-      const result = await model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            mimeType: 'image/jpeg',
-            data: base64,
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini', // hoặc gpt-4o
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64}`,
+                },
+              },
+            ],
           },
-        },
-      ]);
+        ],
+      });
 
-      const text = result.response.text();
+      const text = response.choices[0]?.message?.content || '';
       const parsed = this.extractJsonObject(text);
+
       return parsed ?? { valid: false, reason: 'Invalid model response' };
     } catch (e: any) {
-      console.error('Parse error:', e.message);
+      console.error('GPT error:', e.message);
       return false;
     }
   }
