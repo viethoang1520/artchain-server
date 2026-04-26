@@ -60,10 +60,16 @@ export class WalletsService {
         : 'NONE';
     }
 
+    if (note.includes('HOAN TIEN TU CHOI RUT #')) {
+      return transaction.status === TransactionStatus.SUCCESS
+        ? 'CREDIT'
+        : 'NONE';
+    }
+
     if (
       note.includes('XỬ LÝ YÊU CẦU RÚT TIỀN') ||
       note.includes('XU LY YEU CAU RUT TIEN') ||
-      note.includes('WITHDRAW_APPROVED #')
+      note.includes('RUT TIEN DA DUYET #')
     ) {
       if (transaction.status === TransactionStatus.SUCCESS) {
         return 'DEBIT';
@@ -546,7 +552,7 @@ export class WalletsService {
 
       if (holdTransaction) {
         holdTransaction.status = TransactionStatus.SUCCESS;
-        holdTransaction.note = `WITHDRAW_APPROVED #${requestId}`;
+        holdTransaction.note = `RUT TIEN DA DUYET #${requestId}`;
         holdTransaction.paymentDate = new Date();
         await transactionRepo.save(holdTransaction);
       } else {
@@ -555,7 +561,7 @@ export class WalletsService {
           amount: Number(request.amount),
           status: TransactionStatus.SUCCESS,
           paymentDate: new Date(),
-          note: `WITHDRAW_APPROVED #${requestId}`,
+          note: `RUT TIEN DA DUYET #${requestId}`,
         });
         await transactionRepo.save(fallbackTransaction);
       }
@@ -628,9 +634,18 @@ export class WalletsService {
 
       if (holdTransaction) {
         holdTransaction.status = TransactionStatus.FAILED;
-        holdTransaction.note = `WITHDRAW_REJECTED #${requestId}`;
+        holdTransaction.note = `RUT TIEN BI TU CHOI #${requestId}`;
         holdTransaction.paymentDate = new Date();
         await transactionRepo.save(holdTransaction);
+      } else {
+        const refundTransaction = transactionRepo.create({
+          userId: request.accountId,
+          amount: Number(request.amount),
+          status: TransactionStatus.SUCCESS,
+          paymentDate: new Date(),
+          note: `HOAN TIEN TU CHOI RUT #${requestId}`,
+        });
+        await transactionRepo.save(refundTransaction);
       }
 
       return {

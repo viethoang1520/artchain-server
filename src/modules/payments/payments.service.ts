@@ -346,6 +346,7 @@ export class PaymentsService {
       .addSelect(
         `COALESCE(SUM(CASE WHEN transaction.note ILIKE 'Thanh toan dau gia tranh #%'
           OR transaction.note ILIKE 'RUT TIEN VI%'
+          OR transaction.note ILIKE 'RUT TIEN DA DUYET #%'
           OR transaction.note ILIKE 'WITHDRAW_APPROVED #%'
           THEN transaction.amount ELSE 0 END), 0)`,
         'totalSpendThisMonth',
