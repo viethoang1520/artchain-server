@@ -11,6 +11,7 @@ import { User } from '../../users/entities/user.entity';
 import { Painting } from '../../paintings/entities/paintings.entity';
 import { Schedule } from '../../examiners/entities/schedule.entity';
 import { Round } from './round.entity';
+import { EvaluationCriteria } from './evaluation-criteria.entity';
 
 export enum ContestStatus {
   UPCOMING = 'UPCOMING',
@@ -56,7 +57,7 @@ export class Contest {
     name: 'ignore_ai_check',
     nullable: true,
     default: false,
-    comment: 'Bật/tắt kiểm tra AI cho cuộc thi'
+    comment: 'Bật/tắt kiểm tra AI cho cuộc thi',
   })
   ignoreAiCheck: boolean;
 
@@ -86,6 +87,9 @@ export class Contest {
 
   @OneToMany(() => Round, (round) => round.contest)
   rounds: Round[];
+
+  @OneToMany(() => EvaluationCriteria, (criteria) => criteria.contest)
+  evaluationCriteria: EvaluationCriteria[];
 
   @ManyToOne(() => User, (user) => user.createdContests)
   @JoinColumn({ name: 'created_by' })
