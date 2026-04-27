@@ -7,6 +7,7 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { UsersModule } from '../users/users.module';
 import { SponsorsModule } from '../sponsors/sponsors.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { CampaignCronService } from './campaign-cron.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { PaymentsModule } from '../payments/payments.module';
     PaymentsModule,
   ],
   controllers: [CampaignsController],
-  providers: [CampaignsService],
+  providers: [CampaignsService, CampaignCronService],
   exports: [CampaignsService],
 })
-export class CampaignsModule { }
+export class CampaignsModule {}
