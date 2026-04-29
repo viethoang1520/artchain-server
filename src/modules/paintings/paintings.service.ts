@@ -41,7 +41,7 @@ export class PaintingsService {
     private readonly paintingRepository: Repository<Painting>,
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
-  ) { }
+  ) {}
 
   async getAllSubmissionsByStaff(queryDto: GetAllSubmissionsDto) {
     const { page = 1, limit = 10, contestId, roundId, status } = queryDto;
@@ -347,6 +347,29 @@ export class PaintingsService {
     return this.evaluationRepository.count();
   }
 
+  async countEvaluationsByExaminerAndRound(
+    examinerId: string,
+    roundId: number,
+  ) {
+    return this.evaluationRepository
+      .createQueryBuilder('evaluation')
+      .innerJoin(
+        Painting,
+        'painting',
+        'painting.painting_id = evaluation.painting_id',
+      )
+      .where('evaluation.examiner_id = :examinerId', { examinerId })
+      .andWhere('painting.round_id = :roundId', { roundId })
+      .andWhere('evaluation.score_round_1 IS NOT NULL')
+      .getCount();
+  }
+
+  async countPaintingsByRound(roundId: number) {
+    return this.paintingRepository.count({
+      where: { roundId },
+    });
+  }
+
   async countEvaluationsByPaintingIds(paintingIds: string[]) {
     if (paintingIds.length === 0) {
       return 0;
@@ -538,7 +561,7 @@ export class PaintingsService {
     paintingId: string,
   ): Promise<number | null> {
     const evaluations = await this.evaluationRepository.find({
-      where: { paintingId},
+      where: { paintingId },
     });
 
     if (evaluations.length === 0) {
@@ -763,7 +786,10 @@ export class PaintingsService {
 
         const paintingIds = competitorPaintings.map((p) => p.paintingId);
         const evaluations = await this.evaluationRepository.find({
-          where: paintingIds.map((paintingId) => ({ paintingId, status: 'COMPLETED' })),
+          where: paintingIds.map((paintingId) => ({
+            paintingId,
+            status: 'COMPLETED',
+          })),
         });
 
         let avgScore = 0;
@@ -774,6 +800,7 @@ export class PaintingsService {
           );
           avgScore = totalScore / evaluations.length;
         }
+        // console.log("passed paintings: ", passedPaintings)
 
         return {
           competitorId,
@@ -832,12 +859,13 @@ export class PaintingsService {
         const competitorPaintings = paintings.filter(
           (p) => p.competitorId === compScore.competitorId,
         );
-
+        console.log("competitorPaintings: ", competitorPaintings)
         const paintingsWithScores = await Promise.all(
           competitorPaintings.map(async (painting) => {
             const evaluations = await this.evaluationRepository.find({
               where: { paintingId: painting.paintingId, status: 'COMPLETED' },
             });
+            console.log("painting: ", evaluations)
 
             if (evaluations.length === 0) return null;
 
@@ -857,6 +885,7 @@ export class PaintingsService {
             };
           }),
         );
+        console.log("paintingsWithScores: ", paintingsWithScores)
 
         const validPaintings = paintingsWithScores.filter((p) => p !== null);
         const bestPainting = validPaintings.sort((a, b) => {
@@ -934,7 +963,9 @@ export class PaintingsService {
     });
 
     if (!painting) {
-      throw new NotFoundException(`Không tìm thấy tranh có ID ${paintingId} trong cuộc thi ${contestId}`);
+      throw new NotFoundException(
+        `Không tìm thấy tranh có ID ${paintingId} trong cuộc thi ${contestId}`,
+      );
     }
 
     painting.status = hasSubmittedOriginal
@@ -1133,7 +1164,7 @@ export class PaintingsService {
       examinerId: string,
     ) => {
       const evaluation = await this.evaluationRepository.findOne({
-        where: { paintingId, examinerId },
+        where: { paintingId, examinerId, status: 'COMPLETED' },
       });
       return !!evaluation;
     };
@@ -1230,22 +1261,22 @@ export class PaintingsService {
               ...painting,
               competitor: competitor
                 ? {
-                  competitorId: competitor.competitorId,
-                  birthday: competitor.birthday,
-                  schoolName: competitor.schoolName,
-                  ward: competitor.ward,
-                  grade: competitor.grade,
-                  guardianId: competitor.guardianId,
-                }
+                    competitorId: competitor.competitorId,
+                    birthday: competitor.birthday,
+                    schoolName: competitor.schoolName,
+                    ward: competitor.ward,
+                    grade: competitor.grade,
+                    guardianId: competitor.guardianId,
+                  }
                 : null,
               user: user
                 ? {
-                  userId: user.userId,
-                  username: user.username,
-                  email: user.email,
-                  fullName: user.fullName,
-                  phone: user.phone,
-                }
+                    userId: user.userId,
+                    username: user.username,
+                    email: user.email,
+                    fullName: user.fullName,
+                    phone: user.phone,
+                  }
                 : null,
             };
           }),
@@ -1291,22 +1322,22 @@ export class PaintingsService {
           ...painting,
           competitor: competitor
             ? {
-              competitorId: competitor.competitorId,
-              birthday: competitor.birthday,
-              schoolName: competitor.schoolName,
-              ward: competitor.ward,
-              grade: competitor.grade,
-              guardianId: competitor.guardianId,
-            }
+                competitorId: competitor.competitorId,
+                birthday: competitor.birthday,
+                schoolName: competitor.schoolName,
+                ward: competitor.ward,
+                grade: competitor.grade,
+                guardianId: competitor.guardianId,
+              }
             : null,
           user: user
             ? {
-              userId: user.userId,
-              username: user.username,
-              email: user.email,
-              fullName: user.fullName,
-              phone: user.phone,
-            }
+                userId: user.userId,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                phone: user.phone,
+              }
             : null,
         };
       }),
@@ -1324,7 +1355,9 @@ export class PaintingsService {
     const { ignoreAiCheck, competitorId, contestId, roundId } = parsedData;
     const contest = await this.contestsQueryService.findContestById(contestId);
     if (!contest) {
-      throw new NotFoundException(`Không tìm thấy cuộc thi với ID ${contestId}`);
+      throw new NotFoundException(
+        `Không tìm thấy cuộc thi với ID ${contestId}`,
+      );
     }
     const isFlagged =
       parsedData?.isFlagged === true || parsedData?.isFlagged === 'true';
@@ -1355,9 +1388,7 @@ export class PaintingsService {
       },
     });
     if (existingSubmission) {
-      throw new BadRequestException(
-        'Bạn đã có một bài dự thi cho vòng này.',
-      );
+      throw new BadRequestException('Bạn đã có một bài dự thi cho vòng này.');
     }
 
     const bucket = this.firebaseService.getStorage().bucket();

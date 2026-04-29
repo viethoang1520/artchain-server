@@ -34,7 +34,7 @@ export class ContestsService {
     private competitorsService: CompetitorsService,
     private awardsService: AwardsService,
     private contestsRoundsService: ContestsRoundsService,
-  ) { }
+  ) {}
 
   async findAll(query: GetContestDto) {
     const page = query.page || 1;
@@ -280,9 +280,44 @@ export class ContestsService {
     const examinersWithNames =
       await this.examinersService.enrichWithExaminerProfile(examiners);
 
+    const round1 = await this.contestsRoundsService.findByContestAndName(
+      contestId,
+      'ROUND1',
+    );
+
+    const totalPaintings = round1
+      ? await this.paintingsService.countPaintingsByRound(round1.roundId)
+      : 0;
+
+    const examinersWithEvaluationCount = await Promise.all(
+      examinersWithNames.map(async (examiner) => {
+        let evaluatedCount = 0;
+        const schedules =
+          await this.examinersService.getSchedulesByContestAndExaminer(
+            contestId,
+            examiner.examinerId,
+          );
+
+        if (round1) {
+          evaluatedCount =
+            await this.paintingsService.countEvaluationsByExaminerAndRound(
+              examiner.examinerId,
+              round1.roundId,
+            );
+        }
+
+        return {
+          ...examiner,
+          round1EvaluatedCount: evaluatedCount,
+          round1TotalCount: totalPaintings,
+          schedules,
+        };
+      }),
+    );
+
     return {
       success: true,
-      data: examinersWithNames,
+      data: examinersWithEvaluationCount,
     };
   }
 
