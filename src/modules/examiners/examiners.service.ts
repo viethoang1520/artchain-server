@@ -46,17 +46,23 @@ export class ExaminersService {
     return normalized;
   }
 
+  private normalizeTaskLabel(task: string): string {
+    return task
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
   private extractRound2TableFromTask(task: string): string | null {
     if (!task) {
       return null;
     }
 
-    const normalizedTask = task.trim().toUpperCase();
+    const normalizedTask = this.normalizeTaskLabel(task);
     const isRound2Task =
-      normalizedTask.includes('ROUND_2') ||
-      normalizedTask.includes('ROUND 2') ||
-      normalizedTask.includes('VONG 2') ||
-      normalizedTask.includes('VÒNG 2');
+      normalizedTask.includes('CHAM VONG CHUNG KHAO') ||
+      normalizedTask.includes('VONG CHUNG KHAO');
 
     if (!isRound2Task) {
       return null;
@@ -71,13 +77,28 @@ export class ExaminersService {
   }
 
   private isRound2Task(task: string): boolean {
-    const normalizedTask = task.toUpperCase();
+    const normalizedTask = this.normalizeTaskLabel(task);
     return (
-      normalizedTask.includes('ROUND_2') ||
-      normalizedTask.includes('ROUND 2') ||
-      normalizedTask.includes('VONG 2') ||
-      normalizedTask.includes('VÒNG 2')
+      normalizedTask.includes('CHAM VONG CHUNG KHAO') ||
+      normalizedTask.includes('VONG CHUNG KHAO')
     );
+  }
+
+  private inferRoundNameFromTask(task: string): string | null {
+    const normalizedTask = this.normalizeTaskLabel(task);
+
+    if (
+      normalizedTask.includes('CHAM VONG SO KHAO') ||
+      normalizedTask.includes('VONG SO KHAO')
+    ) {
+      return 'ROUND_1';
+    }
+
+    if (this.isRound2Task(task)) {
+      return 'ROUND_2';
+    }
+
+    return null;
   }
 
   async getAllExaminers() {
