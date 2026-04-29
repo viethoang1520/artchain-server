@@ -36,6 +36,14 @@ export class ContestsService {
     private contestsRoundsService: ContestsRoundsService,
   ) {}
 
+  private normalizeTaskLabel(task: string): string {
+    return task
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
   async findAll(query: GetContestDto) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -282,35 +290,74 @@ export class ContestsService {
 
     const round1 = await this.contestsRoundsService.findByContestAndName(
       contestId,
-      'ROUND1',
+      'ROUND_1',
     );
 
-    const totalPaintings = round1
-      ? await this.paintingsService.countPaintingsByRound(round1.roundId)
-      : 0;
+    const round2 = await this.contestsRoundsService.findByContestAndName(
+      contestId,
+      'ROUND_2',
+    );
+
+    const roundDefinitions = [
+      {
+        roundName: 'ROUND_1',
+        round: round1,
+      },
+      {
+        roundName: 'ROUND_2',
+        round: round2,
+      },
+    ];
 
     const examinersWithEvaluationCount = await Promise.all(
       examinersWithNames.map(async (examiner) => {
-        let evaluatedCount = 0;
         const schedules =
           await this.examinersService.getSchedulesByContestAndExaminer(
             contestId,
             examiner.examinerId,
           );
 
-        if (round1) {
-          evaluatedCount =
-            await this.paintingsService.countEvaluationsByExaminerAndRound(
-              examiner.examinerId,
-              round1.roundId,
-            );
-        }
+        const roundSummary = await Promise.all(
+          roundDefinitions.map(async ({ roundName, round }) => {
+            const schedulesInRound = schedules.filter((schedule) => {
+              const task = this.normalizeTaskLabel(schedule.task || '');
+              if (roundName === 'ROUND_1') {
+                return (
+                  task.includes('CHAM VONG SO KHAO') ||
+                  task.includes('VONG SO KHAO')
+                );
+              }
+
+              return (
+                task.includes('CHAM VONG CHUNG KHAO') ||
+                task.includes('VONG CHUNG KHAO')
+              );
+            });
+
+            const totalCount = round
+              ? await this.paintingsService.countPaintingsByRound(round.roundId)
+              : 0;
+
+            const evaluatedCount = round
+              ? await this.paintingsService.countEvaluationsByExaminerAndRound(
+                  examiner.examinerId,
+                  round.roundId,
+                )
+              : 0;
+
+            return {
+              roundName,
+              roundId: round?.roundId ?? null,
+              evaluatedCount,
+              totalCount,
+              schedules: schedulesInRound,
+            };
+          }),
+        );
 
         return {
           ...examiner,
-          round1EvaluatedCount: evaluatedCount,
-          round1TotalCount: totalPaintings,
-          schedules,
+          roundSummary,
         };
       }),
     );

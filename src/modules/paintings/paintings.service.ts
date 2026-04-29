@@ -360,7 +360,7 @@ export class PaintingsService {
       )
       .where('evaluation.examiner_id = :examinerId', { examinerId })
       .andWhere('painting.round_id = :roundId', { roundId })
-      .andWhere('evaluation.score_round_1 IS NOT NULL')
+      .andWhere('evaluation.score IS NOT NULL')
       .getCount();
   }
 
@@ -859,13 +859,13 @@ export class PaintingsService {
         const competitorPaintings = paintings.filter(
           (p) => p.competitorId === compScore.competitorId,
         );
-        console.log("competitorPaintings: ", competitorPaintings)
+        console.log('competitorPaintings: ', competitorPaintings);
         const paintingsWithScores = await Promise.all(
           competitorPaintings.map(async (painting) => {
             const evaluations = await this.evaluationRepository.find({
               where: { paintingId: painting.paintingId, status: 'COMPLETED' },
             });
-            console.log("painting: ", evaluations)
+            console.log('painting: ', evaluations);
 
             if (evaluations.length === 0) return null;
 
@@ -885,7 +885,7 @@ export class PaintingsService {
             };
           }),
         );
-        console.log("paintingsWithScores: ", paintingsWithScores)
+        console.log('paintingsWithScores: ', paintingsWithScores);
 
         const validPaintings = paintingsWithScores.filter((p) => p !== null);
         const bestPainting = validPaintings.sort((a, b) => {
