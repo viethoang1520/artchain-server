@@ -393,6 +393,55 @@ export class ContestsService {
     };
   }
 
+  async endContestDueToInsufficientRound2OriginalSubmissions(id: number) {
+    const contest = await this.contestsRepository.findOne({
+      where: { contestId: id },
+    });
+
+    if (!contest) {
+      throw new NotFoundException(`Không tìm thấy cuộc thi ${id}`);
+    }
+
+    if (contest.status !== ContestStatus.ACTIVE) {
+      throw new BadRequestException(
+        `Chỉ có thể kết thúc contest ở trạng thái ACTIVE. Trạng thái hiện tại: ${contest.status}`,
+      );
+    }
+
+    if (!contest.round2Quantity || contest.round2Quantity <= 0) {
+      throw new BadRequestException(
+        'Contest chưa cấu hình round_2_quantity hợp lệ.',
+      );
+    }
+
+    const originalSubmittedCount = await this.paintingsService.countPaintings({
+      contestId: id,
+      status: 'ORIGINAL_SUBMITTED',
+    });
+
+    if (originalSubmittedCount >= contest.round2Quantity) {
+      throw new BadRequestException(
+        `Không thể kết thúc contest vì số lượng ORIGINAL_SUBMITTED (${originalSubmittedCount}) vẫn đáp ứng round_2_quantity (${contest.round2Quantity}).`,
+      );
+    }
+
+    contest.status = ContestStatus.ENDED;
+    const endedContest = await this.contestsRepository.save(contest);
+
+    return {
+      success: true,
+      message:
+        'Contest đã được kết thúc do không đủ số lượng bài ORIGINAL_SUBMITTED để đáp ứng vòng 2.',
+      data: {
+        contestId: endedContest.contestId,
+        status: endedContest.status,
+        round2Quantity: contest.round2Quantity,
+        originalSubmittedCount,
+        shortfall: contest.round2Quantity - originalSubmittedCount,
+      },
+    };
+  }
+
   async toggleScheduleEnforcement(contestId: number) {
     const contest = await this.contestsRepository.findOne({
       where: { contestId },
