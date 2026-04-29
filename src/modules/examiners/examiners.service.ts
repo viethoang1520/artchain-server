@@ -343,6 +343,48 @@ export class ExaminersService {
     };
   }
 
+  async getSchedulesByContestAndExaminer(
+    contestId: number,
+    examinerId: string,
+  ) {
+    const schedules = await this.schedulesRepository.find({
+      where: { contestId, examinerId },
+      order: { date: 'ASC' },
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const schedulesWithCanEvaluate = await Promise.all(
+      schedules.map(async (schedule) => {
+        const contest = await this.contestsQueryService.findContestById(
+          schedule.contestId,
+        );
+
+        let canEvaluate = false;
+
+        if (!contest || !contest.isScheduleEnforced) {
+          canEvaluate = schedule.status === 'ACTIVE';
+        } else {
+          const scheduleDate = new Date(schedule.date);
+          scheduleDate.setHours(0, 0, 0, 0);
+
+          canEvaluate =
+            schedule.status === 'ACTIVE' &&
+            scheduleDate.getTime() === today.getTime();
+        }
+
+        return {
+          ...schedule,
+          canEvaluate,
+          isScheduleEnforced: contest?.isScheduleEnforced || false,
+        };
+      }),
+    );
+
+    return schedulesWithCanEvaluate;
+  }
+
   async getSchedulesByContest(contestId: number) {
     const schedules = await this.schedulesRepository.find({
       where: { contestId },
