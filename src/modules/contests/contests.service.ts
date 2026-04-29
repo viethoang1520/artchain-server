@@ -317,47 +317,33 @@ export class ContestsService {
             examiner.examinerId,
           );
 
-        const roundSummary = await Promise.all(
-          roundDefinitions.map(async ({ roundName, round }) => {
-            const schedulesInRound = schedules.filter((schedule) => {
-              const task = this.normalizeTaskLabel(schedule.task || '');
-              if (roundName === 'ROUND_1') {
-                return (
-                  task.includes('CHAM VONG SO KHAO') ||
-                  task.includes('VONG SO KHAO')
-                );
-              }
+        // Determine primary round based on examiner's assigned role
+        const primaryRoundName =
+          (examiner.role || '').toString().toUpperCase() || 'ROUND_1';
+        const primaryRound =
+          roundDefinitions.find((r) => r.roundName === primaryRoundName)
+            ?.round ||
+          roundDefinitions[0]?.round ||
+          null;
 
-              return (
-                task.includes('CHAM VONG CHUNG KHAO') ||
-                task.includes('VONG CHUNG KHAO')
-              );
-            });
+        const totalCount = primaryRound
+          ? await this.paintingsService.countPaintingsByRound(
+              primaryRound.roundId,
+            )
+          : 0;
 
-            const totalCount = round
-              ? await this.paintingsService.countPaintingsByRound(round.roundId)
-              : 0;
-
-            const evaluatedCount = round
-              ? await this.paintingsService.countEvaluationsByExaminerAndRound(
-                  examiner.examinerId,
-                  round.roundId,
-                )
-              : 0;
-
-            return {
-              roundName,
-              roundId: round?.roundId ?? null,
-              evaluatedCount,
-              totalCount,
-              schedules: schedulesInRound,
-            };
-          }),
-        );
+        const evaluatedCount = primaryRound
+          ? await this.paintingsService.countEvaluationsByExaminerAndRound(
+              examiner.examinerId,
+              primaryRound.roundId,
+            )
+          : 0;
 
         return {
           ...examiner,
-          roundSummary,
+          evaluatedCount,
+          totalCount,
+          schedules,
         };
       }),
     );
