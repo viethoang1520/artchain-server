@@ -537,6 +537,49 @@ export class StaffController {
     return this.staffService.activateContest(id);
   }
 
+  @Patch('contests/:id/end')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Kết thúc contest khi không đủ thí sinh vào vòng 2',
+    description:
+      'Chỉ cho phép kết thúc contest ở trạng thái ACTIVE khi số lượng painting có status ORIGINAL_SUBMITTED nhỏ hơn round2Quantity của contest.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Kết thúc contest thành công',
+    schema: {
+      example: {
+        success: true,
+        message:
+          'Contest đã được kết thúc do không đủ số lượng bài ORIGINAL_SUBMITTED để đáp ứng vòng 2.',
+        data: {
+          contestId: 1,
+          status: 'ENDED',
+          round2Quantity: 20,
+          originalSubmittedCount: 12,
+          shortfall: 8,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Contest không ở trạng thái ACTIVE hoặc số lượng ORIGINAL_SUBMITTED vẫn đủ round2Quantity',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contest không tồn tại',
+  })
+  endContestDueToInsufficientRound2OriginalSubmissions(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.staffService.endContestDueToInsufficientRound2OriginalSubmissions(
+      id,
+    );
+  }
+
   @Patch('contests/:id/schedule-enforcement')
   @UseGuards(AuthGuard)
   @ApiOperation({

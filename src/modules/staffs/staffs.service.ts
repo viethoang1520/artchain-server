@@ -120,6 +120,12 @@ export class StaffService {
     return this.contestsService.activateContest(id);
   }
 
+  async endContestDueToInsufficientRound2OriginalSubmissions(id: number) {
+    return this.contestsService.endContestDueToInsufficientRound2OriginalSubmissions(
+      id,
+    );
+  }
+
   async toggleScheduleEnforcement(contestId: number) {
     return this.contestsService.toggleScheduleEnforcement(contestId);
   }
