@@ -361,6 +361,7 @@ export class PaintingsService {
       .where('evaluation.examiner_id = :examinerId', { examinerId })
       .andWhere('painting.round_id = :roundId', { roundId })
       .andWhere('evaluation.score IS NOT NULL')
+      .andWhere('evaluation.status = :status', { status: 'COMPLETED' })
       .getCount();
   }
 
