@@ -44,6 +44,29 @@ export class ContestsService {
       .replace(/[\u0300-\u036f]/g, '');
   }
 
+  private isRound2Task(task: string): boolean {
+    const normalizedTask = this.normalizeTaskLabel(task);
+    return (
+      normalizedTask.includes('CHAM VONG CHUNG KHAO') ||
+      normalizedTask.includes('VONG CHUNG KHAO')
+    );
+  }
+
+  private normalizeRound2Table(table?: string | null): string | null {
+    if (!table) {
+      return null;
+    }
+
+    const normalized = table.trim().toUpperCase();
+    return /^[A-Z]$/.test(normalized) ? normalized : null;
+  }
+
+  private extractRound2TableFromTask(task: string): string | null {
+    const normalizedTask = this.normalizeTaskLabel(task);
+    const tableMatch = normalizedTask.match(/(?:TABLE|BANG)\s*([A-Z])/i);
+    return tableMatch?.[1]?.toUpperCase() ?? null;
+  }
+
   async findAll(query: GetContestDto) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -288,26 +311,12 @@ export class ContestsService {
     const examinersWithNames =
       await this.examinersService.enrichWithExaminerProfile(examiners);
 
-    const round1 = await this.contestsRoundsService.findByContestAndName(
-      contestId,
-      'ROUND_1',
-    );
+    const allRounds =
+      await this.contestsRoundsService.listByContestId(contestId);
 
-    const round2 = await this.contestsRoundsService.findByContestAndName(
-      contestId,
-      'ROUND_2',
+    const round1 = allRounds.find(
+      (round) => round.name === 'ROUND_1' && round.table === 'paintings',
     );
-
-    const roundDefinitions = [
-      {
-        roundName: 'ROUND_1',
-        round: round1,
-      },
-      {
-        roundName: 'ROUND_2',
-        round: round2,
-      },
-    ];
 
     const examinersWithEvaluationCount = await Promise.all(
       examinersWithNames.map(async (examiner) => {
@@ -317,17 +326,50 @@ export class ContestsService {
             examiner.examinerId,
           );
 
-        // Determine primary round based on examiner's assigned role
-        const primaryRoundName =
-          (examiner.role || '').toString().toUpperCase() || 'ROUND_1';
-        const primaryRound =
-          roundDefinitions.find((r) => r.roundName === primaryRoundName)
-            ?.round ||
-          roundDefinitions[0]?.round ||
-          null;
+        let primaryRound = round1 || null;
+
+        const hasRound2Schedule = schedules.some((schedule) => {
+          return (
+            this.isRound2Task(schedule.task || '') ||
+            !!schedule.round2Table ||
+            !!this.extractRound2TableFromTask(schedule.task || '')
+          );
+        });
+
+        if (hasRound2Schedule) {
+          const assignedTable =
+            this.normalizeRound2Table(
+              await this.examinersService.getAssignedRound2TableByExaminerAndContest(
+                examiner.examinerId,
+                contestId,
+              ),
+            ) ||
+            this.normalizeRound2Table(
+              schedules
+                .map((schedule) => schedule.round2Table)
+                .find((table) => !!table) ?? null,
+            ) ||
+            this.extractRound2TableFromTask(
+              schedules
+                .map((schedule) => schedule.task || '')
+                .find(
+                  (task) =>
+                    this.isRound2Task(task) ||
+                    !!this.extractRound2TableFromTask(task),
+                ) || '',
+            );
+
+          primaryRound = assignedTable
+            ? allRounds.find(
+                (round) =>
+                  round.name === 'ROUND_2' &&
+                  this.normalizeRound2Table(round.table) === assignedTable,
+              ) || null
+            : null;
+        }
 
         const totalCount = primaryRound
-          ? await this.paintingsService.countPaintingsByRound(
+          ? await this.paintingsService.countQualifiedByRound(
               primaryRound.roundId,
             )
           : 0;
