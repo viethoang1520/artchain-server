@@ -351,6 +351,12 @@ export class PaintingsService {
     examinerId: string,
     roundId: number,
   ) {
+    const round = await this.contestsQueryService.findRoundById(roundId);
+    const scoreColumn =
+      round?.name === 'ROUND_2'
+        ? 'evaluation.score_round_2'
+        : 'evaluation.score';
+
     return this.evaluationRepository
       .createQueryBuilder('evaluation')
       .innerJoin(
@@ -360,14 +366,21 @@ export class PaintingsService {
       )
       .where('evaluation.examiner_id = :examinerId', { examinerId })
       .andWhere('painting.round_id = :roundId', { roundId })
-      .andWhere('evaluation.score IS NOT NULL')
+      .andWhere(`${scoreColumn} IS NOT NULL`)
       .andWhere('evaluation.status = :status', { status: 'COMPLETED' })
       .getCount();
   }
 
   async countPaintingsByRound(roundId: number) {
     return this.paintingRepository.count({
-      where: { roundId },
+      where: {
+        roundId,
+        status: In([
+          'ACCEPTED',
+          'ORIGINAL_SUBMITTED',
+          'NOT_SUBMITTED_ORIGINAL',
+        ]),
+      },
     });
   }
 
@@ -1609,7 +1622,8 @@ export class PaintingsService {
     if (!schedule) {
       return {
         canEvaluate: false,
-        message: 'Examiner does not have a schedule assigned for this contest',
+        message:
+          'Giam khảo không có lịch chấm bài được phân công cho cuộc thi này',
       };
     }
 
@@ -1626,7 +1640,7 @@ export class PaintingsService {
       return {
         canEvaluate: false,
         message:
-          'Examiner does not have a ROUND_2 table assignment for this contest',
+          'Giam khảo không có bảng chấm bài được phân công cho cuộc thi này',
       };
     }
 
@@ -1634,7 +1648,7 @@ export class PaintingsService {
     if (paintingTable !== assignedTable) {
       return {
         canEvaluate: false,
-        message: `Examiner is assigned to table ${assignedTable} and cannot evaluate table ${paintingTable || 'UNKNOWN'}`,
+        message: `Giam khảo không được phân công vào bảng ${assignedTable} và không thể chấm bài của bảng ${paintingTable || 'UNKNOWN'}`,
       };
     }
 
@@ -1681,7 +1695,7 @@ export class PaintingsService {
       return {
         canEvaluate: true,
         data: updatedEvaluation,
-        message: 'Evaluation updated successfully',
+        message: 'Cham điểm vòng chung khảo thành công',
       };
     }
 
@@ -1704,7 +1718,7 @@ export class PaintingsService {
     return {
       canEvaluate: true,
       data: savedEvaluation,
-      message: 'Evaluation created successfully',
+      message: 'Cham điểm vòng chung khảo thành công',
     };
   }
 
@@ -1739,12 +1753,32 @@ export class PaintingsService {
     }
 
     const evaluations = await this.evaluationRepository.find({
-      where: { paintingId },
+      where: { paintingId, status: 'COMPLETED' },
       relations: ['examiner'],
     });
 
     const evaluationsWithNames =
       await this.examinersService.enrichWithExaminerProfile(evaluations);
+
+    // if (evaluationsWithNames.length > 1) {
+    //   const scoreValues = evaluationsWithNames
+    //     .map((evaluation) => evaluation.scoreRound2 ?? evaluation.scoreRound1)
+    //     .filter((score) => typeof score === 'number');
+
+    //   if (scoreValues.length > 0) {
+    //     const averageScore =
+    //       Math.round(
+    //         (scoreValues.reduce((sum, score) => sum + score, 0) /
+    //           scoreValues.length) *
+    //           100,
+    //       ) / 100;
+
+    //     return evaluationsWithNames.map((evaluation) => ({
+    //       ...evaluation,
+    //       averageScore,
+    //     }));
+    //   }
+    // }
 
     return evaluationsWithNames;
   }
@@ -1775,7 +1809,7 @@ export class PaintingsService {
         const paintingsWithAvgScore = await Promise.all(
           paintings.map(async (painting) => {
             const evaluations = await this.evaluationRepository.find({
-              where: { paintingId: painting.paintingId },
+              where: { paintingId: painting.paintingId, status: 'COMPLETED' },
             });
 
             let avgScoreRound2 = 0;
