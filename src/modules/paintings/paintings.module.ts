@@ -5,6 +5,7 @@ import { FirebaseModule } from '../firebase/firebase.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Painting } from './entities/paintings.entity';
 import { Evaluation } from './entities/evaluation.entity';
+import { Criteria } from './entities/criteria.entity';
 
 import { AiModule } from '../ai/ai.module';
 import { Nft } from '../nft/entities/nft.entity';
@@ -21,7 +22,7 @@ import { ContestsModule } from '../contests/contests.module';
     ExaminersModule,
     forwardRef(() => AwardsModule),
     forwardRef(() => ContestsModule),
-    TypeOrmModule.forFeature([Painting, Evaluation, Nft]),
+    TypeOrmModule.forFeature([Painting, Evaluation, Criteria, Nft]),
   ],
   controllers: [PaintingsController],
   providers: [PaintingsService],

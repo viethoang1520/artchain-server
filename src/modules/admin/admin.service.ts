@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { PaginationDto, PaginatedResponse } from './dto/pagination.dto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Contest, ContestStatus } from '../contests/entities/contests.entity';
@@ -12,6 +14,9 @@ import { AwardsService } from '../awards/awards.service';
 import { CompetitorsService } from '../competitors/competitor.service';
 import { ExhibitionsService } from '../exhibitions/exhibitions.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
+import { Criteria } from '../paintings/entities/criteria.entity';
+import { CreateCriteriaDto } from './dto/create-criteria.dto';
+import { UpdateCriteriaDto } from './dto/update-criteria.dto';
 
 @Injectable()
 export class AdminService {
@@ -24,7 +29,84 @@ export class AdminService {
     private readonly competitorsService: CompetitorsService,
     private readonly exhibitionsService: ExhibitionsService,
     private readonly campaignsService: CampaignsService,
+    @InjectRepository(Criteria)
+    private readonly criteriaRepository: Repository<Criteria>,
   ) {}
+
+  async createCriteria(createCriteriaDto: CreateCriteriaDto) {
+    const criteria = this.criteriaRepository.create(createCriteriaDto);
+    const savedCriteria = await this.criteriaRepository.save(criteria);
+
+    return {
+      success: true,
+      message: 'Criteria created successfully',
+      data: savedCriteria,
+    };
+  }
+
+  async getAllCriteria() {
+    const criteria = await this.criteriaRepository.find({
+      order: {
+        id: 'ASC',
+      },
+    });
+
+    return {
+      success: true,
+      data: criteria,
+    };
+  }
+
+  async getCriteriaById(id: number) {
+    const criteria = await this.criteriaRepository.findOne({
+      where: { id },
+    });
+
+    if (!criteria) {
+      throw new NotFoundException('Criteria not found');
+    }
+
+    return {
+      success: true,
+      data: criteria,
+    };
+  }
+
+  async updateCriteria(id: number, updateCriteriaDto: UpdateCriteriaDto) {
+    const criteria = await this.criteriaRepository.findOne({
+      where: { id },
+    });
+
+    if (!criteria) {
+      throw new NotFoundException('Criteria not found');
+    }
+
+    Object.assign(criteria, updateCriteriaDto);
+    const updatedCriteria = await this.criteriaRepository.save(criteria);
+
+    return {
+      success: true,
+      message: 'Criteria updated successfully',
+      data: updatedCriteria,
+    };
+  }
+
+  async deleteCriteria(id: number) {
+    const criteria = await this.criteriaRepository.findOne({
+      where: { id },
+    });
+
+    if (!criteria) {
+      throw new NotFoundException('Criteria not found');
+    }
+
+    await this.criteriaRepository.remove(criteria);
+
+    return {
+      success: true,
+      message: 'Criteria deleted successfully',
+    };
+  }
 
   async findAllCompetitors(
     paginationDto: PaginationDto,
