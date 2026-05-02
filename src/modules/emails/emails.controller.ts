@@ -51,7 +51,7 @@ export class EmailsController {
   })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async notifyContest(): Promise<{ message: string }> {
-    // this.emailsService.sendNotificationForNewContest();
+    this.emailsService.sendNotificationForNewContest();
     return { message: 'Contest notification sent successfully' };
   }
 
