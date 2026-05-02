@@ -28,6 +28,7 @@ export class NotificationsService {
     const existedToken = await this.pushTokenRepository.findOne({
       where: {
         tokenValue: addPushTokenForUser.token_value,
+        accountId: account_id,
       },
     });
 
