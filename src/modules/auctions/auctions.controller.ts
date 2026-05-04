@@ -8,6 +8,7 @@ import {
   Request,
   Query,
   Patch,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +16,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AuctionsService } from './auctions.service';
 import {
@@ -24,6 +26,8 @@ import {
   QueryAuctionDto,
   GetBidHistoryDto,
   UpdateAuctionStatusDto,
+  UpdateAuctionDto,
+  UpdateAuctionPaintingDto,
 } from './dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuctionGateway } from '../websocket/gateways/auction.gateway';
@@ -330,5 +334,118 @@ export class AuctionsController {
   async endAuction(@Param('auctionId') auctionId: number, @Request() req: any) {
     const userId = req.user.sub;
     return await this.auctionsService.endAuction(auctionId, userId);
+  }
+
+  @Patch(':auctionId')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật thuộc tính phiên đấu giá' })
+  @ApiBody({ type: UpdateAuctionDto })
+  @ApiParam({
+    name: 'auctionId',
+    type: Number,
+    description: 'Auction ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cập nhật phiên đấu giá thành công',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền cập nhật phiên này',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy phiên đấu giá' })
+  async updateAuction(
+    @Param('auctionId') auctionId: number,
+    @Body() updateAuctionDto: UpdateAuctionDto,
+    @Request() req: any,
+  ) {
+    const userId = req.user.sub;
+    return await this.auctionsService.updateAuction(
+      auctionId,
+      updateAuctionDto,
+      userId,
+    );
+  }
+
+  @Patch(':auctionId/paintings/:auctionPaintingId')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Cập nhật thuộc tính của tranh trong phiên đấu giá',
+  })
+  @ApiBody({ type: UpdateAuctionPaintingDto })
+  @ApiParam({
+    name: 'auctionId',
+    type: Number,
+    description: 'Auction ID',
+  })
+  @ApiParam({
+    name: 'auctionPaintingId',
+    type: Number,
+    description: 'Auction Painting ID',
+  })
+  @ApiResponse({ status: 200, description: 'Cập nhật tranh thành công' })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền cập nhật tranh trong phiên này',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy tranh trong phiên đấu giá',
+  })
+  async updateAuctionPainting(
+    @Param('auctionId') auctionId: number,
+    @Param('auctionPaintingId') auctionPaintingId: number,
+    @Body() updateDto: UpdateAuctionPaintingDto,
+    @Request() req: any,
+  ) {
+    const userId = req.user.sub;
+    return await this.auctionsService.updateAuctionPainting(
+      auctionId,
+      auctionPaintingId,
+      updateDto,
+      userId,
+    );
+  }
+
+  @Delete(':auctionId/paintings/:auctionPaintingId')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gỡ tranh khỏi phiên đấu giá' })
+  @ApiParam({
+    name: 'auctionId',
+    type: Number,
+    description: 'Auction ID',
+  })
+  @ApiParam({
+    name: 'auctionPaintingId',
+    type: Number,
+    description: 'Auction Painting ID',
+  })
+  @ApiResponse({ status: 200, description: 'Gỡ tranh thành công' })
+  @ApiResponse({
+    status: 400,
+    description: 'Chỉ gỡ được tranh từ phiên ở trạng thái nhập',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền gỡ tranh từ phiên này',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy phiên hoặc tranh trong phiên',
+  })
+  async removePaintingFromAuction(
+    @Param('auctionId') auctionId: number,
+    @Param('auctionPaintingId') auctionPaintingId: number,
+    @Request() req: any,
+  ) {
+    const userId = req.user.sub;
+    return await this.auctionsService.removePaintingFromAuction(
+      auctionId,
+      auctionPaintingId,
+      userId,
+    );
   }
 }

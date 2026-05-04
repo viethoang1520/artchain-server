@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { UsersModule } from '../users/users.module';
@@ -9,9 +10,11 @@ import { AwardsModule } from '../awards/awards.module';
 import { CompetitorsModule } from '../competitors/competitors.module';
 import { ExhibitionsModule } from '../exhibitions/exhibitions.module';
 import { CampaignsModule } from '../campaigns/campaigns.module';
+import { Criteria } from '../paintings/entities/criteria.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([Criteria]),
     UsersModule,
     ContestsModule,
     PaintingsModule,

@@ -199,20 +199,20 @@ export class AuthService {
       await this.examinerRepository.save(examiner);
     }
 
-    // const confirmUrl = `${this.buildAppUrl()}/api/auth/confirm-email?token=${token}`;
-    // const displayName = fullName || username;
-    // const html = await this.buildConfirmEmailHtml(displayName, confirmUrl);
-    // await this.emailsService.sendMail({
-    //   to: [email],
-    //   subject: 'Xác nhận thông tin đăng ký tài khoản',
-    //   text:
-    //     `Xin chào ${displayName},\n\n` +
-    //     `Vui lòng xác nhận email của bạn để kích hoạt tài khoản bằng cách nhấn vào liên kết dưới đây:\n` +
-    //     `${confirmUrl}\n\n` +
-    //     `Liên kết này sẽ hết hạn sau 24 giờ.\n\n` +
-    //     `Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.`,
-    //   html,
-    // });
+    const confirmUrl = `${this.buildAppUrl()}/api/auth/confirm-email?token=${token}`;
+    const displayName = fullName || username;
+    const html = await this.buildConfirmEmailHtml(displayName, confirmUrl);
+    await this.emailsService.sendMail({
+      to: [email],
+      subject: 'Xác nhận thông tin đăng ký tài khoản',
+      text:
+        `Xin chào ${displayName},\n\n` +
+        `Vui lòng xác nhận email của bạn để kích hoạt tài khoản bằng cách nhấn vào liên kết dưới đây:\n` +
+        `${confirmUrl}\n\n` +
+        `Liên kết này sẽ hết hạn sau 24 giờ.\n\n` +
+        `Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.`,
+      html,
+    });
 
     const { password: _, ...result } = newUser;
     return {

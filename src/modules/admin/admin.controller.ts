@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +18,8 @@ import {
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { PaginationDto } from './dto/pagination.dto';
+import { CreateCriteriaDto } from './dto/create-criteria.dto';
+import { UpdateCriteriaDto } from './dto/update-criteria.dto';
 
 @ApiTags('Admin')
 @Controller('api/admin')
@@ -196,6 +199,80 @@ export class AdminController {
     } catch (error) {
       throw new Error(`Failed to activate user: ${error.message}`);
     }
+  }
+
+  @Post('criteria')
+  @ApiOperation({
+    summary: 'Tạo tiêu chí chấm điểm mới',
+  })
+  @ApiResponse({ status: 201, description: 'Tạo tiêu chí thành công' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  createCriteria(@Body() createCriteriaDto: CreateCriteriaDto) {
+    return this.adminService.createCriteria(createCriteriaDto);
+  }
+
+  @Get('criteria')
+  @ApiOperation({
+    summary: 'Lấy danh sách tiêu chí chấm điểm',
+  })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  getAllCriteria() {
+    return this.adminService.getAllCriteria();
+  }
+
+  @Get('criteria/:id')
+  @ApiOperation({
+    summary: 'Lấy chi tiết tiêu chí theo ID',
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: Number,
+    description: 'Criteria ID',
+    example: 1,
+  })
+  @ApiResponse({ status: 200, description: 'Lấy chi tiết thành công' })
+  @ApiResponse({ status: 404, description: 'Criteria not found' })
+  getCriteriaById(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.getCriteriaById(id);
+  }
+
+  @Patch('criteria/:id')
+  @ApiOperation({
+    summary: 'Cập nhật tiêu chí theo ID',
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: Number,
+    description: 'Criteria ID',
+    example: 1,
+  })
+  @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
+  @ApiResponse({ status: 404, description: 'Criteria not found' })
+  updateCriteria(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateCriteriaDto: UpdateCriteriaDto,
+  ) {
+    return this.adminService.updateCriteria(id, updateCriteriaDto);
+  }
+
+  @Delete('criteria/:id')
+  @ApiOperation({
+    summary: 'Xóa tiêu chí theo ID',
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    type: Number,
+    description: 'Criteria ID',
+    example: 1,
+  })
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  @ApiResponse({ status: 404, description: 'Criteria not found' })
+  deleteCriteria(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.deleteCriteria(id);
   }
 
   @Get('statistics/system')
