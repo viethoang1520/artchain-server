@@ -22,17 +22,14 @@ export class CampaignsService {
     private readonly usersService: UsersService,
     private readonly sponsorsService: SponsorsService,
     private readonly paymentsService: PaymentsService,
-  ) { }
+  ) {}
 
   async createCampaignByStaff(data: {
     createCampaignDto: CreateCampaignDto;
     staffId: string;
     imageFile?: Express.Multer.File;
   }) {
-    const {
-      tiers,
-      ...createCampaignPayload
-    } = data.createCampaignDto;
+    const { tiers, ...createCampaignPayload } = data.createCampaignDto;
 
     const normalizedTiers =
       await this.sponsorsService.validateCampaignSponsorshipTiersInput(tiers);
@@ -97,17 +94,16 @@ export class CampaignsService {
     imageFile?: Express.Multer.File,
     staffId?: string,
   ) {
-    const {
-      tiers,
-      ...updateCampaignPayload
-    } = updateCampaignDto;
+    const { tiers, ...updateCampaignPayload } = updateCampaignDto;
 
     const campaign = await this.campaignRepository.findOne({
       where: { campaignId },
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
+      throw new NotFoundException(
+        `Không tìm thấy campaign với ID ${campaignId}`,
+      );
     }
 
     if (staffId) {
@@ -154,7 +150,7 @@ export class CampaignsService {
 
       if (activeOtherCount > 0) {
         throw new BadRequestException(
-          'Chỉ được phép có duy nhất 1 campaign ở trạng thái ACTIVE',
+          'Chỉ được phép có duy nhất 1 chiến dịch ở trạng thái ACTIVE',
         );
       }
     }
@@ -232,7 +228,9 @@ export class CampaignsService {
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
+      throw new NotFoundException(
+        `Không tìm thấy campaign với ID ${campaignId}`,
+      );
     }
 
     const skip = (page - 1) * limit;
@@ -266,7 +264,9 @@ export class CampaignsService {
     });
 
     if (!campaign) {
-      throw new NotFoundException(`Không tìm thấy campaign với ID ${campaignId}`);
+      throw new NotFoundException(
+        `Không tìm thấy campaign với ID ${campaignId}`,
+      );
     }
 
     const currentAmount =
