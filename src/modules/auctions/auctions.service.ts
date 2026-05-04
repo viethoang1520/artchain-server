@@ -1079,6 +1079,188 @@ export class AuctionsService {
     return result;
   }
 
+  async updateAuction(
+    auctionId: number,
+    updateAuctionDto: any,
+    userId: string,
+  ): Promise<Auction> {
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    if (auction.auctioneerId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền cập nhật phiên đấu giá này',
+      );
+    }
+
+    if (updateAuctionDto.startTime) {
+      auction.startTime = new Date(updateAuctionDto.startTime);
+    }
+    if (updateAuctionDto.endTime) {
+      auction.endTime = new Date(updateAuctionDto.endTime);
+    }
+    if (auction.endTime <= auction.startTime) {
+      throw new BadRequestException('Thời kết thúc phải sau thời bắt đầu');
+    }
+
+    if (updateAuctionDto.title !== undefined) {
+      auction.title = updateAuctionDto.title;
+    }
+
+    if (updateAuctionDto.auctioneerId !== undefined) {
+      auction.auctioneerId = updateAuctionDto.auctioneerId;
+    }
+
+    await this.auctionRepository.save(auction);
+
+    const result = await this.auctionRepository.findOne({
+      where: { auctionId },
+      relations: [
+        'auctioneer',
+        'auctionPaintings',
+        'auctionPaintings.painting',
+      ],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Không thể tải lại thông tin phiên đấu giá');
+    }
+
+    return result;
+  }
+
+  async updateAuctionPainting(
+    auctionId: number,
+    auctionPaintingId: number,
+    updateDto: any,
+    userId: string,
+  ): Promise<AuctionPainting> {
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    if (auction.auctioneerId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền cập nhật tranh trong phiên đấu giá này',
+      );
+    }
+
+    const auctionPainting = await this.auctionPaintingRepository.findOne({
+      where: { auctionPaintingId, auctionId },
+      relations: ['painting', 'auction'],
+    });
+
+    if (!auctionPainting) {
+      throw new NotFoundException('Không tìm thấy tranh trong phiên đấu giá');
+    }
+
+    if (updateDto.auctionDurationMinutes !== undefined) {
+      auctionPainting.auctionDurationMinutes = updateDto.auctionDurationMinutes;
+    }
+    if (updateDto.auctionStartTime !== undefined) {
+      auctionPainting.auctionStartTime = updateDto.auctionStartTime
+        ? new Date(updateDto.auctionStartTime)
+        : null;
+    }
+    if (updateDto.auctionEndTime !== undefined) {
+      auctionPainting.auctionEndTime = updateDto.auctionEndTime
+        ? new Date(updateDto.auctionEndTime)
+        : null;
+    }
+
+    if (updateDto.basePrice !== undefined) {
+      auctionPainting.basePrice = Number(updateDto.basePrice);
+    }
+    if (updateDto.ceilPrice !== undefined) {
+      auctionPainting.ceilPrice =
+        updateDto.ceilPrice === null ? null : Number(updateDto.ceilPrice);
+    }
+    if (
+      auctionPainting.ceilPrice !== null &&
+      auctionPainting.ceilPrice <= auctionPainting.basePrice
+    ) {
+      throw new BadRequestException('Giá trần phải lớn hơn giá khởi điểm');
+    }
+    if (updateDto.bidStep !== undefined) {
+      auctionPainting.bidStep = Number(updateDto.bidStep);
+    }
+    if (updateDto.status !== undefined) {
+      auctionPainting.status = updateDto.status;
+    }
+    if (updateDto.isSold !== undefined) {
+      auctionPainting.isSold = !!updateDto.isSold;
+    }
+    if (updateDto.revoked !== undefined) {
+      auctionPainting.revoked = Number(updateDto.revoked);
+    }
+    if (updateDto.currentBidderId !== undefined) {
+      auctionPainting.currentBidderId = updateDto.currentBidderId;
+    }
+
+    const saved = await this.auctionPaintingRepository.save(auctionPainting);
+
+    return saved;
+  }
+
+  async removePaintingFromAuction(
+    auctionId: number,
+    auctionPaintingId: number,
+    userId: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const auction = await this.auctionRepository.findOne({
+      where: { auctionId },
+    });
+
+    if (!auction) {
+      throw new NotFoundException('Không tìm thấy phiên đấu giá');
+    }
+
+    if (auction.auctioneerId !== userId) {
+      throw new ForbiddenException(
+        'Bạn không có quyền gỡ tranh từ phiên đấu giá này',
+      );
+    }
+
+    if (auction.status !== AuctionStatus.DRAFT) {
+      throw new BadRequestException(
+        'Chỉ có thể gỡ tranh từ phiên đấu giá ở trạng thái nháp',
+      );
+    }
+
+    const auctionPainting = await this.auctionPaintingRepository.findOne({
+      where: { auctionPaintingId, auctionId },
+    });
+
+    if (!auctionPainting) {
+      throw new NotFoundException('Không tìm thấy tranh trong phiên đấu giá');
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.auctionPaintingRepository.remove(auctionPainting);
+      await this.paintingsService.markPaintingReOpen(
+        auctionPainting.paintingId,
+        manager,
+      );
+    });
+
+    return {
+      success: true,
+      message: 'Gỡ tranh khỏi phiên đấu giá thành công',
+    };
+  }
+
   async endAuction(auctionId: number, userId: string): Promise<Auction> {
     const auction = await this.auctionRepository.findOne({
       where: { auctionId },
