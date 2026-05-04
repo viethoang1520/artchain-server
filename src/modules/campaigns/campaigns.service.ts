@@ -6,8 +6,8 @@ import {
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
-import { Campaign } from './entities/campaign.entity';
+import { DeepPartial, Repository, Not } from 'typeorm';
+import { Campaign, CampaignStatus } from './entities/campaign.entity';
 import { FirebaseService } from '../firebase/firebase.service';
 import { UsersService } from '../users/users.service';
 import { SponsorsService } from '../sponsors/sponsors.service';
@@ -144,6 +144,19 @@ export class CampaignsService {
     const updateData: any = { ...updateCampaignPayload };
     if (imageUrl) {
       updateData.image = imageUrl;
+    }
+
+    // If request sets campaign to ACTIVE, ensure no other campaign is ACTIVE
+    if (updateCampaignPayload.status === CampaignStatus.ACTIVE) {
+      const activeOtherCount = await this.campaignRepository.count({
+        where: { status: CampaignStatus.ACTIVE, campaignId: Not(campaignId) },
+      });
+
+      if (activeOtherCount > 0) {
+        throw new BadRequestException(
+          'Chỉ được phép có duy nhất 1 campaign ở trạng thái ACTIVE',
+        );
+      }
     }
 
     const updatedCampaign = this.campaignRepository.merge(campaign, updateData);
