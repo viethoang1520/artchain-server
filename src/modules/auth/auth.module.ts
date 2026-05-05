@@ -8,12 +8,10 @@ import { ConfigService } from '@nestjs/config/dist/config.service';
 import { ConfigModule } from '@nestjs/config/dist/config.module';
 import { Competitor } from '../competitors/entities/competitors.entity';
 import { Examiner } from '../examiners/entities/examiners.entity';
-import { EmailsModule } from '../emails/emails.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Competitor, Examiner]),
-    EmailsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -32,4 +30,4 @@ import { EmailsModule } from '../emails/emails.module';
   providers: [AuthService],
   exports: [JwtModule, AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

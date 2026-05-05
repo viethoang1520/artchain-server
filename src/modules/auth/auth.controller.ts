@@ -19,7 +19,7 @@ export class AuthController {
   async login(@Body() loginDto: LoginDTO): Promise<{ access_token: string }> {
     try {
       return await this.authService.login(loginDto);
-    } catch (error) {
+    } catch (error:any) {
       throw new BadRequestException(error.message || 'Login failed');
     }
   }
@@ -28,7 +28,7 @@ export class AuthController {
   async register(@Body() registerDto: RegisterDTO): Promise<any> {
     try {
       return await this.authService.register(registerDto);
-    } catch (error) {
+    } catch (error:any) {
       throw new BadRequestException(error.message || 'Registration failed');
     }
   }
@@ -41,7 +41,7 @@ export class AuthController {
     try {
       await this.authService.confirmEmail(token);
       res.redirect('https://artchain.io.vn/auth');
-    } catch (error) {
+    } catch (error:any) {
       throw new BadRequestException(
         error.message || 'Email confirmation failed',
       );
